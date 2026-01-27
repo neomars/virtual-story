@@ -2,38 +2,13 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
 const fs = require('fs').promises; // Use the promise-based version of fs
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
-const mysql = require('mysql2/promise');
+const { dbPool } = require('./db'); // Importation du pool de connexions
 
 const app = express();
 const PORT = 3000;
-
-// --- Database Configuration ---
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'virtual_story_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-const dbPool = mysql.createPool(dbConfig);
-
-// Test the database connection
-dbPool.getConnection()
-  .then(conn => {
-    console.log('Successfully connected to the database.');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('Database connection failed:', err);
-    process.exit(1);
-  });
 
 // --- Middleware ---
 app.use(cors());

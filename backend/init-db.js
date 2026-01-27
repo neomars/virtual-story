@@ -1,17 +1,7 @@
 
-require('dotenv').config();
 const mysql = require('mysql2/promise');
+const { dbConfig } = require('./db'); // Importe la configuration centralisée
 
-// --- Database Configuration ---
-// Loaded from the .env file
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'virtual_story_db'
-};
-
-// --- SQL Statements for Table Creation ---
 const createScenesTableSQL = `
   CREATE TABLE IF NOT EXISTS scenes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -33,42 +23,38 @@ const createChoicesTableSQL = `
   );
 `;
 
-/**
- * Connects to the database, creates it if it doesn't exist,
- * and creates the necessary tables.
- */
 async function initializeDatabase() {
   let connection;
   try {
-    // Connect to the MySQL server (without specifying a database)
+    // Crée une connexion SANS spécifier de base de données pour créer la DB elle-même
     connection = await mysql.createConnection({
       host: dbConfig.host,
       user: dbConfig.user,
       password: dbConfig.password,
     });
 
-    // Create the database if it doesn't exist
+    // Crée la base de données si elle n'existe pas
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\`;`);
-    console.log(`Database "${dbConfig.database}" is ready.`);
+    console.log(`Base de données "${dbConfig.database}" prête.`);
+    await connection.end(); // Ferme la connexion initiale
 
-    // Close the initial connection and reconnect to the specific database
-    await connection.end();
+    // Se reconnecte, mais cette fois à la base de données spécifique
     connection = await mysql.createConnection(dbConfig);
 
-    // Create the tables
+    // Crée les tables
     await connection.query(createScenesTableSQL);
     await connection.query(createChoicesTableSQL);
-    console.log('Tables "scenes" and "choices" have been created or already exist.');
+    console.log('Tables "scenes" et "choices" créées ou déjà existantes.');
 
   } catch (error) {
-    console.error('Error initializing database:', error);
-    process.exit(1); // Exit with an error code
+    console.error("Erreur lors de l'initialisation de la base de données:", error.message);
+    process.exit(1);
   } finally {
     if (connection) {
       await connection.end();
+      console.log('Connexion fermée.');
     }
   }
 }
 
-// Run the initialization function
 initializeDatabase();
