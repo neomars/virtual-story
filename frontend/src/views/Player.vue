@@ -14,8 +14,17 @@
 
       <!-- Center: Thumbnail/Video -->
       <div class="center-panel">
-        <div v-if="!isVideoPlaying" @click="playVideo" class="thumbnail-container">
-          <img :src="sceneData.current_scene.thumbnail_path" alt="Scene Thumbnail">
+        <div
+          v-if="!isVideoPlaying"
+          @click="playVideo"
+          @keydown.enter.prevent="playVideo"
+          @keydown.space.prevent="playVideo"
+          role="button"
+          tabindex="0"
+          :aria-label="`Play video: ${sceneData.current_scene.title}`"
+          class="thumbnail-container"
+        >
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
