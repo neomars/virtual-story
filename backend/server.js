@@ -106,6 +106,7 @@ app.get('/api/scenes', async (req, res) => {
 // Get a single scene by ID
 app.get('/api/scenes/:id', async (req, res) => {
   const { id } = req.params;
+  console.log(`[Debug] Requête reçue pour charger la scène ID: ${id}`); // Log de débogage
   try {
     const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
     if (rows.length === 0) {
