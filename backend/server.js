@@ -103,6 +103,21 @@ app.get('/api/scenes', async (req, res) => {
   }
 });
 
+// Get a single scene by ID
+app.get('/api/scenes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).send({ message: 'Scene not found.' });
+    }
+    res.send(rows[0]);
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to retrieve scene.' });
+  }
+});
+
 // Update a scene's title
 app.put('/api/scenes/:id', async (req, res) => {
   const { id } = req.params;
