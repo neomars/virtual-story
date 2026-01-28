@@ -1,4 +1,16 @@
 
+const { execSync } = require('child_process');
+
+// Run the database initialization script synchronously before starting the server.
+try {
+  console.log('Running database initialization...');
+  execSync('node backend/init-db.js', { stdio: 'inherit' });
+  console.log('Database initialization complete.');
+} catch (error) {
+  console.error('Failed to initialize the database:', error);
+  process.exit(1); // Exit if the database can't be set up
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
