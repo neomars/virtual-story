@@ -2,26 +2,24 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs').promises; // Use the promise-based version of fs
+const fs = require('fs').promises;
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
-const { dbPool } = require('./db'); // Importation du pool de connexions
+const { dbPool } = require('./db');
 
 const app = express();
 const PORT = 3000;
 
-// --- Middleware ---
 app.use(cors());
 app.use(express.json());
 
-// --- Static File Serving ---
 const videosDir = path.join(__dirname, 'uploads/videos');
 const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
-const backgroundsDir = path.join(__dirname, 'uploads'); // Will store background at the root of uploads
+const backgroundsDir = path.join(__dirname, 'uploads');
 
 (async () => {
     try {
-        await fs.mkdir(videosDir, { recursive: true }); // This also creates 'uploads'
+        await fs.mkdir(videosDir, { recursive: true });
         await fs.mkdir(thumbnailsDir, { recursive: true });
     } catch (error) {
         console.error("Error creating upload directories:", error);
@@ -30,26 +28,19 @@ const backgroundsDir = path.join(__dirname, 'uploads'); // Will store background
 
 app.use('/videos', express.static(videosDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
-app.use('/backgrounds', express.static(backgroundsDir)); // Serve backgrounds from the root uploads folder
+app.use('/backgrounds', express.static(backgroundsDir));
 
-// --- Multer Configuration for Video Uploads ---
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, videosDir);
-  },
+  destination: (req, file, cb) => cb(null, videosDir),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
-
 const upload = multer({ storage: storage });
 
-// --- Multer Configuration for Background Uploads ---
 const backgroundStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, backgroundsDir);
-    },
+    destination: (req, file, cb) => cb(null, backgroundsDir),
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, 'background-' + uniqueSuffix + path.extname(file.originalname));
@@ -57,20 +48,12 @@ const backgroundStorage = multer.diskStorage({
 });
 const backgroundUpload = multer({ storage: backgroundStorage });
 
+// --- All routes are now prefixed with /api ---
 
-// --- API Endpoints ---
-
-// --- Settings API Endpoints ---
 app.get('/api/settings/background', async (req, res) => {
     try {
-        const [rows] = await dbPool.execute(
-            "SELECT setting_value FROM settings WHERE setting_key = 'player_background'"
-        );
-        if (rows.length > 0) {
-            res.send({ backgroundUrl: rows[0].setting_value });
-        } else {
-            res.send({ backgroundUrl: null });
-        }
+        const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
+        res.send({ backgroundUrl: rows.length > 0 ? rows[0].setting_value : null });
     } catch (dbError) {
         console.error('Database error:', dbError);
         res.status(500).send({ message: 'Failed to retrieve background setting.' });
@@ -81,75 +64,36 @@ app.post('/api/admin/background', backgroundUpload.single('background'), async (
     if (!req.file) {
         return res.status(400).send({ message: 'No background image was uploaded.' });
     }
-
-    const newBackgroundFilename = req.file.filename;
-    const newBackgroundUrl = `/backgrounds/${newBackgroundFilename}`;
-
+    const newBackgroundUrl = `/backgrounds/${req.file.filename}`;
     try {
-        // 1. Get the old background URL to delete the file later
-        const [rows] = await dbPool.execute(
-            "SELECT setting_value FROM settings WHERE setting_key = 'player_background'"
-        );
+        const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
         const oldBackgroundUrl = rows.length > 0 ? rows[0].setting_value : null;
-
-        // 2. Update the database with the new URL
-        await dbPool.execute(
-            "UPDATE settings SET setting_value = ? WHERE setting_key = 'player_background'",
-            [newBackgroundUrl]
-        );
-
-        // 3. Delete the old background file if it exists
+        await dbPool.execute("UPDATE settings SET setting_value = ? WHERE setting_key = 'player_background'", [newBackgroundUrl]);
         if (oldBackgroundUrl) {
-            const oldFilename = path.basename(oldBackgroundUrl);
-            const oldFilePath = path.join(backgroundsDir, oldFilename);
-             await fs.unlink(oldFilePath).catch(err => {
-                // Log error but don't fail the request
-                console.error("Error deleting old background file:", err.message);
-            });
+            const oldFilePath = path.join(backgroundsDir, path.basename(oldBackgroundUrl));
+            await fs.unlink(oldFilePath).catch(err => console.error("Error deleting old background file:", err.message));
         }
-
-        res.send({
-            message: 'Background updated successfully.',
-            backgroundUrl: newBackgroundUrl
-        });
-
+        res.send({ message: 'Background updated successfully.', backgroundUrl: newBackgroundUrl });
     } catch (dbError) {
         console.error('Database error:', dbError);
         res.status(500).send({ message: 'Failed to update background setting.' });
     }
 });
 
-
-// Upload a new scene (video)
-app.post('/api/scenes', upload.single('video'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).send({ message: 'No video file was uploaded.' });
-  }
+app.post('/api/scenes', upload.single('video'), (req, res) => {
+  if (!req.file) return res.status(400).send({ message: 'No video file was uploaded.' });
 
   const { title } = req.body;
-  const videoPath = req.file.path;
   const videoFilename = req.file.filename;
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
-  const thumbnailPath = path.join(thumbnailsDir, thumbnailFilename);
 
-  // Generate thumbnail
-  ffmpeg(videoPath)
+  ffmpeg(req.file.path)
     .on('end', async () => {
       try {
         const videoUrl = `/videos/${videoFilename}`;
         const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
-
-        const [result] = await dbPool.execute(
-          'INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)',
-          [title, videoUrl, thumbnailUrl]
-        );
-
-        res.status(201).send({
-          id: result.insertId,
-          title,
-          video_path: videoUrl,
-          thumbnail_path: thumbnailUrl
-        });
+        const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)', [title, videoUrl, thumbnailUrl]);
+        res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
       } catch (dbError) {
         console.error('Database error:', dbError);
         res.status(500).send({ message: 'Failed to save scene to database.' });
@@ -159,15 +103,9 @@ app.post('/api/scenes', upload.single('video'), async (req, res) => {
       console.error('FFmpeg error:', err);
       res.status(500).send({ message: 'Failed to generate thumbnail.' });
     })
-    .screenshots({
-      timestamps: ['00:00:05.000'],
-      filename: thumbnailFilename,
-      folder: thumbnailsDir,
-      size: '320x240'
-    });
+    .screenshots({ timestamps: ['00:00:05.000'], filename: thumbnailFilename, folder: thumbnailsDir, size: '320x240' });
 });
 
-// Get all scenes
 app.get('/api/scenes', async (req, res) => {
   try {
     const [rows] = await dbPool.execute('SELECT * FROM scenes ORDER BY created_at DESC');
@@ -178,15 +116,10 @@ app.get('/api/scenes', async (req, res) => {
   }
 });
 
-// Get a single scene by ID
 app.get('/api/scenes/:id', async (req, res) => {
-  const { id } = req.params;
-  console.log(`[Debug] Requête reçue pour charger la scène ID: ${id}`); // Log de débogage
   try {
-    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
-    if (rows.length === 0) {
-      return res.status(404).send({ message: 'Scene not found.' });
-    }
+    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
     res.send(rows[0]);
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -194,13 +127,9 @@ app.get('/api/scenes/:id', async (req, res) => {
   }
 });
 
-// Update a scene's title
 app.put('/api/scenes/:id', async (req, res) => {
-  const { id } = req.params;
-  const { title } = req.body;
-
   try {
-    await dbPool.execute('UPDATE scenes SET title = ? WHERE id = ?', [title, id]);
+    await dbPool.execute('UPDATE scenes SET title = ? WHERE id = ?', [req.body.title, req.params.id]);
     res.send({ message: 'Scene updated successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -208,34 +137,19 @@ app.put('/api/scenes/:id', async (req, res) => {
   }
 });
 
-// Delete a scene
 app.delete('/api/scenes/:id', async (req, res) => {
-  const { id } = req.params;
-
   try {
-    // First, retrieve the scene to get file paths
-    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
-    if (rows.length === 0) {
-      return res.status(404).send({ message: 'Scene not found.' });
-    }
+    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
     const scene = rows[0];
 
-    // --- Bug Fix: Correctly construct file paths for deletion ---
-    // The scene paths are like `/videos/file.mp4`. We need to get the filename
-    // and join it with the correct directory path.
-    const videoFilename = path.basename(scene.video_path);
-    const thumbnailFilename = path.basename(scene.thumbnail_path);
-
-    const videoPath = path.join(videosDir, videoFilename);
-    const thumbnailPath = path.join(thumbnailsDir, thumbnailFilename);
+    const videoPath = path.join(videosDir, path.basename(scene.video_path));
+    const thumbnailPath = path.join(thumbnailsDir, path.basename(scene.thumbnail_path));
 
     await fs.unlink(videoPath).catch(err => console.error("Error deleting video file:", err.message));
     await fs.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail file:", err.message));
 
-
-    // Delete the scene from the database
-    await dbPool.execute('DELETE FROM scenes WHERE id = ?', [id]);
-
+    await dbPool.execute('DELETE FROM scenes WHERE id = ?', [req.params.id]);
     res.send({ message: 'Scene deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -243,17 +157,12 @@ app.delete('/api/scenes/:id', async (req, res) => {
   }
 });
 
-// Get choices for a scene
 app.get('/api/scenes/:id/choices', async (req, res) => {
-  const { id } = req.params;
-
   try {
     const [rows] = await dbPool.execute(
       `SELECT c.id, c.choice_text, s.id as destination_id, s.title as destination_title
-       FROM choices c
-       JOIN scenes s ON c.destination_scene_id = s.id
-       WHERE c.source_scene_id = ?`,
-      [id]
+       FROM choices c JOIN scenes s ON c.destination_scene_id = s.id
+       WHERE c.source_scene_id = ?`, [req.params.id]
     );
     res.send(rows);
   } catch (dbError) {
@@ -262,16 +171,10 @@ app.get('/api/scenes/:id/choices', async (req, res) => {
   }
 });
 
-// Add a choice to a scene
 app.post('/api/scenes/:id/choices', async (req, res) => {
-  const { id: source_scene_id } = req.params;
   const { destination_scene_id, choice_text } = req.body;
-
   try {
-    const [result] = await dbPool.execute(
-      'INSERT INTO choices (source_scene_id, destination_scene_id, choice_text) VALUES (?, ?, ?)',
-      [source_scene_id, destination_scene_id, choice_text]
-    );
+    const [result] = await dbPool.execute('INSERT INTO choices (source_scene_id, destination_scene_id, choice_text) VALUES (?, ?, ?)', [req.params.id, destination_scene_id, choice_text]);
     res.status(201).send({ id: result.insertId });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -279,12 +182,9 @@ app.post('/api/scenes/:id/choices', async (req, res) => {
   }
 });
 
-// Delete a choice
 app.delete('/api/choices/:id', async (req, res) => {
-  const { id } = req.params;
-
   try {
-    await dbPool.execute('DELETE FROM choices WHERE id = ?', [id]);
+    await dbPool.execute('DELETE FROM choices WHERE id = ?', [req.params.id]);
     res.send({ message: 'Choice deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -292,109 +192,40 @@ app.delete('/api/choices/:id', async (req, res) => {
   }
 });
 
-
-// --- Player API Endpoint ---
 app.get('/api/player/scenes/:id', async (req, res) => {
-  const { id } = req.params;
-  const { previous_scene_id } = req.query;
-
   try {
-    // 1. Get current scene
-    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
-    if (sceneRows.length === 0) {
-      return res.status(404).send({ message: 'Scene not found.' });
-    }
-    const currentScene = sceneRows[0];
+    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    // 2. Get all parent scenes (scenes that can lead to this one)
-    const [parentScenesRows] = await dbPool.execute(
-      `SELECT s.id, s.title
-       FROM scenes s
-       JOIN choices c ON s.id = c.source_scene_id
-       WHERE c.destination_scene_id = ?`,
-      [id]
-    );
+    const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
+    const [choicesRows] = await dbPool.execute(`SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?`, [req.params.id]);
 
-    // 3. Get next choices
-    const [choicesRows] = await dbPool.execute(
-      `SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title
-       FROM choices c
-       JOIN scenes s ON c.destination_scene_id = s.id
-       WHERE c.source_scene_id = ?`,
-      [id]
-    );
-
-    // 4. Combine and send the response
-    const response = {
-      current_scene: {
-        id: currentScene.id,
-        title: currentScene.title,
-        video_path: currentScene.video_path,
-        thumbnail_path: currentScene.thumbnail_path,
-      },
-      parent_scenes: parentScenesRows,
-      next_choices: choicesRows,
-    };
-
-    res.send(response);
-
+    res.send({ current_scene: sceneRows[0], parent_scenes: parentScenesRows, next_choices: choicesRows });
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scene data for the player.' });
   }
 });
 
-
-// --- Admin Relations API Endpoint ---
 app.get('/api/admin/scenes/:id/relations', async (req, res) => {
-  const { id } = req.params;
-
   try {
-    // 1. Get current scene
-    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
-    if (sceneRows.length === 0) {
-      return res.status(404).send({ message: 'Scene not found.' });
-    }
-    const currentScene = sceneRows[0];
+    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    // 2. Get parent scenes
-    const [parentScenesRows] = await dbPool.execute(
-      `SELECT s.id, s.title
-       FROM scenes s
-       JOIN choices c ON s.id = c.source_scene_id
-       WHERE c.destination_scene_id = ?`,
-      [id]
-    );
+    const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
+    const [childScenesRows] = await dbPool.execute(`SELECT s.id, s.title, c.choice_text FROM scenes s JOIN choices c ON s.id = c.destination_scene_id WHERE c.source_scene_id = ?`, [req.params.id]);
 
-    // 3. Get child scenes (next choices)
-    const [childScenesRows] = await dbPool.execute(
-      `SELECT s.id, s.title, c.choice_text
-       FROM scenes s
-       JOIN choices c ON s.id = c.destination_scene_id
-       WHERE c.source_scene_id = ?`,
-      [id]
-    );
-
-    res.send({
-      current_scene: currentScene,
-      parent_scenes: parentScenesRows,
-      child_scenes: childScenesRows,
-    });
-
+    res.send({ current_scene: sceneRows[0], parent_scenes: parentScenesRows, child_scenes: childScenesRows });
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scene relations.' });
   }
 });
 
-
-// --- Basic Test Route ---
 app.get('/', (req, res) => {
   res.send('Backend server is running!');
 });
 
-
-// --- Server Startup ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT} and listening on all interfaces.`);
 });

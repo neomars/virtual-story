@@ -13,28 +13,27 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
-    },
+    }
   },
   server: {
     proxy: {
-      // Redirige les appels API (ex: /api/scenes) vers le backend
+      // Single, simple rule for all API calls.
+      // The backend now expects the /api prefix, so no rewrite is needed.
       '/api': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
-      // Redirige les requêtes de fichiers vidéo (ex: /videos/monfichier.mp4)
+
+      // Asset proxy rules remain the same
       '/videos': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
-      // Redirige les requêtes de miniatures (ex: /thumbnails/monimage.png)
       '/thumbnails': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
-      // Redirige les requêtes pour le fond d'écran
-       '/backgrounds': {
+      '/backgrounds': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       }

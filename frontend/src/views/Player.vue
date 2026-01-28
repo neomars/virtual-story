@@ -187,6 +187,8 @@ onMounted(() => {
 
 .thumbnail-container img {
   width: 100%;
+  height: 100%; /* Make it fill the container */
+  object-fit: cover; /* This is the magic property */
   display: block;
 }
 
