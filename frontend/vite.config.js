@@ -19,17 +19,23 @@ export default defineConfig({
     proxy: {
       // Redirige les appels API (ex: /api/scenes) vers le backend
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
       // Redirige les requêtes de fichiers vidéo (ex: /videos/monfichier.mp4)
       '/videos': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
       // Redirige les requêtes de miniatures (ex: /thumbnails/monimage.png)
       '/thumbnails': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      // Redirige les requêtes pour le fond d'écran
+       '/backgrounds': {
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       }
     }

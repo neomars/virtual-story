@@ -1,6 +1,6 @@
 
 <template>
-  <div class="player-container">
+  <div class="player-container" :style="playerContainerStyle">
     <div v-if="loading">Loading...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -70,7 +70,36 @@ const error = ref(null);
 const isVideoPlaying = ref(false);
 const showChoices = ref(false);
 const videoPlayer = ref(null);
+const backgroundUrl = ref(null);
 
+
+// --- Background Image Handling ---
+const playerContainerStyle = computed(() => {
+  if (backgroundUrl.value) {
+    return {
+      'background-image': `url(${backgroundUrl.value})`,
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-attachment': 'fixed',
+    };
+  }
+  return {};
+});
+
+const fetchBackground = async () => {
+  try {
+    const response = await axios.get('/api/settings/background');
+    if (response.data.backgroundUrl) {
+      backgroundUrl.value = response.data.backgroundUrl;
+    }
+  } catch (err) {
+    console.error('Failed to fetch background:', err);
+    // Non-critical, so we don't show an error to the user
+  }
+};
+
+
+// --- Scene Data Handling ---
 const fetchSceneData = async (sceneId, prevSceneId) => {
   loading.value = true;
   error.value = null;
@@ -115,17 +144,24 @@ const onVideoEnd = () => {
 };
 
 
+// --- Lifecycle Hooks ---
+
 // Watch for route changes to fetch new scene data
 watch(() => props.id, (newId, oldId) => {
   fetchSceneData(newId, oldId);
 }, { immediate: true });
 
+onMounted(() => {
+  fetchBackground();
+});
 </script>
 
 <style scoped>
 .player-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
 }
 
 .scene-layout {
@@ -221,10 +257,12 @@ li a {
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
+  opacity: 0.3; /* Opacity set to 30% */
 }
 
 li a:hover {
   background-color: #3a3a3a;
+  opacity: 1; /* Full opacity on hover */
 }
 </style>
