@@ -68,7 +68,12 @@ app.post('/api/admin/background', backgroundUpload.single('background'), async (
     try {
         const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
         const oldBackgroundUrl = rows.length > 0 ? rows[0].setting_value : null;
-        await dbPool.execute("UPDATE settings SET setting_value = ? WHERE setting_key = 'player_background'", [newBackgroundUrl]);
+
+        await dbPool.execute(
+            "INSERT INTO settings (setting_key, setting_value) VALUES ('player_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?",
+            [newBackgroundUrl, newBackgroundUrl]
+        );
+
         if (oldBackgroundUrl) {
             const oldFilePath = path.join(backgroundsDir, path.basename(oldBackgroundUrl));
             await fs.unlink(oldFilePath).catch(err => console.error("Error deleting old background file:", err.message));

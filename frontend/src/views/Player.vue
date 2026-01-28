@@ -189,15 +189,17 @@ onMounted(() => {
   cursor: pointer;
   position: relative;
   width: 100%;
+  height: 360px; /* Set a fixed height */
   max-width: 640px;
   border-radius: 8px;
   overflow: hidden;
+  background-color: #000; /* Add a background color */
 }
 
 .thumbnail-container img {
   width: 100%;
-  height: 100%; /* Make it fill the container */
-  object-fit: cover; /* This is the magic property */
+  height: 100%;
+  object-fit: cover; /* This will now work correctly */
   display: block;
 }
 
