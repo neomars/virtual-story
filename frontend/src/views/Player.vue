@@ -1,7 +1,10 @@
 
 <template>
   <div class="player-container">
-    <div v-if="loading">Loading...</div>
+    <div v-if="loading" class="loading-container" role="status">
+      <div class="spinner"></div>
+      <span class="sr-only">Loading...</span>
+    </div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
@@ -123,6 +126,40 @@ watch(() => props.id, (newId, oldId) => {
 </script>
 
 <style scoped>
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+    min-height: 300px;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 4px solid #42b983; /* Vue green */
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .player-container {
   max-width: 1200px;
   margin: 0 auto;
