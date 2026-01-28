@@ -226,14 +226,14 @@ app.get('/api/player/scenes/:id', async (req, res) => {
     }
     const currentScene = sceneRows[0];
 
-    // 2. Get previous scene's title (if applicable)
-    let previousSceneTitle = null;
-    if (previous_scene_id) {
-      const [prevSceneRows] = await dbPool.execute('SELECT title FROM scenes WHERE id = ?', [previous_scene_id]);
-      if (prevSceneRows.length > 0) {
-        previousSceneTitle = prevSceneRows[0].title;
-      }
-    }
+    // 2. Get all parent scenes (scenes that can lead to this one)
+    const [parentScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title
+       FROM scenes s
+       JOIN choices c ON s.id = c.source_scene_id
+       WHERE c.destination_scene_id = ?`,
+      [id]
+    );
 
     // 3. Get next choices
     const [choicesRows] = await dbPool.execute(
@@ -252,7 +252,7 @@ app.get('/api/player/scenes/:id', async (req, res) => {
         video_path: currentScene.video_path,
         thumbnail_path: currentScene.thumbnail_path,
       },
-      previous_scene_title: previousSceneTitle,
+      parent_scenes: parentScenesRows,
       next_choices: choicesRows,
     };
 
@@ -261,6 +261,49 @@ app.get('/api/player/scenes/:id', async (req, res) => {
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scene data for the player.' });
+  }
+});
+
+
+// --- Admin Relations API Endpoint ---
+app.get('/api/admin/scenes/:id/relations', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Get current scene
+    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [id]);
+    if (sceneRows.length === 0) {
+      return res.status(404).send({ message: 'Scene not found.' });
+    }
+    const currentScene = sceneRows[0];
+
+    // 2. Get parent scenes
+    const [parentScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title
+       FROM scenes s
+       JOIN choices c ON s.id = c.source_scene_id
+       WHERE c.destination_scene_id = ?`,
+      [id]
+    );
+
+    // 3. Get child scenes (next choices)
+    const [childScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title, c.choice_text
+       FROM scenes s
+       JOIN choices c ON s.id = c.destination_scene_id
+       WHERE c.source_scene_id = ?`,
+      [id]
+    );
+
+    res.send({
+      current_scene: currentScene,
+      parent_scenes: parentScenesRows,
+      child_scenes: childScenesRows,
+    });
+
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to retrieve scene relations.' });
   }
 });
 

@@ -4,11 +4,16 @@
     <div v-if="loading">Loading...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
-      <!-- Previous Choice -->
+      <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Previous Choice</h3>
-          <p>{{ sceneData.previous_scene_title || 'This is the beginning.' }}</p>
+          <h3>Scènes Précédentes</h3>
+          <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
+            <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
+              <router-link :to="`/player/${parent.id}`">{{ parent.title }}</router-link>
+            </li>
+          </ul>
+          <p v-else>C'est le début de l'histoire.</p>
         </div>
       </div>
 
