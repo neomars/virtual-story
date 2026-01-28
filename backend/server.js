@@ -17,10 +17,11 @@ app.use(express.json());
 // --- Static File Serving ---
 const videosDir = path.join(__dirname, 'uploads/videos');
 const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
+const backgroundsDir = path.join(__dirname, 'uploads'); // Will store background at the root of uploads
 
 (async () => {
     try {
-        await fs.mkdir(videosDir, { recursive: true });
+        await fs.mkdir(videosDir, { recursive: true }); // This also creates 'uploads'
         await fs.mkdir(thumbnailsDir, { recursive: true });
     } catch (error) {
         console.error("Error creating upload directories:", error);
@@ -29,6 +30,7 @@ const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
 
 app.use('/videos', express.static(videosDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
+app.use('/backgrounds', express.static(backgroundsDir)); // Serve backgrounds from the root uploads folder
 
 // --- Multer Configuration for Video Uploads ---
 const storage = multer.diskStorage({
@@ -43,7 +45,80 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// --- Multer Configuration for Background Uploads ---
+const backgroundStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, backgroundsDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'background-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const backgroundUpload = multer({ storage: backgroundStorage });
+
+
 // --- API Endpoints ---
+
+// --- Settings API Endpoints ---
+app.get('/api/settings/background', async (req, res) => {
+    try {
+        const [rows] = await dbPool.execute(
+            "SELECT setting_value FROM settings WHERE setting_key = 'player_background'"
+        );
+        if (rows.length > 0) {
+            res.send({ backgroundUrl: rows[0].setting_value });
+        } else {
+            res.send({ backgroundUrl: null });
+        }
+    } catch (dbError) {
+        console.error('Database error:', dbError);
+        res.status(500).send({ message: 'Failed to retrieve background setting.' });
+    }
+});
+
+app.post('/api/admin/background', backgroundUpload.single('background'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).send({ message: 'No background image was uploaded.' });
+    }
+
+    const newBackgroundFilename = req.file.filename;
+    const newBackgroundUrl = `/backgrounds/${newBackgroundFilename}`;
+
+    try {
+        // 1. Get the old background URL to delete the file later
+        const [rows] = await dbPool.execute(
+            "SELECT setting_value FROM settings WHERE setting_key = 'player_background'"
+        );
+        const oldBackgroundUrl = rows.length > 0 ? rows[0].setting_value : null;
+
+        // 2. Update the database with the new URL
+        await dbPool.execute(
+            "UPDATE settings SET setting_value = ? WHERE setting_key = 'player_background'",
+            [newBackgroundUrl]
+        );
+
+        // 3. Delete the old background file if it exists
+        if (oldBackgroundUrl) {
+            const oldFilename = path.basename(oldBackgroundUrl);
+            const oldFilePath = path.join(backgroundsDir, oldFilename);
+             await fs.unlink(oldFilePath).catch(err => {
+                // Log error but don't fail the request
+                console.error("Error deleting old background file:", err.message);
+            });
+        }
+
+        res.send({
+            message: 'Background updated successfully.',
+            backgroundUrl: newBackgroundUrl
+        });
+
+    } catch (dbError) {
+        console.error('Database error:', dbError);
+        res.status(500).send({ message: 'Failed to update background setting.' });
+    }
+});
+
 
 // Upload a new scene (video)
 app.post('/api/scenes', upload.single('video'), async (req, res) => {
@@ -145,12 +220,17 @@ app.delete('/api/scenes/:id', async (req, res) => {
     }
     const scene = rows[0];
 
-    // Delete video and thumbnail files
-    const videoPath = path.join(__dirname, 'uploads', scene.video_path);
-    const thumbnailPath = path.join(__dirname, 'uploads', scene.thumbnail_path);
+    // --- Bug Fix: Correctly construct file paths for deletion ---
+    // The scene paths are like `/videos/file.mp4`. We need to get the filename
+    // and join it with the correct directory path.
+    const videoFilename = path.basename(scene.video_path);
+    const thumbnailFilename = path.basename(scene.thumbnail_path);
 
-    await fs.unlink(videoPath).catch(err => console.error("Error deleting video file:", err));
-    await fs.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail file:", err));
+    const videoPath = path.join(videosDir, videoFilename);
+    const thumbnailPath = path.join(thumbnailsDir, thumbnailFilename);
+
+    await fs.unlink(videoPath).catch(err => console.error("Error deleting video file:", err.message));
+    await fs.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail file:", err.message));
 
 
     // Delete the scene from the database
@@ -315,6 +395,6 @@ app.get('/', (req, res) => {
 
 
 // --- Server Startup ---
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on http://localhost:${PORT} and listening on all interfaces.`);
 });

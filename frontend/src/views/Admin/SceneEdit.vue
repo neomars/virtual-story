@@ -210,7 +210,9 @@ watch(() => props.id, () => {
   margin-bottom: 1rem;
 }
 .thumbnail-preview img {
-  max-width: 100%;
+  width: 100%; /* Make it fill the container */
+  height: 240px; /* Give it a fixed height */
+  object-fit: cover; /* This is the magic property */
   border-radius: 5px;
   margin-top: 1rem;
 }

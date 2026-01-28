@@ -1,6 +1,19 @@
 
 <template>
   <div>
+    <div class="settings-section">
+      <h2>Player Background</h2>
+      <div class="upload-form">
+        <input type="file" @change="handleFileChange" accept="image/png, image/jpeg" />
+        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Upload Image</button>
+      </div>
+       <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
+        {{ uploadStatus }}
+      </p>
+    </div>
+
+    <hr class="separator" />
+
     <h2>Scenes</h2>
     <router-link to="/admin/scenes/new" class="button">Add New Scene</router-link>
     <div v-if="loading">Loading scenes...</div>
@@ -21,9 +34,47 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
+// --- State for Scene List ---
 const scenes = ref([]);
 const loading = ref(true);
 const error = ref(null);
+
+// --- State for Background Upload ---
+const selectedFile = ref(null);
+const uploadStatus = ref('');
+const isSuccess = ref(false);
+
+
+const handleFileChange = (event) => {
+  selectedFile.value = event.target.files[0];
+  uploadStatus.value = ''; // Reset status on new file selection
+};
+
+const uploadBackground = async () => {
+  if (!selectedFile.value) {
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('background', selectedFile.value);
+
+  try {
+    const response = await axios.post('/api/admin/background', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    uploadStatus.value = response.data.message;
+    isSuccess.value = true;
+    selectedFile.value = null; // Reset file input
+    document.querySelector('input[type="file"]').value = ''; // Clear the file input visually
+  } catch (err) {
+    uploadStatus.value = err.response?.data?.message || 'Failed to upload background.';
+    isSuccess.value = false;
+    console.error(err);
+  }
+};
+
 
 const fetchScenes = async () => {
   try {
@@ -54,6 +105,43 @@ onMounted(fetchScenes);
 </script>
 
 <style scoped>
+.settings-section {
+  background-color: #2a2a2a;
+  padding: 1.5rem;
+  border-radius: 5px;
+  margin-bottom: 2rem;
+}
+
+.settings-section h2 {
+  margin-top: 0;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.upload-form {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-success {
+  color: #42b983;
+  margin-top: 1rem;
+}
+
+.status-error {
+  color: #ef4444;
+  margin-top: 1rem;
+}
+
+.separator {
+  border: none;
+  border-top: 1px solid #444;
+  margin: 2rem 0;
+}
+
+
 .scene-list {
   list-style: none;
   padding: 0;

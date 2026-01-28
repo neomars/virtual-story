@@ -23,6 +23,20 @@ const createChoicesTableSQL = `
   );
 `;
 
+const createSettingsTableSQL = `
+  CREATE TABLE IF NOT EXISTS settings (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value VARCHAR(255)
+  );
+`;
+
+const insertDefaultSettingsSQL = `
+  INSERT INTO settings (setting_key, setting_value)
+  VALUES ('player_background', NULL)
+  ON DUPLICATE KEY UPDATE setting_key=setting_key;
+`;
+
+
 async function initializeDatabase() {
   let connection;
   try {
@@ -44,7 +58,12 @@ async function initializeDatabase() {
     // Crée les tables
     await connection.query(createScenesTableSQL);
     await connection.query(createChoicesTableSQL);
-    console.log('Tables "scenes" et "choices" créées ou déjà existantes.');
+    await connection.query(createSettingsTableSQL);
+    console.log('Tables "scenes", "choices" et "settings" créées ou déjà existantes.');
+
+    // Insère les paramètres par défaut
+    await connection.query(insertDefaultSettingsSQL);
+    console.log('Paramètres par défaut assurés.');
 
   } catch (error) {
     console.error("Erreur lors de l'initialisation de la base de données:", error.message);
