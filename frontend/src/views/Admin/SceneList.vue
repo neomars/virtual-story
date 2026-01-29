@@ -4,7 +4,9 @@
     <div class="settings-section">
       <h2>Player Background</h2>
       <div class="upload-form">
-        <input type="file" @change="handleFileChange" accept="image/png, image/jpeg" />
+        <label for="background-upload" class="button">Choose Image</label>
+        <input id="background-upload" type="file" @change="handleFileChange" accept="image/png, image/jpeg" class="sr-only" />
+        <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
         <button @click="uploadBackground" class="button" :disabled="!selectedFile">Upload Image</button>
       </div>
        <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
@@ -123,6 +125,23 @@ onMounted(fetchScenes);
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.file-name {
+  color: #ccc;
+  font-style: italic;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .status-success {
