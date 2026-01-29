@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
-const { dbPool } = require('./db');
+const { pool: dbPool } = require('./db');
 
 const app = express();
 const PORT = 3000;
