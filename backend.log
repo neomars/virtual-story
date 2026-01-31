@@ -1,6 +1,6 @@
-[dotenv@17.2.3] injecting env (4) from backend/.env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (4) from backend/.env -- tip: ⚙️  suppress all logs with { quiet: true }
 Server is running on http://localhost:3000 and listening on all interfaces.
-FFmpeg error: ffmpeg exited with code 183: Error opening input file /app/backend/uploads/videos/video-1769854024727-692805042.mp4.
+FFmpeg error: ffmpeg exited with code 183: Error opening input file /app/backend/uploads/videos/video-1769859122028-581561282.mp4.
 Error opening input files: Invalid data found when processing input
 
 FFmpeg stderr: ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
@@ -14,8 +14,8 @@ FFmpeg stderr: ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg 
   libswscale      7.  5.100 /  7.  5.100
   libswresample   4. 12.100 /  4. 12.100
   libpostproc    57.  3.100 / 57.  3.100
-[mov,mp4,m4a,3gp,3g2,mj2 @ 0x55a40c84bec0] Format mov,mp4,m4a,3gp,3g2,mj2 detected only with low score of 1, misdetection possible!
-[mov,mp4,m4a,3gp,3g2,mj2 @ 0x55a40c84bec0] moov atom not found
-[in#0 @ 0x55a40c84bdc0] Error opening input: Invalid data found when processing input
-Error opening input file /app/backend/uploads/videos/video-1769854024727-692805042.mp4.
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x55940191aec0] Format mov,mp4,m4a,3gp,3g2,mj2 detected only with low score of 1, misdetection possible!
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x55940191aec0] moov atom not found
+[in#0 @ 0x55940191adc0] Error opening input: Invalid data found when processing input
+Error opening input file /app/backend/uploads/videos/video-1769859122028-581561282.mp4.
 Error opening input files: Invalid data found when processing input

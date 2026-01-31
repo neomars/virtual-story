@@ -108,8 +108,8 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
       console.error('FFmpeg error:', err.message);
       console.error('FFmpeg stderr:', stderr);
 
-      // Check for specific input file error to provide a better user message
-      if (stderr && stderr.includes('Invalid data found when processing input')) {
+      // Check the error message directly for a more reliable check
+      if (err.message && err.message.includes('Invalid data found when processing input')) {
         return res.status(400).send({ message: 'Upload failed. The provided file is not a valid or supported video file. Please try again with a different file.' });
       }
 
