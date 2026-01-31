@@ -158,11 +158,9 @@ onMounted(() => {
 
 <style scoped>
 .player-container {
-  flex-grow: 1;
   width: 100%;
+  height: 100%;
   display: flex;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
 }
 
 .scene-layout {
