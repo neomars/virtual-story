@@ -7,6 +7,9 @@ const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const { pool: dbPool } = require('./db');
 
+// Set the ffmpeg path explicitly to avoid environment issues
+ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
+
 const app = express();
 const PORT = 3000;
 
