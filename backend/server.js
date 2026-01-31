@@ -104,8 +104,15 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
         res.status(500).send({ message: 'Failed to save scene to database.' });
       }
     })
-    .on('error', (err) => {
-      console.error('FFmpeg error:', err);
+    .on('error', (err, stdout, stderr) => {
+      console.error('FFmpeg error:', err.message);
+      console.error('FFmpeg stderr:', stderr);
+
+      // Check for specific input file error to provide a better user message
+      if (stderr && stderr.includes('Invalid data found when processing input')) {
+        return res.status(400).send({ message: 'Upload failed. The provided file is not a valid or supported video file. Please try again with a different file.' });
+      }
+
       res.status(500).send({ message: 'Failed to generate thumbnail.' });
     })
     .screenshots({ timestamps: ['00:00:05.000'], filename: thumbnailFilename, folder: thumbnailsDir, size: '320x240' });
