@@ -2,7 +2,9 @@
 <template>
   <div id="app">
     <header>
-      <h1>Virtual Story</h1>
+      <router-link to="/" class="header-title">
+        <h1>Virtual Story</h1>
+      </router-link>
       <nav>
         <router-link to="/player/1">Player</router-link>
         <router-link to="/admin">Admin</router-link>
@@ -19,24 +21,35 @@ import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <style>
-body {
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   background-color: #121212;
   color: #e0e0e0;
   font-family: sans-serif;
-  margin: 0;
 }
 
 #app {
-  padding: 1rem;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  padding: 1rem 2rem;
+  background-color: #1a1a1a;
   border-bottom: 1px solid #333;
-  padding-bottom: 1rem;
+}
+
+.header-title {
+  text-decoration: none;
+  color: inherit;
 }
 
 h1 {
@@ -46,7 +59,7 @@ h1 {
 nav a {
   color: #42b983;
   text-decoration: none;
-  margin-left: 1rem;
+  margin-left: 1.5rem;
 }
 
 nav a:hover,
@@ -59,8 +72,9 @@ nav a.router-link-exact-active {
 }
 
 main {
-  background-color: #1e1e1e;
-  padding: 1.5rem;
-  border-radius: 8px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Allow content to scroll if needed */
 }
 </style>

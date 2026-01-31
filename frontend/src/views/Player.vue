@@ -158,21 +158,21 @@ onMounted(() => {
 
 <style scoped>
 .player-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+  width: 100%;
+  height: 100%;
+  display: flex;
 }
 
 .scene-layout {
   display: flex;
   justify-content: space-between;
   gap: 1.5rem;
+  width: 100%;
 }
 
 .side-panel {
   flex: 1;
-  background-color: #1e1e1e;
+  background-color: rgba(30, 30, 30, 0.5); /* 50% transparency */
   padding: 1.5rem;
   border-radius: 8px;
 }

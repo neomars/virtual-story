@@ -1,5 +1,6 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
+import Home from '../views/Home.vue'
 import SceneList from '../views/Admin/SceneList.vue'
 import SceneEdit from '../views/Admin/SceneEdit.vue'
 import Player from '../views/Player.vue'
@@ -10,9 +11,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      // For simplicity, redirect to the first scene.
-      // A real app might have a proper landing page.
-      redirect: '/player/1'
+      component: Home
     },
     {
       path: '/player/:id',
