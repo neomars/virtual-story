@@ -108,8 +108,14 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
       console.error('FFmpeg error:', err.message);
       console.error('FFmpeg stderr:', stderr);
 
-      // Check the error message directly for a more reliable check
-      if (err.message && err.message.includes('Invalid data found when processing input')) {
+      // Broader check for various input-related errors
+      const isInputError = err.message && (
+        err.message.includes('Invalid data found when processing input') ||
+        err.message.includes('moov atom not found') ||
+        err.message.toLowerCase().includes('error opening input file')
+      );
+
+      if (isInputError) {
         return res.status(400).send({ message: 'Upload failed. The provided file is not a valid or supported video file. Please try again with a different file.' });
       }
 
