@@ -107,18 +107,6 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
     .on('error', (err, stdout, stderr) => {
       console.error('FFmpeg error:', err.message);
       console.error('FFmpeg stderr:', stderr);
-
-      // Broader check for various input-related errors
-      const isInputError = err.message && (
-        err.message.includes('Invalid data found when processing input') ||
-        err.message.includes('moov atom not found') ||
-        err.message.toLowerCase().includes('error opening input file')
-      );
-
-      if (isInputError) {
-        return res.status(400).send({ message: 'Upload failed. The provided file is not a valid or supported video file. Please try again with a different file.' });
-      }
-
       res.status(500).send({ message: 'Failed to generate thumbnail.' });
     })
     .screenshots({ timestamps: ['00:00:05.000'], filename: thumbnailFilename, folder: thumbnailsDir, size: '320x240' });
