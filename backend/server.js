@@ -249,13 +249,58 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
     const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
-    const [childScenesRows] = await dbPool.execute(`SELECT s.id, s.title, c.choice_text FROM scenes s JOIN choices c ON s.id = c.destination_scene_id WHERE c.source_scene_id = ?`, [req.params.id]);
+    const [parentScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
+       FROM scenes s JOIN choices c ON s.id = c.source_scene_id
+       WHERE c.destination_scene_id = ?`,
+      [req.params.id]
+    );
+    const [childScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
+       FROM scenes s JOIN choices c ON s.id = c.destination_scene_id
+       WHERE c.source_scene_id = ?`,
+      [req.params.id]
+    );
 
     res.send({ current_scene: sceneRows[0], parent_scenes: parentScenesRows, child_scenes: childScenesRows });
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scene relations.' });
+  }
+});
+
+app.get('/api/admin/story-graph', async (req, res) => {
+  try {
+    const [scenes] = await dbPool.execute('SELECT * FROM scenes');
+    const [choices] = await dbPool.execute('SELECT * FROM choices');
+
+    const sceneMap = new Map(scenes.map(s => [s.id, { ...s, children: [] }]));
+    const choiceMap = new Map();
+
+    for (const choice of choices) {
+      const sourceScene = sceneMap.get(choice.source_scene_id);
+      const destinationScene = sceneMap.get(choice.destination_scene_id);
+      if (sourceScene && destinationScene) {
+        sourceScene.children.push({
+          ...destinationScene,
+          choice_text: choice.choice_text
+        });
+      }
+      choiceMap.set(choice.destination_scene_id, true);
+    }
+
+    const rootScenes = [];
+    for (const scene of sceneMap.values()) {
+      if (!choiceMap.has(scene.id)) {
+        rootScenes.push(scene);
+      }
+    }
+
+    res.send(rootScenes);
+
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to build the story graph.' });
   }
 });
 

@@ -1,43 +1,48 @@
 
 <template>
   <div>
+    <!-- Section des Paramètres (conservée) -->
     <div class="settings-section">
-      <h2>Player Background</h2>
+      <h2>Arrière-plan du Lecteur</h2>
       <div class="upload-form">
-        <label for="background-upload" class="button">Choose Image</label>
+        <label for="background-upload" class="button">Choisir une Image</label>
         <input id="background-upload" type="file" @change="handleFileChange" accept="image/png, image/jpeg" class="sr-only" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
-        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Upload Image</button>
+        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Téléverser</button>
       </div>
-       <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
+      <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
         {{ uploadStatus }}
       </p>
     </div>
 
     <hr class="separator" />
 
-    <h2>Scenes</h2>
-    <router-link to="/admin/scenes/new" class="button">Add New Scene</router-link>
-    <div v-if="loading">Loading scenes...</div>
+    <!-- Nouvelle Section du Graphe de l'Histoire -->
+    <div class="header-container">
+      <h2 class="page-title">Graphe de l'Histoire</h2>
+      <router-link to="/admin/scenes/new" class="button">Ajouter une Scène Racine</router-link>
+    </div>
+
+    <div v-if="loading">Chargement du graphe...</div>
     <div v-else-if="error">{{ error }}</div>
-    <ul v-else class="scene-list">
-      <li v-for="scene in scenes" :key="scene.id">
-        <span>{{ scene.title }}</span>
-        <div class="actions">
-          <router-link :to="`/admin/scenes/${scene.id}/edit`" class="button edit">Edit</router-link>
-          <button @click="deleteScene(scene.id)" class="button delete">Delete</button>
-        </div>
-      </li>
-    </ul>
+    <div v-else-if="storyGraph.length > 0" class="story-graph-container">
+      <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene">
+        <SceneNode :scene="rootScene" />
+      </div>
+    </div>
+    <div v-else class="empty-state">
+      <p>Aucune scène trouvée. Commencez par créer une scène racine !</p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import SceneNode from '../../components/SceneNode.vue';
 
-// --- State for Scene List ---
-const scenes = ref([]);
+// --- State for Story Graph ---
+const storyGraph = ref([]);
 const loading = ref(true);
 const error = ref(null);
 
@@ -46,158 +51,109 @@ const selectedFile = ref(null);
 const uploadStatus = ref('');
 const isSuccess = ref(false);
 
-
 const handleFileChange = (event) => {
   selectedFile.value = event.target.files[0];
-  uploadStatus.value = ''; // Reset status on new file selection
+  uploadStatus.value = '';
 };
 
 const uploadBackground = async () => {
-  if (!selectedFile.value) {
-    return;
-  }
-
+  if (!selectedFile.value) return;
   const formData = new FormData();
   formData.append('background', selectedFile.value);
-
   try {
     const response = await axios.post('/api/admin/background', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     uploadStatus.value = response.data.message;
     isSuccess.value = true;
-    selectedFile.value = null; // Reset file input
-    document.querySelector('input[type="file"]').value = ''; // Clear the file input visually
+    selectedFile.value = null;
+    document.querySelector('#background-upload').value = '';
   } catch (err) {
-    uploadStatus.value = err.response?.data?.message || 'Failed to upload background.';
+    uploadStatus.value = err.response?.data?.message || 'Échec du téléversement.';
     isSuccess.value = false;
-    console.error(err);
   }
 };
 
-
-const fetchScenes = async () => {
+const fetchStoryGraph = async () => {
   try {
-    const response = await axios.get('/api/scenes');
-    scenes.value = response.data;
+    const response = await axios.get('/api/admin/story-graph');
+    storyGraph.value = response.data;
   } catch (err) {
-    error.value = 'Failed to load scenes.';
+    error.value = 'Échec du chargement du graphe de l\'histoire.';
     console.error(err);
   } finally {
     loading.value = false;
   }
 };
 
-const deleteScene = async (id) => {
-  if (!confirm('Are you sure you want to delete this scene?')) {
-    return;
-  }
-  try {
-    await axios.delete(`/api/scenes/${id}`);
-    scenes.value = scenes.value.filter(scene => scene.id !== id);
-  } catch (err) {
-    alert('Failed to delete scene.');
-    console.error(err);
-  }
-};
-
-onMounted(fetchScenes);
+onMounted(fetchStoryGraph);
 </script>
 
 <style scoped>
+/* Styles existants pour la section des paramètres */
 .settings-section {
   background-color: #2a2a2a;
   padding: 1.5rem;
   border-radius: 5px;
   margin-bottom: 2rem;
 }
-
 .settings-section h2 {
   margin-top: 0;
   border-bottom: 1px solid #444;
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
 }
-
 .upload-form {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
+.file-name { color: #ccc; font-style: italic; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+.status-success { color: #42b983; margin-top: 1rem; }
+.status-error { color: #ef4444; margin-top: 1rem; }
+.separator { border: none; border-top: 1px solid #444; margin: 2rem 0; }
 
-.file-name {
-  color: #ccc;
-  font-style: italic;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-.status-success {
-  color: #42b983;
-  margin-top: 1rem;
-}
-
-.status-error {
-  color: #ef4444;
-  margin-top: 1rem;
-}
-
-.separator {
-  border: none;
-  border-top: 1px solid #444;
-  margin: 2rem 0;
-}
-
-
-.scene-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 1.5rem;
-}
-
-.scene-list li {
-  background-color: #2a2a2a;
-  padding: 1rem;
-  border-radius: 5px;
-  margin-bottom: 1rem;
+/* Nouveaux styles pour la vue en graphe */
+.header-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 1.5rem;
 }
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
+.page-title {
+  margin: 0;
 }
-
 .button {
   background-color: #42b983;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
   border-radius: 5px;
   text-decoration: none;
   cursor: pointer;
   font-size: 0.9rem;
 }
-
-.button.edit {
-  background-color: #3b82f6;
+.story-graph-container {
+  background-color: #1e1e1e;
+  padding: 20px;
+  border-radius: 8px;
 }
-
-.button.delete {
-  background-color: #ef4444;
+.root-scene {
+  background-color: #2a2a2a;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+.root-scene > :deep(.scene-node) {
+  margin-left: 0;
+  border-left: none;
+  padding-left: 0;
+}
+.empty-state, .error-state {
+  text-align: center;
+  font-style: italic;
+  color: #888;
+  margin-top: 3rem;
 }
 </style>

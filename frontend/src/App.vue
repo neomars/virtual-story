@@ -7,7 +7,7 @@
       </router-link>
       <nav>
         <router-link to="/player/1">Player</router-link>
-        <router-link to="/admin">Admin</router-link>
+        <router-link to="/admin/scenes">Admin</router-link>
       </nav>
     </header>
     <main>
@@ -60,11 +60,6 @@ nav a {
   color: #42b983;
   text-decoration: none;
   margin-left: 1.5rem;
-}
-
-nav a:hover,
-nav a:focus-visible {
-  text-decoration: underline;
 }
 
 nav a.router-link-exact-active {
