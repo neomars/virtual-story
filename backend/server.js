@@ -40,7 +40,16 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage: storage });
+
+const videoFileFilter = (req, file, cb) => {
+  if (file.mimetype === 'video/mp4') {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only MP4 videos are allowed.'), false);
+  }
+};
+
+const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
 const backgroundStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, backgroundsDir),
@@ -89,27 +98,40 @@ app.post('/api/admin/background', backgroundUpload.single('background'), async (
 });
 
 app.post('/api/scenes', upload.single('video'), (req, res) => {
-  if (!req.file) return res.status(400).send({ message: 'No video file was uploaded.' });
+  if (!req.file) {
+    console.log('[UPLOAD] Upload failed: No file received.');
+    return res.status(400).send({ message: 'No video file was uploaded.' });
+  }
+
+  console.log('[UPLOAD] Step 1: Video file received successfully.', req.file);
 
   const { title } = req.body;
   const videoFilename = req.file.filename;
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
 
+  console.log(`[FFMPEG] Step 2: Starting thumbnail generation for '${req.file.path}'.`);
+
   ffmpeg(req.file.path)
     .on('end', async () => {
+      console.log('[FFMPEG] Step 3: Thumbnail generation finished successfully.');
       try {
         const videoUrl = `/videos/${videoFilename}`;
         const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+
+        console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
+
         const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)', [title, videoUrl, thumbnailUrl]);
+
+        console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
         res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
       } catch (dbError) {
-        console.error('Database error:', dbError);
+        console.error('[DB] Error saving scene to database:', dbError);
         res.status(500).send({ message: 'Failed to save scene to database.' });
       }
     })
     .on('error', (err, stdout, stderr) => {
-      console.error('FFmpeg error:', err.message);
-      console.error('FFmpeg stderr:', stderr);
+      console.error('[FFMPEG] Error during thumbnail generation:', err.message);
+      console.error('[FFMPEG] stderr:', stderr);
       res.status(500).send({ message: 'Failed to generate thumbnail.' });
     })
     .screenshots({ timestamps: ['00:00:05.000'], filename: thumbnailFilename, folder: thumbnailsDir, size: '320x240' });
