@@ -17,6 +17,8 @@ out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+backend.log
+npm_dev.log
 
 # IDE settings
 .idea/

@@ -249,8 +249,18 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
     const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
-    const [childScenesRows] = await dbPool.execute(`SELECT s.id, s.title, c.choice_text FROM scenes s JOIN choices c ON s.id = c.destination_scene_id WHERE c.source_scene_id = ?`, [req.params.id]);
+    const [parentScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
+       FROM scenes s JOIN choices c ON s.id = c.source_scene_id
+       WHERE c.destination_scene_id = ?`,
+      [req.params.id]
+    );
+    const [childScenesRows] = await dbPool.execute(
+      `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
+       FROM scenes s JOIN choices c ON s.id = c.destination_scene_id
+       WHERE c.source_scene_id = ?`,
+      [req.params.id]
+    );
 
     res.send({ current_scene: sceneRows[0], parent_scenes: parentScenesRows, child_scenes: childScenesRows });
   } catch (dbError) {

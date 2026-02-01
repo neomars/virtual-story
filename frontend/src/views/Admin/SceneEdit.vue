@@ -22,15 +22,36 @@
 
       <!-- Colonne 1: Scènes Parentes -->
       <div class="side-panel">
-        <h3>Accessible Depuis</h3>
+        <h3>Accessible Depuis (Parents)</h3>
         <ul class="relation-list">
-          <li v-for="parent in relations.parent_scenes" :key="parent.id">
-            <router-link :to="`/admin/scenes/${parent.id}/edit`">{{ parent.title }}</router-link>
+          <li v-for="parent in relations.parent_scenes" :key="parent.id" class="relation-item">
+            <router-link :to="`/admin/scenes/${parent.id}/edit`">
+              <strong>{{ parent.title }}</strong><br>
+              <small>"{{ parent.choice_text }}"</small>
+            </router-link>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
           </li>
-           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
-            Aucune scène ne mène ici. (Début d'une branche)
+          <li v-if="relations.parent_scenes.length === 0" class="empty-state">
+            Aucune scène ne mène ici.
           </li>
         </ul>
+        <div class="add-choice-form">
+          <h4>Ajouter un lien d'origine</h4>
+          <form @submit.prevent="addParentLink">
+            <div class="form-group">
+              <label for="source-scene">Scène d'origine</label>
+              <select id="source-scene" v-model="newParentLink.source_scene_id" required>
+                <option disabled value="">Choisir une scène...</option>
+                <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="parent-choice-text">Texte du choix menant ici</label>
+              <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
+            </div>
+            <button type="submit" class="button">Lier cette scène</button>
+          </form>
+        </div>
       </div>
 
       <!-- Colonne 2: Scène Actuelle -->
@@ -100,7 +121,8 @@ const scene = ref({ title: '' });
 const videoFile = ref(null);
 const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
-const relations = ref(null); // Pour stocker les données de la nouvelle API
+const newParentLink = ref({ source_scene_id: '', choice_text: '' });
+const relations = ref(null);
 
 const fetchSceneData = async () => {
   if (!isEditing.value) return;
@@ -173,8 +195,39 @@ const addChoice = async () => {
   }
 };
 
-// Note: deleteChoice is not implemented in this UI, but the API endpoint exists.
-// A button could be added next to each choice in the list to call this.
+const addParentLink = async () => {
+  if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) {
+    alert('Veuillez sélectionner une scène d\'origine et saisir un texte pour le choix.');
+    return;
+  }
+
+  const choiceData = {
+    destination_scene_id: props.id,
+    choice_text: newParentLink.value.choice_text,
+  };
+
+  try {
+    await axios.post(`/api/scenes/${newParentLink.value.source_scene_id}/choices`, choiceData);
+    await fetchSceneData(); // Refresh the parent list
+    newParentLink.value = { source_scene_id: '', choice_text: '' }; // Reset form
+  } catch (err) {
+    console.error('Failed to add parent link:', err);
+    alert('Failed to add parent link.');
+  }
+};
+
+const removeParentLink = async (choiceId) => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer ce lien d\'origine ?')) {
+    return;
+  }
+  try {
+    await axios.delete(`/api/choices/${choiceId}`);
+    await fetchSceneData(); // Refresh the parent list
+  } catch (err) {
+    console.error('Failed to remove parent link:', err);
+    alert('Failed to remove parent link.');
+  }
+};
 
 onMounted(() => {
   fetchSceneData();
