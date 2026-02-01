@@ -194,12 +194,6 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   background-color: #000; /* Add a background color */
-  transition: box-shadow 0.2s;
-}
-
-.thumbnail-container:focus-visible {
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 2px #121212, 0 0 0 4px #42b983;
 }
 
 .thumbnail-container img {
@@ -237,8 +231,7 @@ onMounted(() => {
   transition: background-color 0.2s;
 }
 
-.thumbnail-container:hover .play-icon,
-.thumbnail-container:focus-visible .play-icon {
+.thumbnail-container:hover .play-icon {
   background-color: rgba(66, 185, 131, 0.8);
 }
 
@@ -268,14 +261,12 @@ li a {
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
+  opacity: 0.3; /* Opacity set to 30% */
 }
 
-li a:hover,
-li a:focus-visible {
+li a:hover {
   background-color: #3a3a3a;
-  opacity: 1;
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 2px #121212, 0 0 0 4px #42b983;
+  opacity: 1; /* Full opacity on hover */
 }
 </style>

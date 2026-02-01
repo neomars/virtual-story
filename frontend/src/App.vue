@@ -62,11 +62,6 @@ nav a {
   margin-left: 1.5rem;
 }
 
-nav a:hover,
-nav a:focus-visible {
-  text-decoration: underline;
-}
-
 nav a.router-link-exact-active {
   font-weight: bold;
 }
