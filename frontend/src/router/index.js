@@ -20,8 +20,8 @@ const router = createRouter({
       props: true
     },
     {
-      path: '/admin',
-      name: 'admin',
+      path: '/admin/scenes',
+      name: 'admin-scenes',
       component: SceneList
     },
     {

@@ -7,7 +7,7 @@
       </router-link>
       <nav>
         <router-link to="/player/1">Player</router-link>
-        <router-link to="/admin">Admin</router-link>
+        <router-link to="/admin/scenes">Admin</router-link>
       </nav>
     </header>
     <main>

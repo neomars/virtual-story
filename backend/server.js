@@ -269,6 +269,41 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
   }
 });
 
+app.get('/api/admin/story-graph', async (req, res) => {
+  try {
+    const [scenes] = await dbPool.execute('SELECT * FROM scenes');
+    const [choices] = await dbPool.execute('SELECT * FROM choices');
+
+    const sceneMap = new Map(scenes.map(s => [s.id, { ...s, children: [] }]));
+    const choiceMap = new Map();
+
+    for (const choice of choices) {
+      const sourceScene = sceneMap.get(choice.source_scene_id);
+      const destinationScene = sceneMap.get(choice.destination_scene_id);
+      if (sourceScene && destinationScene) {
+        sourceScene.children.push({
+          ...destinationScene,
+          choice_text: choice.choice_text
+        });
+      }
+      choiceMap.set(choice.destination_scene_id, true);
+    }
+
+    const rootScenes = [];
+    for (const scene of sceneMap.values()) {
+      if (!choiceMap.has(scene.id)) {
+        rootScenes.push(scene);
+      }
+    }
+
+    res.send(rootScenes);
+
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to build the story graph.' });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('Backend server is running!');
 });
