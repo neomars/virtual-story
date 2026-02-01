@@ -104,6 +104,34 @@ You need to create a dedicated database and user for the application.
     ```
     The application will be accessible at `http://localhost:5173` (or the next available port).
 
-## Administration Interface
+## Tutoriel d'Utilisation
 
-The application includes a planned administration interface to manage the story's decision tree. This interface will provide a visual representation of the video connections.
+L'interface d'administration vous permet de construire et de visualiser votre histoire interactive.
+
+### Vue Principale : Graphe de l'Histoire
+
+La page principale de l'administration affiche le "Graphe de l'Histoire", une vue hiérarchique qui vous montre les connexions entre toutes vos scènes.
+
+-   **Scènes Racines :** Les scènes sans parent sont affichées au niveau supérieur.
+-   **Scènes Enfants :** Les scènes liées par un choix sont imbriquées sous leur scène parente.
+
+Chaque scène dans le graphe dispose de boutons pour **"Éditer"** (modifier ses détails et ses liens) ou **"Voir"** (la prévisualiser dans le lecteur).
+
+![Graphe de l'Histoire](docs/images/admin_story_graph.png)
+
+### Gérer les Scènes
+
+1.  **Ajouter une Scène Racine :** Utilisez le bouton **"Ajouter une Scène Racine"** pour créer une nouvelle scène qui sera un point de départ pour une branche de votre histoire.
+2.  **Éditer une Scène :** Sur la page d'édition, vous pouvez :
+    -   Modifier le titre de la scène.
+    -   Téléverser une nouvelle vidéo et sa miniature.
+    -   **Ajouter un choix (enfant) :** Liez cette scène à une autre en créant un choix.
+    -   **Lier un parent :** Créez un lien *entrant* depuis une autre scène, la transformant en enfant de cette dernière.
+
+### Personnaliser l'Arrière-plan
+
+Dans la section **"Arrière-plan du Lecteur"**, vous pouvez téléverser une image de fond qui sera affichée derrière les vidéos dans l'interface du lecteur.
+
+## Auteur
+
+- **Martial Limousin** - martial.limousin@gmail.com
