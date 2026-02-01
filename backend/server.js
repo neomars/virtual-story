@@ -4,11 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const multer = require('multer');
-const ffmpeg = require('fluent-ffmpeg');
+const { exec } = require('child_process');
 const { pool: dbPool } = require('./db');
-
-// Set the ffmpeg path explicitly to avoid environment issues
-ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
 
 const app = express();
 const PORT = 3000;
@@ -108,33 +105,42 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
   const { title } = req.body;
   const videoFilename = req.file.filename;
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
+  const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
 
   console.log(`[FFMPEG] Step 2: Starting thumbnail generation for '${req.file.path}'.`);
 
-  ffmpeg(req.file.path)
-    .on('end', async () => {
-      console.log('[FFMPEG] Step 3: Thumbnail generation finished successfully.');
-      try {
-        const videoUrl = `/videos/${videoFilename}`;
-        const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+  // Define the direct ffmpeg command
+  const ffmpegCommand = `unset LD_LIBRARY_PATH; /usr/bin/ffmpeg -i "${req.file.path}" -ss 00:00:05.000 -vframes 1 -s 320x240 "${thumbnailFullPath}"`;
 
-        console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
-
-        const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)', [title, videoUrl, thumbnailUrl]);
-
-        console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
-        res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
-      } catch (dbError) {
-        console.error('[DB] Error saving scene to database:', dbError);
-        res.status(500).send({ message: 'Failed to save scene to database.' });
-      }
-    })
-    .on('error', (err, stdout, stderr) => {
-      console.error('[FFMPEG] Error during thumbnail generation:', err.message);
+  exec(ffmpegCommand, async (error, stdout, stderr) => {
+    if (error) {
+      console.error('[FFMPEG] Error during thumbnail generation:', error.message);
       console.error('[FFMPEG] stderr:', stderr);
-      res.status(500).send({ message: 'Failed to generate thumbnail.' });
-    })
-    .screenshots({ timestamps: ['00:00:05.000'], filename: thumbnailFilename, folder: thumbnailsDir, size: '320x240' });
+      // Clean up the uploaded video file if thumbnail generation fails
+      await fs.unlink(req.file.path).catch(err => console.error('Error cleaning up video file:', err.message));
+      return res.status(500).send({ message: 'Failed to generate thumbnail.' });
+    }
+
+    console.log('[FFMPEG] Step 3: Thumbnail generation finished successfully.');
+
+    try {
+      const videoUrl = `/videos/${videoFilename}`;
+      const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+
+      console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
+
+      const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)', [title, videoUrl, thumbnailUrl]);
+
+      console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
+      res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
+    } catch (dbError) {
+      console.error('[DB] Error saving scene to database:', dbError);
+      // Clean up uploaded files if DB insertion fails
+      await fs.unlink(req.file.path).catch(err => console.error('Error cleaning up video file:', err.message));
+      await fs.unlink(thumbnailFullPath).catch(err => console.error('Error cleaning up thumbnail file:', err.message));
+      res.status(500).send({ message: 'Failed to save scene to database.' });
+    }
+  });
 });
 
 app.get('/api/scenes', async (req, res) => {
