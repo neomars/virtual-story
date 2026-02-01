@@ -4,16 +4,22 @@
     <h2 class="page-title">{{ isEditing ? 'Éditeur de Scène' : 'Ajouter une Scène' }}</h2>
 
     <!-- Formulaire de création simple -->
-    <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form">
+    <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form" :aria-busy="isSaving">
       <div class="form-group">
         <label for="title">Titre</label>
-        <input type="text" id="title" v-model="scene.title" required>
+        <input type="text" id="title" v-model="scene.title" required :disabled="isSaving">
       </div>
       <div class="form-group">
-        <label for="video">Fichier Vidéo</label>
-        <input type="file" id="video" @change="handleFileUpload" required>
+        <span class="label">Fichier Vidéo</span>
+        <div class="file-input-wrapper">
+          <label for="video-upload" class="button secondary file-label">Choisir une Vidéo</label>
+          <input type="file" id="video-upload" @change="handleFileUpload" required class="sr-only" :disabled="isSaving">
+          <span v-if="videoFile" class="file-name">{{ videoFile.name }}</span>
+        </div>
       </div>
-      <button type="submit" class="button">Créer la Scène</button>
+      <button type="submit" class="button" :disabled="isSaving">
+        {{ isSaving ? 'Création en cours...' : 'Créer la Scène' }}
+      </button>
       <router-link to="/admin" class="button secondary">Annuler</router-link>
     </form>
 
@@ -57,15 +63,17 @@
       <!-- Colonne 2: Scène Actuelle -->
       <div class="center-panel">
         <h3>Scène Actuelle</h3>
-        <form @submit.prevent="saveScene" class="center-form">
+        <form @submit.prevent="saveScene" class="center-form" :aria-busy="isSaving">
           <div class="form-group">
             <label for="title-edit">Titre</label>
-            <input type="text" id="title-edit" v-model="scene.title" required>
+            <input type="text" id="title-edit" v-model="scene.title" required :disabled="isSaving">
           </div>
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
             <img :src="scene.thumbnail_path" alt="Thumbnail">
           </div>
-          <button type="submit" class="button">Enregistrer les changements</button>
+          <button type="submit" class="button" :disabled="isSaving">
+            {{ isSaving ? 'Enregistrement...' : 'Enregistrer les changements' }}
+          </button>
         </form>
       </div>
 
@@ -82,19 +90,21 @@
         </ul>
         <div class="add-choice-form">
            <h4>Ajouter un nouveau choix</h4>
-           <form @submit.prevent="addChoice">
+           <form @submit.prevent="addChoice" :aria-busy="isAddingChoice">
               <div class="form-group">
                 <label for="choice-text">Texte du choix</label>
-                <input type="text" id="choice-text" v-model="newChoice.choice_text" required>
+                <input type="text" id="choice-text" v-model="newChoice.choice_text" required :disabled="isAddingChoice">
               </div>
               <div class="form-group">
                 <label for="destination">Scène de destination</label>
-                <select id="destination" v-model="newChoice.destination_scene_id" required>
+                <select id="destination" v-model="newChoice.destination_scene_id" required :disabled="isAddingChoice">
                   <option disabled value="">Choisir une scène...</option>
                   <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
                 </select>
               </div>
-              <button type="submit" class="button">Ajouter le Choix</button>
+              <button type="submit" class="button" :disabled="isAddingChoice">
+                {{ isAddingChoice ? 'Ajout...' : 'Ajouter le Choix' }}
+              </button>
            </form>
         </div>
       </div>
@@ -121,8 +131,9 @@ const scene = ref({ title: '' });
 const videoFile = ref(null);
 const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
-const newParentLink = ref({ source_scene_id: '', choice_text: '' });
-const relations = ref(null);
+const relations = ref(null); // Pour stocker les données de la nouvelle API
+const isSaving = ref(false);
+const isAddingChoice = ref(false);
 
 const fetchSceneData = async () => {
   if (!isEditing.value) return;
@@ -154,6 +165,7 @@ const handleFileUpload = (event) => {
 };
 
 const saveScene = async () => {
+  isSaving.value = true;
   const formData = new FormData();
   formData.append('title', scene.value.title);
   if (videoFile.value) {
@@ -162,36 +174,33 @@ const saveScene = async () => {
 
   try {
     if (isEditing.value) {
-      // Note: We're not supporting video replacement in this simple UI for now.
-      // We'll just update the title.
       await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title });
-      alert('Scene updated!');
     } else {
       await axios.post('/api/scenes', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert('Scene created!');
     }
     router.push('/admin');
   } catch (err) {
     console.error('Failed to save scene:', err);
     alert('Failed to save scene.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
 const addChoice = async () => {
+  isAddingChoice.value = true;
   try {
     await axios.post(`/api/scenes/${props.id}/choices`, newChoice.value);
-    // Re-fetch data to show the new choice
     fetchSceneData();
-    // Reset form
     newChoice.value.choice_text = '';
     newChoice.value.destination_scene_id = '';
   } catch (err) {
     console.error('Failed to add choice:', err);
     alert('Failed to add choice.');
+  } finally {
+    isAddingChoice.value = false;
   }
 };
 
@@ -301,7 +310,7 @@ watch(() => props.id, () => {
 .form-group {
   margin-bottom: 1rem;
 }
-label {
+label, .label {
   display: block;
   margin-bottom: 0.5rem;
 }
@@ -314,6 +323,8 @@ input[type="text"], select {
   color: #e0e0e0;
 }
 .button {
+  display: inline-block;
+  box-sizing: border-box;
   background-color: #42b983;
   color: white;
   border: none;
@@ -325,9 +336,28 @@ input[type="text"], select {
   margin-right: 0.5rem;
   width: 100%;
   margin-top: 1rem;
+  text-align: center;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+.button:hover, .button:focus-visible {
+  background-color: #3aa876;
+  outline: none;
+  box-shadow: 0 0 0 2px #121212, 0 0 0 4px #42b983;
 }
 .button.secondary {
   background-color: #555;
+}
+.button.secondary:hover, .button.secondary:focus-visible {
+  background-color: #666;
+  box-shadow: 0 0 0 2px #121212, 0 0 0 4px #555;
+}
+.button:disabled {
+  background-color: #2c7a5a;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.button.secondary:disabled {
+  background-color: #444;
 }
 .back-link {
   display: inline-block;
@@ -336,5 +366,30 @@ input[type="text"], select {
 }
 .simple-form {
   max-width: 500px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.file-label {
+  width: auto;
+  margin-top: 0;
+}
+.file-name {
+  color: #ccc;
+  font-style: italic;
+  font-size: 0.9rem;
 }
 </style>
