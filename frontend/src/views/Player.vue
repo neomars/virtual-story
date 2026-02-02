@@ -41,13 +41,15 @@
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Next Choices</h3>
-          <ul v-if="showChoices">
-            <li v-for="choice in sceneData.next_choices" :key="choice.id">
-              <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
-            </li>
-          </ul>
-          <p v-else>Watch the video to see the choices.</p>
+          <h3>Choix suivants</h3>
+          <Transition name="fade" mode="out-in">
+            <ul v-if="showChoices" key="choices">
+              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+                <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
+              </li>
+            </ul>
+            <p v-else key="no-choices">Regardez la vidéo pour voir les choix.</p>
+          </Transition>
         </div>
       </div>
     </div>
@@ -55,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -121,17 +123,14 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
   }
 };
 
-const playVideo = () => {
+const playVideo = async () => {
   isVideoPlaying.value = true;
   // Use nextTick to ensure the video element is in the DOM
-  import('vue').then(({ nextTick }) => {
-    nextTick(() => {
-      if (videoPlayer.value) {
-        videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
-      }
-    });
-  });
+  await nextTick();
+  if (videoPlayer.value) {
+    videoPlayer.value.play();
+    videoPlayer.value.requestFullscreen();
+  }
 };
 
 const onVideoEnd = () => {
@@ -231,8 +230,14 @@ onMounted(() => {
   transition: background-color 0.2s;
 }
 
-.thumbnail-container:hover .play-icon {
+.thumbnail-container:hover .play-icon,
+.thumbnail-container:focus-visible .play-icon {
   background-color: rgba(66, 185, 131, 0.8);
+}
+
+.thumbnail-container:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px #42b983;
 }
 
 .video-container {
@@ -261,12 +266,27 @@ li a {
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s, opacity 0.2s;
-  opacity: 0.3; /* Opacity set to 30% */
+  transition: background-color 0.2s, box-shadow 0.2s;
 }
 
 li a:hover {
-  background-color: #3a3a3a;
-  opacity: 1; /* Full opacity on hover */
+  background-color: #333333;
+}
+
+li a:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px #42b983;
+  background-color: #333333;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
