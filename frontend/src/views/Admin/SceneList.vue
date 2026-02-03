@@ -49,6 +49,9 @@
     <div v-else-if="error">{{ error }}</div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene">
+        <div v-if="rootScene.part_title" class="part-badge">
+          Chapitre : {{ rootScene.part_title }}
+        </div>
         <SceneNode :scene="rootScene" />
       </div>
     </div>
@@ -211,6 +214,17 @@ onMounted(() => {
   padding: 15px;
   border-radius: 5px;
   margin-bottom: 20px;
+  border-top: 4px solid #42b983;
+}
+.part-badge {
+  display: inline-block;
+  background-color: #42b983;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 .root-scene > :deep(.scene-node) {
   margin-left: 0;
