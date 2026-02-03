@@ -1,7 +1,7 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Loading...</div>
+    <div v-if="loading">Chargement...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
@@ -26,11 +26,11 @@
           @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-          :aria-label="`Play video: ${sceneData.current_scene.title}`"
+          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
-          <div class="play-icon">&#9658;</div>
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+          <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
         <div v-if="isVideoPlaying" class="video-container">
@@ -41,13 +41,15 @@
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Next Choices</h3>
-          <ul v-if="showChoices">
-            <li v-for="choice in sceneData.next_choices" :key="choice.id">
-              <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
-            </li>
-          </ul>
-          <p v-else>Watch the video to see the choices.</p>
+          <h3>Choix suivants</h3>
+          <Transition name="fade" mode="out-in">
+            <ul v-if="showChoices" key="choices">
+              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+                <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
+              </li>
+            </ul>
+            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
+          </Transition>
         </div>
       </div>
     </div>
@@ -114,7 +116,7 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     const response = await axios.get(url);
     sceneData.value = response.data;
   } catch (err) {
-    error.value = 'Failed to load scene data.';
+    error.value = 'Échec du chargement des données de la scène.';
     console.error(err);
   } finally {
     loading.value = false;
@@ -194,6 +196,12 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   background-color: #000; /* Add a background color */
+  transition: box-shadow 0.2s;
+}
+
+.thumbnail-container:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 4px #42b983;
 }
 
 .thumbnail-container img {
@@ -245,6 +253,17 @@ video {
   display: block;
 }
 
+/* Transition de fondu (fade) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 ul {
   list-style: none;
   padding: 0;
@@ -261,12 +280,13 @@ li a {
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s, opacity 0.2s;
-  opacity: 0.3; /* Opacity set to 30% */
+  transition: background-color 0.2s, box-shadow 0.2s;
 }
 
-li a:hover {
+li a:hover,
+li a:focus-visible {
   background-color: #3a3a3a;
-  opacity: 1; /* Full opacity on hover */
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 2px #42b983;
 }
 </style>
