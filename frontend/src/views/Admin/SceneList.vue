@@ -17,6 +17,27 @@
 
     <hr class="separator" />
 
+    <!-- Section de Gestion des Parties -->
+    <div class="settings-section">
+      <h2>Gestion des Parties (Chapitres)</h2>
+      <form @submit.prevent="createPart" class="upload-form">
+        <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
+        <select v-model="newPart.first_scene_id" required>
+          <option disabled value="">Scène de départ</option>
+          <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+        </select>
+        <button type="submit" class="button">Ajouter</button>
+      </form>
+      <ul class="parts-list">
+        <li v-for="part in parts" :key="part.id">
+          <span>{{ part.title }} (ID Départ: {{ part.first_scene_id }})</span>
+          <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+        </li>
+      </ul>
+    </div>
+
+    <hr class="separator" />
+
     <!-- Nouvelle Section du Graphe de l'Histoire -->
     <div class="header-container">
       <h2 class="page-title">Graphe de l'Histoire</h2>
@@ -50,6 +71,34 @@ const error = ref(null);
 const selectedFile = ref(null);
 const uploadStatus = ref('');
 const isSuccess = ref(false);
+
+// --- State for Parts ---
+const parts = ref([]);
+const allScenes = ref([]);
+const newPart = ref({ title: '', first_scene_id: '' });
+
+const fetchParts = async () => {
+  const res = await axios.get('/api/parts');
+  parts.value = res.data;
+};
+
+const fetchAllScenes = async () => {
+  const res = await axios.get('/api/scenes');
+  allScenes.value = res.data;
+};
+
+const createPart = async () => {
+  await axios.post('/api/parts', newPart.value);
+  newPart.value = { title: '', first_scene_id: '' };
+  fetchParts();
+};
+
+const deletePart = async (id) => {
+  if (confirm('Supprimer cette partie ?')) {
+    await axios.delete(`/api/parts/${id}`);
+    fetchParts();
+  }
+};
 
 const handleFileChange = (event) => {
   selectedFile.value = event.target.files[0];
@@ -88,7 +137,11 @@ const fetchStoryGraph = async () => {
 
 provide('refreshStoryGraph', fetchStoryGraph);
 
-onMounted(fetchStoryGraph);
+onMounted(() => {
+  fetchStoryGraph();
+  fetchParts();
+  fetchAllScenes();
+});
 </script>
 
 <style scoped>
@@ -158,4 +211,8 @@ onMounted(fetchStoryGraph);
   color: #888;
   margin-top: 3rem;
 }
+.parts-list { list-style: none; padding: 0; margin-top: 1rem; }
+.parts-list li { display: flex; justify-content: space-between; background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
+.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; }
+input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; }
 </style>

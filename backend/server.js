@@ -59,6 +59,49 @@ const backgroundUpload = multer({ storage: backgroundStorage });
 
 // --- All routes are now prefixed with /api ---
 
+// --- Parts (Chapters) Endpoints ---
+app.get('/api/parts', async (req, res) => {
+  try {
+    const [rows] = await dbPool.execute('SELECT * FROM parts ORDER BY `order` ASC');
+    res.send(rows);
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to retrieve parts.' });
+  }
+});
+
+app.post('/api/parts', async (req, res) => {
+  const { title, first_scene_id, order } = req.body;
+  try {
+    const [result] = await dbPool.execute('INSERT INTO parts (title, first_scene_id, `order`) VALUES (?, ?, ?)', [title, first_scene_id, order || 0]);
+    res.status(201).send({ id: result.insertId, title, first_scene_id, order: order || 0 });
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to create part.' });
+  }
+});
+
+app.put('/api/parts/:id', async (req, res) => {
+  const { title, first_scene_id, order } = req.body;
+  try {
+    await dbPool.execute('UPDATE parts SET title = ?, first_scene_id = ?, `order` = ? WHERE id = ?', [title, first_scene_id, order, req.params.id]);
+    res.send({ message: 'Part updated successfully.' });
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to update part.' });
+  }
+});
+
+app.delete('/api/parts/:id', async (req, res) => {
+  try {
+    await dbPool.execute('DELETE FROM parts WHERE id = ?', [req.params.id]);
+    res.send({ message: 'Part deleted successfully.' });
+  } catch (dbError) {
+    console.error('Database error:', dbError);
+    res.status(500).send({ message: 'Failed to delete part.' });
+  }
+});
+
 app.get('/api/settings/background', async (req, res) => {
     try {
         const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
@@ -129,7 +172,8 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
 
       console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
 
-      const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path) VALUES (?, ?, ?)', [title, videoUrl, thumbnailUrl]);
+      const { part_id } = req.body;
+      const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id || null]);
 
       console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
       res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
@@ -166,7 +210,8 @@ app.get('/api/scenes/:id', async (req, res) => {
 
 app.put('/api/scenes/:id', async (req, res) => {
   try {
-    await dbPool.execute('UPDATE scenes SET title = ? WHERE id = ?', [req.body.title, req.params.id]);
+    const { title, part_id } = req.body;
+    await dbPool.execute('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id || null, req.params.id]);
     res.send({ message: 'Scene updated successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);

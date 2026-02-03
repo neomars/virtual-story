@@ -10,6 +10,13 @@
         <input type="text" id="title" v-model="scene.title" required>
       </div>
       <div class="form-group">
+        <label for="part">Partie (Optionnel)</label>
+        <select id="part" v-model="scene.part_id">
+          <option :value="null">Aucune</option>
+          <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label for="video">Fichier Vidéo</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
@@ -61,6 +68,13 @@
           <div class="form-group">
             <label for="title-edit">Titre</label>
             <input type="text" id="title-edit" v-model="scene.title" required>
+          </div>
+          <div class="form-group">
+            <label for="part-edit">Partie</label>
+            <select id="part-edit" v-model="scene.part_id">
+              <option :value="null">Aucune</option>
+              <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
+            </select>
           </div>
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
             <img :src="scene.thumbnail_path" alt="Thumbnail">
@@ -123,6 +137,12 @@ const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
 const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
+const parts = ref([]);
+
+const fetchParts = async () => {
+  const res = await axios.get('/api/parts');
+  parts.value = res.data;
+};
 
 const fetchSceneData = async () => {
   if (!isEditing.value) return;
@@ -156,6 +176,7 @@ const handleFileUpload = (event) => {
 const saveScene = async () => {
   const formData = new FormData();
   formData.append('title', scene.value.title);
+  if (scene.value.part_id) formData.append('part_id', scene.value.part_id);
   if (videoFile.value) {
     formData.append('video', videoFile.value);
   }
@@ -164,7 +185,7 @@ const saveScene = async () => {
     if (isEditing.value) {
       // Note: We're not supporting video replacement in this simple UI for now.
       // We'll just update the title.
-      await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title });
+      await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
       alert('Scene updated!');
     } else {
       await axios.post('/api/scenes', formData, {
@@ -232,6 +253,7 @@ const removeParentLink = async (choiceId) => {
 onMounted(() => {
   fetchSceneData();
   fetchAllScenes();
+  fetchParts();
 });
 
 // Re-fetch data when the route changes (e.g., navigating from one scene edit to another)

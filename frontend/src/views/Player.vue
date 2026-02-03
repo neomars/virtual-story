@@ -125,16 +125,9 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
 };
 
 const playVideo = (withFullscreen = false) => {
+  // Le basculement vers isVideoPlaying déclenchera le watcher sur videoPlayer
+  // qui gère déjà la lecture et la tentative de plein écran.
   isVideoPlaying.value = true;
-  nextTick(() => {
-    if (videoPlayer.value) {
-      videoPlayer.value.muted = false;
-      videoPlayer.value.play().catch(() => {});
-      if (withFullscreen && videoPlayer.value.requestFullscreen) {
-        videoPlayer.value.requestFullscreen().catch(() => {});
-      }
-    }
-  });
 };
 
 const onVideoEnd = () => {
@@ -185,6 +178,10 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 
 onMounted(() => {
   fetchBackground();
+});
+
+onUnmounted(() => {
+  document.body.style.overflow = '';
 });
 </script>
 
