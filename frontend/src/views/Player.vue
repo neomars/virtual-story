@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted, nextTick } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -105,7 +105,8 @@ const fetchBackground = async () => {
 const fetchSceneData = async (sceneId, prevSceneId) => {
   loading.value = true;
   error.value = null;
-  isVideoPlaying.value = false;
+  // On ne remet pas isVideoPlaying à false ici pour éviter le flash de la miniature
+  // si on navigue entre deux scènes qui doivent toutes deux être lues.
   showChoices.value = false;
 
   try {
@@ -116,6 +117,14 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     const response = await axios.get(url);
     sceneData.value = response.data;
     isVideoPlaying.value = true;
+
+    // Si la vidéo était déjà affichée, le watcher sur videoPlayer ne se déclenchera pas.
+    // On force donc le redémarrage.
+    nextTick(() => {
+      if (videoPlayer.value) {
+        startPlayback(videoPlayer.value);
+      }
+    });
   } catch (err) {
     error.value = 'Échec du chargement des données de la scène.';
     console.error(err);
@@ -125,9 +134,30 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
 };
 
 const playVideo = (withFullscreen = false) => {
-  // Le basculement vers isVideoPlaying déclenchera le watcher sur videoPlayer
-  // qui gère déjà la lecture et la tentative de plein écran.
   isVideoPlaying.value = true;
+  nextTick(() => {
+    if (videoPlayer.value) {
+      startPlayback(videoPlayer.value, withFullscreen);
+    }
+  });
+};
+
+const startPlayback = async (el, withFullscreen = false) => {
+  if (!el) return;
+  // Tente la lecture avec le son
+  el.muted = false;
+  try {
+    await el.play();
+  } catch (err) {
+    console.warn("Lecture avec son bloquée, tentative en muet...", err);
+    el.muted = true;
+    await el.play().catch(() => {});
+  }
+
+  // Tente le plein écran natif
+  if ((withFullscreen || !showChoices.value) && el.requestFullscreen) {
+    el.requestFullscreen().catch(() => {});
+  }
 };
 
 const onVideoEnd = () => {
@@ -142,23 +172,10 @@ const onVideoEnd = () => {
 
 // --- Lifecycle Hooks ---
 
-// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH (SON ET PLEIN ÉCRAN)
-watch(videoPlayer, async (el) => {
+// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH
+watch(videoPlayer, (el) => {
   if (el) {
-    // Tente la lecture avec le son
-    el.muted = false;
-    try {
-      await el.play();
-    } catch (err) {
-      console.warn("Lecture avec son bloquée, tentative en muet...", err);
-      el.muted = true;
-      await el.play().catch(() => {});
-    }
-
-    // Tente le plein écran natif (souvent bloqué hors geste direct, mais on tente)
-    if (!showChoices.value && el.requestFullscreen) {
-      el.requestFullscreen().catch(() => {});
-    }
+    startPlayback(el);
   }
 });
 
