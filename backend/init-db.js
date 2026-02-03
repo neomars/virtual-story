@@ -72,6 +72,14 @@ async function initializeDatabase() {
     await connection.query(createChoicesTableSQL);
     await connection.query(createSettingsTableSQL);
 
+    // Assurer le lien SQL de parts vers scenes (first_scene_id)
+    try {
+      console.log('Vérification du lien SQL parts -> scenes...');
+      await connection.query("ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL;");
+    } catch (e) {
+      // Le lien existe probablement déjà ou les tables sont vides
+    }
+
     // Migration pour les installations existantes : ajout de la colonne part_id si absente
     const [columns] = await connection.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
     if (columns.length === 0) {
