@@ -1,19 +1,19 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Chargement...</div>
+    <div v-if="loading">Loading...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Scènes Précédentes</h3>
+          <h3>Previous Scenes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
               <router-link :to="`/player/${parent.id}`">{{ parent.title }}</router-link>
             </li>
           </ul>
-          <p v-else>C'est le début de l'histoire.</p>
+          <p v-else>It's the beginning of the story.</p>
         </div>
       </div>
 
@@ -21,34 +21,42 @@
       <div class="center-panel">
         <div
           v-if="!isVideoPlaying"
-          @click="playVideo"
-          @keydown.enter.prevent="playVideo"
-          @keydown.space.prevent="playVideo"
+          @click="playVideo(true)"
+          @keydown.enter.prevent="playVideo(true)"
+          @keydown.space.prevent="playVideo(true)"
           role="button"
           tabindex="0"
-          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
+            :aria-label="`Play video: ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+            <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
         <div v-if="isVideoPlaying" class="video-container">
-          <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls @ended="onVideoEnd"></video>
+          <video
+            ref="videoPlayer"
+            :src="sceneData.current_scene.video_path"
+            controls
+            autoplay
+            muted
+            playsinline
+            @ended="onVideoEnd"
+          ></video>
         </div>
       </div>
 
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Choix suivants</h3>
+          <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="choice in sceneData.next_choices" :key="choice.id">
                 <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
+            <p v-else key="waiting">Watch the video to see the choices.</p>
           </Transition>
         </div>
       </div>
@@ -57,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -115,25 +123,41 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
+    // Immediate switch to video for autoplay
+    isVideoPlaying.value = true;
   } catch (err) {
-    error.value = 'Échec du chargement des données de la scène.';
+    error.value = 'Failed to load scene data.';
     console.error(err);
   } finally {
     loading.value = false;
   }
 };
 
-const playVideo = () => {
+// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH
+watch(videoPlayer, (el) => {
+  if (el) {
+    el.muted = true;
+    el.play().catch(() => {});
+  }
+});
+
+const playVideo = (withFullscreen = false) => {
   isVideoPlaying.value = true;
-  // Use nextTick to ensure the video element is in the DOM
-  import('vue').then(({ nextTick }) => {
-    nextTick(() => {
-      if (videoPlayer.value) {
-        videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
+  nextTick(() => {
+    if (videoPlayer.value) {
+      videoPlayer.value.play().catch(() => {});
+      if (withFullscreen && videoPlayer.value.requestFullscreen) {
+        videoPlayer.value.requestFullscreen().catch(() => {});
       }
-    });
+    }
   });
+};
+
+// FALLBACK : DÉMARRER AU PREMIER CLIC SI BLOQUÉ
+const handleFirstInteraction = () => {
+  if (videoPlayer.value && videoPlayer.value.paused) {
+    videoPlayer.value.play().catch(() => {});
+  }
 };
 
 const onVideoEnd = () => {
@@ -155,6 +179,13 @@ watch(() => props.id, (newId, oldId) => {
 
 onMounted(() => {
   fetchBackground();
+  window.addEventListener('click', handleFirstInteraction);
+  window.addEventListener('touchstart', handleFirstInteraction);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleFirstInteraction);
+  window.removeEventListener('touchstart', handleFirstInteraction);
 });
 </script>
 
