@@ -21,9 +21,9 @@
       <div class="center-panel">
         <div
           v-if="!isVideoPlaying"
-          @click="playVideo"
-          @keydown.enter.prevent="playVideo"
-          @keydown.space.prevent="playVideo"
+          @click="playVideo(true)"
+          @keydown.enter.prevent="playVideo(true)"
+          @keydown.space.prevent="playVideo(true)"
           role="button"
           tabindex="0"
           :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
@@ -34,7 +34,14 @@
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
         <div v-if="isVideoPlaying" class="video-container">
-          <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls @ended="onVideoEnd"></video>
+          <video
+            ref="videoPlayer"
+            :src="sceneData.current_scene.video_path"
+            controls
+            autoplay
+            playsinline
+            @ended="onVideoEnd"
+          ></video>
         </div>
       </div>
 
@@ -57,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -115,6 +122,8 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
+    // Lecture automatique sans plein écran forcé
+    playVideo(false);
   } catch (err) {
     error.value = 'Échec du chargement des données de la scène.';
     console.error(err);
@@ -123,16 +132,19 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
   }
 };
 
-const playVideo = () => {
+const playVideo = (withFullscreen = false) => {
   isVideoPlaying.value = true;
   // Use nextTick to ensure the video element is in the DOM
-  import('vue').then(({ nextTick }) => {
-    nextTick(() => {
-      if (videoPlayer.value) {
-        videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
+  nextTick(() => {
+    if (videoPlayer.value) {
+      videoPlayer.value.play().catch(err => {
+        console.warn("La lecture automatique a été bloquée :", err);
+      });
+      // Tente le plein écran uniquement si demandé explicitement (interaction utilisateur)
+      if (withFullscreen && videoPlayer.value.requestFullscreen) {
+        videoPlayer.value.requestFullscreen().catch(() => {});
       }
-    });
+    }
   });
 };
 
