@@ -2,13 +2,24 @@
 const mysql = require('mysql2/promise');
 const { dbConfig } = require('./db'); // Importe la configuration centralisée
 
+const createPartsTableSQL = `
+  CREATE TABLE IF NOT EXISTS parts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    first_scene_id INT,
+    \`order\` INT DEFAULT 0
+  );
+`;
+
 const createScenesTableSQL = `
   CREATE TABLE IF NOT EXISTS scenes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     video_path VARCHAR(255) NOT NULL,
     thumbnail_path VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    part_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL
   );
 `;
 
@@ -56,10 +67,19 @@ async function initializeDatabase() {
     connection = await mysql.createConnection(dbConfig);
 
     // Crée les tables
+    await connection.query(createPartsTableSQL);
     await connection.query(createScenesTableSQL);
     await connection.query(createChoicesTableSQL);
     await connection.query(createSettingsTableSQL);
-    console.log('Tables "scenes", "choices" et "settings" créées ou déjà existantes.');
+
+    // Migration pour les installations existantes : ajout de la colonne part_id si absente
+    const [columns] = await connection.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
+    if (columns.length === 0) {
+      console.log('Migration : Ajout de la colonne "part_id" à la table "scenes"...');
+      await connection.query("ALTER TABLE scenes ADD COLUMN part_id INT, ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL;");
+    }
+
+    console.log('Tables "parts", "scenes", "choices" et "settings" prêtes.');
 
     // Insère les paramètres par défaut
     await connection.query(insertDefaultSettingsSQL);
