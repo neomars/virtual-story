@@ -19,8 +19,13 @@
 
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
-      <h2>Gestion des Parties (Chapitres)</h2>
-      <p class="instruction-text">Note : Si la création échoue, assurez-vous d'avoir exécuté <code>node backend/init-db.js</code> sur le serveur.</p>
+      <div class="section-header">
+        <h2>Gestion des Parties (Chapitres)</h2>
+        <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
+          {{ isSyncing ? 'Synchronisation...' : 'Synchroniser la Base de Données' }}
+        </button>
+      </div>
+      <p class="instruction-text">Note : Utilisez le bouton "Synchroniser" si vous rencontrez des erreurs de chargement ou de création.</p>
       <form @submit.prevent="createPart" class="upload-form">
         <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
         <select v-model="newPart.first_scene_id" required>
@@ -80,6 +85,21 @@ const isSuccess = ref(false);
 const parts = ref([]);
 const allScenes = ref([]);
 const newPart = ref({ title: '', first_scene_id: '' });
+const isSyncing = ref(false);
+
+const syncDatabase = async () => {
+  isSyncing.value = true;
+  try {
+    const res = await axios.post('/api/admin/db-sync');
+    alert(res.data.message);
+    fetchParts();
+    fetchStoryGraph();
+  } catch (err) {
+    alert(err.response?.data?.message || 'Erreur lors de la synchronisation.');
+  } finally {
+    isSyncing.value = false;
+  }
+};
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
@@ -193,6 +213,16 @@ onMounted(() => {
 }
 .page-title {
   margin: 0;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.sync-button {
+  background-color: #3a3a3a;
+  font-size: 0.8rem;
 }
 .button {
   background-color: #42b983;

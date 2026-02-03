@@ -13,3 +13,7 @@
 ## 2025-05-18 - [Expérience Vidéo "Pleine Page" sans Fullscreen API]
 **Learning:** For a focused video experience, using CSS `position: fixed` to cover the viewport is more reliable and less intrusive than the browser's native Fullscreen API, especially when you need to transition back to standard UI elements like choices.
 **Action:** Use dynamic CSS classes to toggle a "full-page" state during video playback, covering the UI until the video ends.
+
+## 2025-05-19 - [Outil de Synchronisation de Base de Données en Admin]
+**Learning:** When deploying schema changes to environments where migrations might fail or be manual, providing a dedicated "Sync" button in the Admin UI with clear instruction text helps users resolve errors autonomously without needing direct DB access.
+**Action:** Implement "Idempotent Schema Sync" endpoints and UI buttons when adding new database-backed features to legacy or self-hosted applications.
