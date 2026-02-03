@@ -51,7 +51,10 @@
     </div>
 
     <div v-if="loading">Chargement du graphe...</div>
-    <div v-else-if="error">{{ error }}</div>
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+      <p>Astuce : Si c'est votre première utilisation ou après une mise à jour, cliquez sur le bouton <strong>"Synchroniser la Base de Données"</strong> ci-dessus pour préparer les tables.</p>
+    </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene">
         <div v-if="rootScene.part_title" class="part-badge">

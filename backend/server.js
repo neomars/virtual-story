@@ -65,7 +65,7 @@ app.post('/api/admin/db-sync', async (req, res) => {
   try {
     console.log('[DB-SYNC] Starting migration...');
     // Ensure parts table exists
-    await dbPool.execute(`
+    await dbPool.query(`
       CREATE TABLE IF NOT EXISTS parts (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -75,11 +75,20 @@ app.post('/api/admin/db-sync', async (req, res) => {
     `);
 
     // Ensure part_id column exists in scenes
-    const [columns] = await dbPool.execute("SHOW COLUMNS FROM scenes LIKE 'part_id'");
+    const [columns] = await dbPool.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
     if (columns.length === 0) {
       console.log('[DB-SYNC] Adding part_id column to scenes...');
-      await dbPool.execute("ALTER TABLE scenes ADD COLUMN part_id INT, ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
+      await dbPool.query("ALTER TABLE scenes ADD COLUMN part_id INT");
     }
+
+    // Try to add constraints independently to be robust
+    try {
+      await dbPool.query("ALTER TABLE scenes ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
+    } catch (e) { /* Already exists */ }
+
+    try {
+      await dbPool.query("ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
+    } catch (e) { /* Already exists */ }
 
     console.log('[DB-SYNC] Migration completed successfully.');
     res.send({ message: 'Base de données synchronisée avec succès !' });
@@ -345,8 +354,8 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
 
 app.get('/api/admin/story-graph', async (req, res) => {
   try {
-    const [scenes] = await dbPool.execute('SELECT s.*, p.title AS part_title FROM scenes s LEFT JOIN parts p ON s.part_id = p.id');
-    const [choices] = await dbPool.execute('SELECT * FROM choices');
+    const [scenes] = await dbPool.query('SELECT s.*, p.title AS part_title FROM scenes s LEFT JOIN parts p ON s.part_id = p.id');
+    const [choices] = await dbPool.query('SELECT * FROM choices');
 
     const sceneMap = new Map(scenes.map(s => [s.id, { ...s, children: [] }]));
     const choiceMap = new Map();
