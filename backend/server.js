@@ -60,6 +60,35 @@ const backgroundUpload = multer({ storage: backgroundStorage });
 // --- All routes are now prefixed with /api ---
 
 // --- Parts (Chapters) Endpoints ---
+
+app.post('/api/admin/db-sync', async (req, res) => {
+  try {
+    console.log('[DB-SYNC] Starting migration...');
+    // Ensure parts table exists
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS parts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        first_scene_id INT,
+        \`order\` INT DEFAULT 0
+      )
+    `);
+
+    // Ensure part_id column exists in scenes
+    const [columns] = await dbPool.execute("SHOW COLUMNS FROM scenes LIKE 'part_id'");
+    if (columns.length === 0) {
+      console.log('[DB-SYNC] Adding part_id column to scenes...');
+      await dbPool.execute("ALTER TABLE scenes ADD COLUMN part_id INT, ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
+    }
+
+    console.log('[DB-SYNC] Migration completed successfully.');
+    res.send({ message: 'Base de données synchronisée avec succès !' });
+  } catch (err) {
+    console.error('[DB-SYNC] Error:', err);
+    res.status(500).send({ message: 'Échec de la synchronisation : ' + err.message });
+  }
+});
+
 app.get('/api/parts', async (req, res) => {
   try {
     const [rows] = await dbPool.execute('SELECT * FROM parts ORDER BY `order` ASC');
