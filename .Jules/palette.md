@@ -5,3 +5,11 @@
 ## 2025-05-16 - [Amélioration UX et Accessibilité du Lecteur]
 **Learning:** Using `opacity: 0.3` for interactive elements like choice links severely impacts accessibility and readability. Transitions between states (e.g., video end to choices list) provide a much smoother user experience than abrupt content changes.
 **Action:** Use full opacity for primary interactive elements and implement `:focus-visible` for keyboard navigation. Use Vue's `<Transition>` component for state-dependent UI elements.
+
+## 2025-05-17 - [Autoplay et Contraintes Navigateur]
+**Learning:** Browsers block unmuted autoplay and automatic fullscreen requests without user interaction.
+**Action:** Always wrap `.play()` in a try-catch, use `playsinline` for mobile, and separate automatic playback from manual playback to handle fullscreen gracefully.
+
+## 2025-05-18 - [Expérience Vidéo "Pleine Page" sans Fullscreen API]
+**Learning:** For a focused video experience, using CSS `position: fixed` to cover the viewport is more reliable and less intrusive than the browser's native Fullscreen API, especially when you need to transition back to standard UI elements like choices.
+**Action:** Use dynamic CSS classes to toggle a "full-page" state during video playback, covering the UI until the video ends.
