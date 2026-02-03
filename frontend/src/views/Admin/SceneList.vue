@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, provide } from 'vue';
 import axios from 'axios';
 import SceneNode from '../../components/SceneNode.vue';
 
@@ -85,6 +85,8 @@ const fetchStoryGraph = async () => {
     loading.value = false;
   }
 };
+
+provide('refreshStoryGraph', fetchStoryGraph);
 
 onMounted(fetchStoryGraph);
 </script>
