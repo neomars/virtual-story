@@ -1,8 +1,8 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Chargement...</div>
-    <div v-else-if="error">{{ error }}</div>
+    <div v-if="loading" aria-live="polite">Chargement...</div>
+    <div v-else-if="error" role="alert">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
@@ -19,30 +19,34 @@
 
       <!-- Center: Thumbnail/Video -->
       <div class="center-panel">
-        <div
-          v-if="!isVideoPlaying"
-          @click="playVideo(true)"
-          @keydown.enter.prevent="playVideo(true)"
-          @keydown.space.prevent="playVideo(true)"
-          role="button"
-          tabindex="0"
-          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
-          class="thumbnail-container"
-        >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
-          <div class="play-icon" aria-hidden="true">&#9658;</div>
-          <h2>{{ sceneData.current_scene.title }}</h2>
-        </div>
-        <div v-if="isVideoPlaying" class="video-container">
-          <video
-            ref="videoPlayer"
-            :src="sceneData.current_scene.video_path"
-            controls
-            autoplay
-            playsinline
-            @ended="onVideoEnd"
-          ></video>
-        </div>
+        <Transition name="fade" mode="out-in">
+          <div
+            v-if="!isVideoPlaying"
+            key="thumbnail"
+            @click="playVideo(true)"
+            @keydown.enter.prevent="playVideo(true)"
+            @keydown.space.prevent="playVideo(true)"
+            role="button"
+            tabindex="0"
+            :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
+            class="thumbnail-container"
+          >
+            <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+            <div class="play-icon" aria-hidden="true">&#9658;</div>
+            <h2>{{ sceneData.current_scene.title }}</h2>
+          </div>
+          <div v-else key="video" class="video-container">
+            <video
+              ref="videoPlayer"
+              :src="sceneData.current_scene.video_path"
+              controls
+              autoplay
+              muted
+              playsinline
+              @ended="onVideoEnd"
+            ></video>
+          </div>
+        </Transition>
       </div>
 
       <!-- Next Choices -->
@@ -122,13 +126,15 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
-    // Lecture automatique sans plein écran forcé
-    playVideo(false);
   } catch (err) {
     error.value = 'Échec du chargement des données de la scène.';
     console.error(err);
   } finally {
     loading.value = false;
+    // Lecture automatique après que l'élément soit dans le DOM
+    nextTick(() => {
+      playVideo(false);
+    });
   }
 };
 
@@ -186,7 +192,7 @@ onMounted(() => {
 
 .side-panel {
   flex: 1;
-  background-color: rgba(30, 30, 30, 0.5); /* 50% transparency */
+  background-color: rgba(30, 30, 30, 0.8); /* Plus opaque pour le contraste */
   padding: 1.5rem;
   border-radius: 8px;
 }
