@@ -1,19 +1,19 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Loading...</div>
+    <div v-if="loading">Chargement...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Previous Scenes</h3>
+          <h3>Scènes Précédentes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
               <router-link :to="`/player/${parent.id}`">{{ parent.title }}</router-link>
             </li>
           </ul>
-          <p v-else>It's the beginning of the story.</p>
+          <p v-else>C'est le début de l'histoire.</p>
         </div>
       </div>
 
@@ -21,42 +21,34 @@
       <div class="center-panel">
         <div
           v-if="!isVideoPlaying"
-          @click="playVideo(true)"
-          @keydown.enter.prevent="playVideo(true)"
-          @keydown.space.prevent="playVideo(true)"
+          @click="playVideo"
+          @keydown.enter.prevent="playVideo"
+          @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-            :aria-label="`Play video: ${sceneData.current_scene.title}`"
+          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-            <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
-        <div v-if="isVideoPlaying" class="video-container">
-          <video
-            ref="videoPlayer"
-            :src="sceneData.current_scene.video_path"
-            controls
-            autoplay
-            muted
-            playsinline
-            @ended="onVideoEnd"
-          ></video>
+        <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
+          <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
         </div>
       </div>
 
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Next Choices</h3>
+          <h3>Choix suivants</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="choice in sceneData.next_choices" :key="choice.id">
                 <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Watch the video to see the choices.</p>
+            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
           </Transition>
         </div>
       </div>
@@ -65,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -123,41 +115,26 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
-    // Immediate switch to video for autoplay
     isVideoPlaying.value = true;
   } catch (err) {
-    error.value = 'Failed to load scene data.';
+    error.value = 'Échec du chargement des données de la scène.';
     console.error(err);
   } finally {
     loading.value = false;
   }
 };
 
-// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH
-watch(videoPlayer, (el) => {
-  if (el) {
-    el.muted = true;
-    el.play().catch(() => {});
-  }
-});
-
 const playVideo = (withFullscreen = false) => {
   isVideoPlaying.value = true;
   nextTick(() => {
     if (videoPlayer.value) {
+      videoPlayer.value.muted = false;
       videoPlayer.value.play().catch(() => {});
       if (withFullscreen && videoPlayer.value.requestFullscreen) {
         videoPlayer.value.requestFullscreen().catch(() => {});
       }
     }
   });
-};
-
-// FALLBACK : DÉMARRER AU PREMIER CLIC SI BLOQUÉ
-const handleFirstInteraction = () => {
-  if (videoPlayer.value && videoPlayer.value.paused) {
-    videoPlayer.value.play().catch(() => {});
-  }
 };
 
 const onVideoEnd = () => {
@@ -172,20 +149,42 @@ const onVideoEnd = () => {
 
 // --- Lifecycle Hooks ---
 
+// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH (SON ET PLEIN ÉCRAN)
+watch(videoPlayer, async (el) => {
+  if (el) {
+    // Tente la lecture avec le son
+    el.muted = false;
+    try {
+      await el.play();
+    } catch (err) {
+      console.warn("Lecture avec son bloquée, tentative en muet...", err);
+      el.muted = true;
+      await el.play().catch(() => {});
+    }
+
+    // Tente le plein écran natif (souvent bloqué hors geste direct, mais on tente)
+    if (!showChoices.value && el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  }
+});
+
 // Watch for route changes to fetch new scene data
 watch(() => props.id, (newId, oldId) => {
   fetchSceneData(newId, oldId);
 }, { immediate: true });
 
+// Masquer les barres de défilement en mode plein écran
+watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
+  if (playing && !showingChoices) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+}, { immediate: true });
+
 onMounted(() => {
   fetchBackground();
-  window.addEventListener('click', handleFirstInteraction);
-  window.addEventListener('touchstart', handleFirstInteraction);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('click', handleFirstInteraction);
-  window.removeEventListener('touchstart', handleFirstInteraction);
 });
 </script>
 
@@ -274,15 +273,14 @@ onUnmounted(() => {
   background-color: rgba(66, 185, 131, 0.8);
 }
 
-.video-container {
-  width: 100%;
+.video-container { width: 100%; }
+.video-container.full-page {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 1000; background: #000;
 }
-
-video {
-  width: 100%;
-  height: auto;
-  display: block;
-}
+.full-page video { width: 100%; height: 100%; object-fit: contain; }
+video { width: 100%; height: auto; display: block; }
 
 /* Transition de fondu (fade) */
 .fade-enter-active,
