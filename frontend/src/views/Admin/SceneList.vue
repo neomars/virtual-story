@@ -20,6 +20,7 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <h2>Gestion des Parties (Chapitres)</h2>
+      <p class="instruction-text">Note : Si la création échoue, assurez-vous d'avoir exécuté <code>node backend/init-db.js</code> sur le serveur.</p>
       <form @submit.prevent="createPart" class="upload-form">
         <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
         <select v-model="newPart.first_scene_id" required>
@@ -88,15 +89,26 @@ const fetchAllScenes = async () => {
 };
 
 const createPart = async () => {
-  await axios.post('/api/parts', newPart.value);
-  newPart.value = { title: '', first_scene_id: '' };
-  fetchParts();
+  try {
+    await axios.post('/api/parts', newPart.value);
+    newPart.value = { title: '', first_scene_id: '' };
+    fetchParts();
+    alert('Partie créée avec succès !');
+  } catch (err) {
+    console.error(err);
+    alert('Échec de la création de la partie. Vérifiez que la base de données est à jour.');
+  }
 };
 
 const deletePart = async (id) => {
   if (confirm('Supprimer cette partie ?')) {
-    await axios.delete(`/api/parts/${id}`);
-    fetchParts();
+    try {
+      await axios.delete(`/api/parts/${id}`);
+      fetchParts();
+    } catch (err) {
+      console.error(err);
+      alert('Échec de la suppression.');
+    }
   }
 };
 
@@ -213,6 +225,7 @@ onMounted(() => {
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
 .parts-list li { display: flex; justify-content: space-between; background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
-.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; }
+.instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
 input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; }
 </style>
