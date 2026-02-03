@@ -34,7 +34,7 @@
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
-          <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay muted playsinline @ended="onVideoEnd"></video>
+          <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
         </div>
       </div>
 
@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -124,16 +124,16 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
   }
 };
 
-const playVideo = () => {
+const playVideo = (withFullscreen = false) => {
   isVideoPlaying.value = true;
-  // Use nextTick to ensure the video element is in the DOM
-  import('vue').then(({ nextTick }) => {
-    nextTick(() => {
-      if (videoPlayer.value) {
-        videoPlayer.value.play();
-        videoPlayer.value.requestFullscreen();
+  nextTick(() => {
+    if (videoPlayer.value) {
+      videoPlayer.value.muted = false;
+      videoPlayer.value.play().catch(() => {});
+      if (withFullscreen && videoPlayer.value.requestFullscreen) {
+        videoPlayer.value.requestFullscreen().catch(() => {});
       }
-    });
+    }
   });
 };
 
@@ -149,11 +149,38 @@ const onVideoEnd = () => {
 
 // --- Lifecycle Hooks ---
 
-watch(videoPlayer, el => el && el.play().catch(() => {}));
+// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH (SON ET PLEIN ÉCRAN)
+watch(videoPlayer, async (el) => {
+  if (el) {
+    // Tente la lecture avec le son
+    el.muted = false;
+    try {
+      await el.play();
+    } catch (err) {
+      console.warn("Lecture avec son bloquée, tentative en muet...", err);
+      el.muted = true;
+      await el.play().catch(() => {});
+    }
+
+    // Tente le plein écran natif (souvent bloqué hors geste direct, mais on tente)
+    if (!showChoices.value && el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  }
+});
 
 // Watch for route changes to fetch new scene data
 watch(() => props.id, (newId, oldId) => {
   fetchSceneData(newId, oldId);
+}, { immediate: true });
+
+// Masquer les barres de défilement en mode plein écran
+watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
+  if (playing && !showingChoices) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
 }, { immediate: true });
 
 onMounted(() => {
