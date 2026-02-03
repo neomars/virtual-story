@@ -316,7 +316,7 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
 
 app.get('/api/admin/story-graph', async (req, res) => {
   try {
-    const [scenes] = await dbPool.execute('SELECT * FROM scenes');
+    const [scenes] = await dbPool.execute('SELECT s.*, p.title AS part_title FROM scenes s LEFT JOIN parts p ON s.part_id = p.id');
     const [choices] = await dbPool.execute('SELECT * FROM choices');
 
     const sceneMap = new Map(scenes.map(s => [s.id, { ...s, children: [] }]));
