@@ -33,6 +33,10 @@ export default defineConfig({
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
+      '/parts': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
       '/backgrounds': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
