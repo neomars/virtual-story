@@ -43,11 +43,26 @@
       </form>
       <ul class="parts-list">
         <li v-for="part in parts" :key="part.id">
-          <span>
-            {{ part.title }} (Départ ID: {{ part.first_scene_id }})
-            <span v-if="part.loop_video_path" class="badge-video">📹 Loop</span>
-          </span>
-          <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+          <div v-if="editingPartId === part.id" class="edit-part-inline">
+            <input type="text" v-model="editPartData.title" placeholder="Titre" />
+            <select v-model="editPartData.first_scene_id">
+              <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+            </select>
+            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Vidéo Loop</label>
+            <input :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
+            <button @click="updatePart(part.id)" class="button mini">Enregistrer</button>
+            <button @click="cancelEdit" class="button secondary-btn mini">Annuler</button>
+          </div>
+          <div v-else class="part-item-content">
+            <span>
+              <strong>{{ part.title }}</strong> (Départ ID: {{ part.first_scene_id }})
+              <span v-if="part.loop_video_path" class="badge-video">📹 Loop</span>
+            </span>
+            <div class="part-actions">
+              <button @click="startEdit(part)" class="button mini">Éditer</button>
+              <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+            </div>
+          </div>
         </li>
       </ul>
     </div>
@@ -101,6 +116,11 @@ const newPart = ref({ title: '', first_scene_id: '' });
 const partLoopFile = ref(null);
 const isSyncing = ref(false);
 
+// State for editing parts
+const editingPartId = ref(null);
+const editPartData = ref({ title: '', first_scene_id: '' });
+const editPartFile = ref(null);
+
 const syncDatabase = async () => {
   isSyncing.value = true;
   try {
@@ -127,6 +147,45 @@ const fetchAllScenes = async () => {
 
 const handlePartFileChange = (event) => {
   partLoopFile.value = event.target.files[0];
+};
+
+const startEdit = (part) => {
+  editingPartId.value = part.id;
+  editPartData.value = { title: part.title, first_scene_id: part.first_scene_id };
+  editPartFile.value = null;
+};
+
+const cancelEdit = () => {
+  editingPartId.value = null;
+  editPartFile.value = null;
+};
+
+const handleEditFileChange = (event) => {
+  editPartFile.value = event.target.files[0];
+};
+
+const updatePart = async (id) => {
+  try {
+    const formData = new FormData();
+    formData.append('title', editPartData.value.title);
+    formData.append('first_scene_id', editPartData.value.first_scene_id);
+    formData.append('order', 0); // Default order for now
+    if (editPartFile.value) {
+      formData.append('loop_video', editPartFile.value);
+    }
+
+    await axios.put(`/api/parts/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    editingPartId.value = null;
+    editPartFile.value = null;
+    fetchParts();
+    alert('Partie mise à jour !');
+  } catch (err) {
+    console.error(err);
+    alert('Échec de la mise à jour.');
+  }
 };
 
 const createPart = async () => {
@@ -300,8 +359,13 @@ onMounted(() => {
   margin-top: 3rem;
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
-.parts-list li { display: flex; justify-content: space-between; background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
-.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; }
+.parts-list li { background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
+.part-item-content { display: flex; justify-content: space-between; align-items: center; }
+.part-actions { display: flex; gap: 0.5rem; }
+.edit-part-inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.edit-part-inline input, .edit-part-inline select { flex: 1; min-width: 120px; }
+.button.mini { padding: 0.3rem 0.6rem; font-size: 0.8rem; margin: 0; }
+.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
 .instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
 input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; flex: 1; }
 
