@@ -17,3 +17,7 @@
 ## 2025-05-19 - [Outil de Synchronisation de Base de Données en Admin]
 **Learning:** When deploying schema changes to environments where migrations might fail or be manual, providing a dedicated "Sync" button in the Admin UI with clear instruction text helps users resolve errors autonomously without needing direct DB access.
 **Action:** Implement "Idempotent Schema Sync" endpoints and UI buttons when adding new database-backed features to legacy or self-hosted applications.
+
+## 2025-05-20 - [Amélioration de l'Accessibilité et du Feedback en Admin]
+**Learning:** Icon-only buttons (like "x" for delete) are invisible to screen readers without aria-label. Providing immediate feedback by disabling buttons during async operations prevents double-submissions and improves perceived reliability.
+**Action:** Always add aria-label to icon-only buttons and implement a loading or isSaving state to disable interactive elements during background tasks.

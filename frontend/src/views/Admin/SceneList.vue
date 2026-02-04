@@ -37,7 +37,7 @@
       <ul class="parts-list">
         <li v-for="part in parts" :key="part.id">
           <span>{{ part.title }} (ID Départ: {{ part.first_scene_id }})</span>
-          <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+          <button @click="deletePart(part.id)" class="button-delete" aria-label="Supprimer cette partie">&times;</button>
         </li>
       </ul>
     </div>
