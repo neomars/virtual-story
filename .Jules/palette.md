@@ -17,3 +17,7 @@
 ## 2025-05-19 - [Outil de Synchronisation de Base de Données en Admin]
 **Learning:** When deploying schema changes to environments where migrations might fail or be manual, providing a dedicated "Sync" button in the Admin UI with clear instruction text helps users resolve errors autonomously without needing direct DB access.
 **Action:** Implement "Idempotent Schema Sync" endpoints and UI buttons when adding new database-backed features to legacy or self-hosted applications.
+
+## 2025-05-20 - [Création Séquentielle en Admin]
+**Learning:** For users performing repetitive data entry tasks (like creating many story scenes), automatic redirection to a list view is a point of friction. Staying on the creation page with a cleared form and success feedback is much more efficient.
+**Action:** On "New" entity forms, reset the state and show a success banner instead of redirecting, allowing for immediate subsequent entries.

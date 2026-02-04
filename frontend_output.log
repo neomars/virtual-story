@@ -5,10 +5,9 @@
 Port 5173 is in use, trying another one...
 Port 5174 is in use, trying another one...
 
-  VITE v7.3.1  ready in 1576 ms
+  VITE v7.3.1  ready in 1643 ms
 
   ➜  Local:   http://localhost:5175/
   ➜  Network: use --host to expose
   ➜  Vue DevTools: Open http://localhost:5175/__devtools__/ as a separate window
   ➜  Vue DevTools: Press Alt(⌥)+Shift(⇧)+D in App to toggle the Vue DevTools
- ELIFECYCLE  Command failed with exit code 143.

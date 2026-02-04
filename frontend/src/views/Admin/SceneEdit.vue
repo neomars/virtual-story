@@ -3,6 +3,12 @@
   <div>
     <h2 class="page-title">{{ isEditing ? 'Éditeur de Scène' : 'Ajouter une Scène' }}</h2>
 
+    <Transition name="fade">
+      <div v-if="successMessage" class="success-banner" role="alert">
+        {{ successMessage }}
+      </div>
+    </Transition>
+
     <!-- Formulaire de création simple -->
     <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form">
       <div class="form-group">
@@ -131,13 +137,14 @@ const route = useRoute();
 const router = useRouter();
 const isEditing = computed(() => !!props.id);
 
-const scene = ref({ title: '' });
+const scene = ref({ title: '', part_id: null });
 const videoFile = ref(null);
 const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
 const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
+const successMessage = ref('');
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
@@ -183,22 +190,27 @@ const saveScene = async () => {
 
   try {
     if (isEditing.value) {
-      // Note: We're not supporting video replacement in this simple UI for now.
-      // We'll just update the title.
       await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
-      alert('Scene updated!');
+      successMessage.value = 'Scène mise à jour avec succès !';
+      setTimeout(() => router.push('/admin'), 1500);
     } else {
       await axios.post('/api/scenes', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert('Scene created!');
+      successMessage.value = `Scène "${scene.value.title}" créée ! Prêt pour la suivante.`;
+
+      // Reset form for next scene
+      scene.value = { title: '', part_id: scene.value.part_id }; // Keep the part_id for convenience
+      videoFile.value = null;
+      const fileInput = document.getElementById('video');
+      if (fileInput) fileInput.value = '';
+
+      // Clear success message after 3 seconds
+      setTimeout(() => { successMessage.value = ''; }, 3000);
     }
-    router.push('/admin');
   } catch (err) {
     console.error('Failed to save scene:', err);
-    alert('Failed to save scene.');
+    alert('Échec de l\'enregistrement de la scène.');
   }
 };
 
@@ -271,6 +283,26 @@ watch(() => props.id, () => {
   padding-bottom: 1rem;
   margin-bottom: 2rem;
 }
+.success-banner {
+  background-color: #42b983;
+  color: white;
+  padding: 1rem;
+  border-radius: 5px;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .editor-layout {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
