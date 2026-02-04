@@ -15,12 +15,14 @@ app.use(express.json());
 
 const videosDir = path.join(__dirname, 'uploads/videos');
 const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
+const partsDir = path.join(__dirname, 'uploads/parts');
 const backgroundsDir = path.join(__dirname, 'uploads');
 
 (async () => {
     try {
         await fs.mkdir(videosDir, { recursive: true });
         await fs.mkdir(thumbnailsDir, { recursive: true });
+        await fs.mkdir(partsDir, { recursive: true });
     } catch (error) {
         console.error("Error creating upload directories:", error);
     }
@@ -28,6 +30,7 @@ const backgroundsDir = path.join(__dirname, 'uploads');
 
 app.use('/videos', express.static(videosDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
+app.use('/parts', express.static(partsDir));
 app.use('/backgrounds', express.static(backgroundsDir));
 
 const storage = multer.diskStorage({
@@ -47,6 +50,15 @@ const videoFileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ storage: storage, fileFilter: videoFileFilter });
+
+const partStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, partsDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'part-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const partUpload = multer({ storage: partStorage, fileFilter: videoFileFilter });
 
 const backgroundStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, backgroundsDir),
@@ -70,7 +82,8 @@ app.post('/api/admin/db-sync', async (req, res) => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         first_scene_id INT,
-        \`order\` INT DEFAULT 0
+        \`order\` INT DEFAULT 0,
+        loop_video_path VARCHAR(255)
       )
     `);
 
@@ -90,6 +103,13 @@ app.post('/api/admin/db-sync', async (req, res) => {
       await dbPool.query("ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
     } catch (e) { /* Already exists */ }
 
+    // Ensure loop_video_path column exists in parts
+    const [partColumns] = await dbPool.query("SHOW COLUMNS FROM parts LIKE 'loop_video_path'");
+    if (partColumns.length === 0) {
+      console.log('[DB-SYNC] Adding loop_video_path column to parts...');
+      await dbPool.query("ALTER TABLE parts ADD COLUMN loop_video_path VARCHAR(255)");
+    }
+
     console.log('[DB-SYNC] Migration completed successfully.');
     res.send({ message: 'Base de données synchronisée avec succès !' });
   } catch (err) {
@@ -108,21 +128,36 @@ app.get('/api/parts', async (req, res) => {
   }
 });
 
-app.post('/api/parts', async (req, res) => {
+app.post('/api/parts', partUpload.single('loop_video'), async (req, res) => {
   const { title, first_scene_id, order } = req.body;
+  const loop_video_path = req.file ? `/parts/${req.file.filename}` : null;
   try {
-    const [result] = await dbPool.execute('INSERT INTO parts (title, first_scene_id, `order`) VALUES (?, ?, ?)', [title, first_scene_id, order || 0]);
-    res.status(201).send({ id: result.insertId, title, first_scene_id, order: order || 0 });
+    const [result] = await dbPool.execute(
+      'INSERT INTO parts (title, first_scene_id, `order`, loop_video_path) VALUES (?, ?, ?, ?)',
+      [title, first_scene_id, order || 0, loop_video_path]
+    );
+    res.status(201).send({ id: result.insertId, title, first_scene_id, order: order || 0, loop_video_path });
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to create part.' });
   }
 });
 
-app.put('/api/parts/:id', async (req, res) => {
+app.put('/api/parts/:id', partUpload.single('loop_video'), async (req, res) => {
   const { title, first_scene_id, order } = req.body;
   try {
-    await dbPool.execute('UPDATE parts SET title = ?, first_scene_id = ?, `order` = ? WHERE id = ?', [title, first_scene_id, order, req.params.id]);
+    if (req.file) {
+      const loop_video_path = `/parts/${req.file.filename}`;
+      await dbPool.execute(
+        'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ?, loop_video_path = ? WHERE id = ?',
+        [title, first_scene_id, order, loop_video_path, req.params.id]
+      );
+    } else {
+      await dbPool.execute(
+        'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ? WHERE id = ?',
+        [title, first_scene_id, order, req.params.id]
+      );
+    }
     res.send({ message: 'Part updated successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -314,7 +349,11 @@ app.delete('/api/choices/:id', async (req, res) => {
 
 app.get('/api/player/scenes/:id', async (req, res) => {
   try {
-    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    const [sceneRows] = await dbPool.execute(
+      `SELECT s.*, p.loop_video_path as part_loop_video_path
+       FROM scenes s LEFT JOIN parts p ON s.part_id = p.id
+       WHERE s.id = ?`, [req.params.id]
+    );
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
     const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);

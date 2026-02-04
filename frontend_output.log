@@ -11,3 +11,5 @@ Port 5174 is in use, trying another one...
   ➜  Network: use --host to expose
   ➜  Vue DevTools: Open http://localhost:5175/__devtools__/ as a separate window
   ➜  Vue DevTools: Press Alt(⌥)+Shift(⇧)+D in App to toggle the Vue DevTools
+2:15:28 PM [vite] (client) hmr update /src/views/Admin/SceneList.vue, /src/views/Admin/SceneList.vue?vue&type=style&index=0&scoped=1da62740&lang.css
+2:15:42 PM [vite] (client) hmr update /src/views/Player.vue, /src/views/Player.vue?vue&type=style&index=0&scoped=bc6e7ee1&lang.css
