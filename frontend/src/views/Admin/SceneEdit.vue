@@ -20,14 +20,11 @@
         <label for="video">Fichier Vidéo</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
-      <button type="submit" class="button">Créer la Scène</button>
+      <button type="submit" class="button" :disabled="isSaving">Créer la Scène</button>
       <router-link to="/admin" class="button secondary">Annuler</router-link>
     </form>
 
-    <!-- Vue d'édition graphique en trois colonnes -->
     <div v-if="isEditing && relations" class="editor-layout">
-
-      <!-- Colonne 1: Scènes Parentes -->
       <div class="side-panel">
         <h3>Accessible Depuis (Parents)</h3>
         <ul class="relation-list">
@@ -36,79 +33,66 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
-          </li>
-          <li v-if="relations.parent_scenes.length === 0" class="empty-state">
-            Aucune scène ne mène ici.
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Supprimer ce lien d'origine" :disabled="isSaving">&times;</button>
           </li>
         </ul>
         <div class="add-choice-form">
           <h4>Ajouter un lien d'origine</h4>
           <form @submit.prevent="addParentLink">
-            <div class="form-group">
-              <label for="source-scene">Scène d'origine</label>
+            <div class="form-group"><label for="source-scene">Scène d'origine</label>
               <select id="source-scene" v-model="newParentLink.source_scene_id" required>
                 <option disabled value="">Choisir une scène...</option>
                 <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
               </select>
             </div>
-            <div class="form-group">
-              <label for="parent-choice-text">Texte du choix menant ici</label>
+            <div class="form-group"><label for="parent-choice-text">Texte du choix</label>
               <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
             </div>
-            <button type="submit" class="button">Lier cette scène</button>
+            <button type="submit" class="button" :disabled="isSaving">Lier cette scène</button>
           </form>
         </div>
       </div>
 
-      <!-- Colonne 2: Scène Actuelle -->
       <div class="center-panel">
         <h3>Scène Actuelle</h3>
         <form @submit.prevent="saveScene" class="center-form">
-          <div class="form-group">
-            <label for="title-edit">Titre</label>
+          <div class="form-group"><label for="title-edit">Titre</label>
             <input type="text" id="title-edit" v-model="scene.title" required>
           </div>
-          <div class="form-group">
-            <label for="part-edit">Partie</label>
+          <div class="form-group"><label for="part-edit">Partie</label>
             <select id="part-edit" v-model="scene.part_id">
               <option :value="null">Aucune</option>
               <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
             </select>
           </div>
-          <div v-if="scene.thumbnail_path" class="thumbnail-preview">
-            <img :src="scene.thumbnail_path" alt="Thumbnail">
-          </div>
-          <button type="submit" class="button">Enregistrer les changements</button>
+          <div v-if="scene.thumbnail_path" class="thumbnail-preview"><img :src="scene.thumbnail_path" alt="Thumbnail"></div>
+          <button type="submit" class="button" :disabled="isSaving">Enregistrer les changements</button>
         </form>
       </div>
 
-      <!-- Colonne 3: Scènes Enfants (Choix) -->
       <div class="side-panel">
         <h3>Mène Vers (Choix)</h3>
         <ul class="relation-list">
-          <li v-for="child in relations.child_scenes" :key="child.id">
+          <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
               "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
             </router-link>
-             <!-- Ici, on pourrait ajouter un bouton pour supprimer le choix directement -->
+            <button @click="removeChoice(child.choice_id)" class="button-delete" aria-label="Supprimer ce choix" :disabled="isSaving">&times;</button>
           </li>
         </ul>
         <div class="add-choice-form">
            <h4>Ajouter un nouveau choix</h4>
            <form @submit.prevent="addChoice">
-              <div class="form-group">
-                <label for="choice-text">Texte du choix</label>
+              <div class="form-group"><label for="choice-text">Texte du choix</label>
                 <input type="text" id="choice-text" v-model="newChoice.choice_text" required>
               </div>
-              <div class="form-group">
-                <label for="destination">Scène de destination</label>
+              <div class="form-group"><label for="destination">Scène de destination</label>
                 <select id="destination" v-model="newChoice.destination_scene_id" required>
                   <option disabled value="">Choisir une scène...</option>
                   <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
                 </select>
               </div>
-              <button type="submit" class="button">Ajouter le Choix</button>
+              <button type="submit" class="button" :disabled="isSaving">Ajouter le Choix</button>
            </form>
         </div>
       </div>
@@ -131,6 +115,7 @@ const route = useRoute();
 const router = useRouter();
 const isEditing = computed(() => !!props.id);
 
+const isSaving = ref(false);
 const scene = ref({ title: '' });
 const videoFile = ref(null);
 const allScenes = ref([]);
@@ -174,80 +159,73 @@ const handleFileUpload = (event) => {
 };
 
 const saveScene = async () => {
+  isSaving.value = true;
   const formData = new FormData();
   formData.append('title', scene.value.title);
   if (scene.value.part_id) formData.append('part_id', scene.value.part_id);
-  if (videoFile.value) {
-    formData.append('video', videoFile.value);
-  }
-
+  if (videoFile.value) formData.append('video', videoFile.value);
   try {
     if (isEditing.value) {
-      // Note: We're not supporting video replacement in this simple UI for now.
-      // We'll just update the title.
       await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
       alert('Scene updated!');
     } else {
-      await axios.post('/api/scenes', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      await axios.post('/api/scenes', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       alert('Scene created!');
     }
     router.push('/admin');
   } catch (err) {
-    console.error('Failed to save scene:', err);
+    console.error('Save failed:', err);
     alert('Failed to save scene.');
-  }
+  } finally { isSaving.value = false; }
 };
 
 const addChoice = async () => {
+  isSaving.value = true;
   try {
     await axios.post(`/api/scenes/${props.id}/choices`, newChoice.value);
-    // Re-fetch data to show the new choice
-    fetchSceneData();
-    // Reset form
-    newChoice.value.choice_text = '';
-    newChoice.value.destination_scene_id = '';
+    await fetchSceneData();
+    newChoice.value = { choice_text: '', destination_scene_id: '' };
   } catch (err) {
-    console.error('Failed to add choice:', err);
+    console.error('Add choice failed:', err);
     alert('Failed to add choice.');
-  }
+  } finally { isSaving.value = false; }
 };
 
 const addParentLink = async () => {
-  if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) {
-    alert('Veuillez sélectionner une scène d\'origine et saisir un texte pour le choix.');
-    return;
-  }
-
-  const choiceData = {
-    destination_scene_id: props.id,
-    choice_text: newParentLink.value.choice_text,
-  };
-
+  if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) return alert('Saisie incomplète.');
+  isSaving.value = true;
   try {
-    await axios.post(`/api/scenes/${newParentLink.value.source_scene_id}/choices`, choiceData);
-    await fetchSceneData(); // Refresh the parent list
-    newParentLink.value = { source_scene_id: '', choice_text: '' }; // Reset form
+    await axios.post(`/api/scenes/${newParentLink.value.source_scene_id}/choices`, { destination_scene_id: props.id, choice_text: newParentLink.value.choice_text });
+    await fetchSceneData();
+    newParentLink.value = { source_scene_id: '', choice_text: '' };
   } catch (err) {
-    console.error('Failed to add parent link:', err);
+    console.error('Add parent link failed:', err);
     alert('Failed to add parent link.');
-  }
+  } finally { isSaving.value = false; }
 };
 
 const removeParentLink = async (choiceId) => {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer ce lien d\'origine ?')) {
-    return;
-  }
+  if (!confirm('Supprimer ce lien d\'origine ?')) return;
+  isSaving.value = true;
   try {
     await axios.delete(`/api/choices/${choiceId}`);
-    await fetchSceneData(); // Refresh the parent list
+    await fetchSceneData();
   } catch (err) {
-    console.error('Failed to remove parent link:', err);
-    alert('Failed to remove parent link.');
-  }
+    console.error('Remove parent failed:', err);
+    alert('Failed to remove link.');
+  } finally { isSaving.value = false; }
+};
+
+const removeChoice = async (choiceId) => {
+  if (!confirm('Supprimer ce choix ?')) return;
+  isSaving.value = true;
+  try {
+    await axios.delete(`/api/choices/${choiceId}`);
+    await fetchSceneData();
+  } catch (err) {
+    console.error('Remove choice failed:', err);
+    alert('Failed to remove choice.');
+  } finally { isSaving.value = false; }
 };
 
 onMounted(() => {
@@ -359,4 +337,8 @@ input[type="text"], select {
 .simple-form {
   max-width: 500px;
 }
+.relation-item { display: flex; align-items: center; gap: 0.5rem; }
+.relation-item a { flex-grow: 1; }
+.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; }
+.button-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
