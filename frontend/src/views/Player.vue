@@ -14,6 +14,11 @@
             </li>
           </ul>
           <p v-else>C'est le début de l'histoire.</p>
+
+          <!-- Vidéo de Chapitre en Boucle -->
+          <div v-if="sceneData.current_scene.part_loop_video_path" class="part-loop-container">
+            <video :src="sceneData.current_scene.part_loop_video_path" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
+          </div>
         </div>
       </div>
 
@@ -331,5 +336,17 @@ li a:focus-visible {
   background-color: #3a3a3a;
   outline: 2px solid transparent;
   box-shadow: 0 0 0 2px #42b983;
+}
+
+.part-loop-container {
+  margin-top: 2rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.loop-video {
+  width: 100%;
+  display: block;
 }
 </style>

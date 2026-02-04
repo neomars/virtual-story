@@ -7,7 +7,8 @@ const createPartsTableSQL = `
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     first_scene_id INT,
-    \`order\` INT DEFAULT 0
+    \`order\` INT DEFAULT 0,
+    loop_video_path VARCHAR(255)
   );
 `;
 

@@ -26,17 +26,27 @@
         </button>
       </div>
       <p class="instruction-text">Note : Utilisez le bouton "Synchroniser" si vous rencontrez des erreurs de chargement ou de création.</p>
-      <form @submit.prevent="createPart" class="upload-form">
-        <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
-        <select v-model="newPart.first_scene_id" required>
-          <option disabled value="">Scène de départ</option>
-          <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
-        </select>
-        <button type="submit" class="button">Ajouter</button>
+      <form @submit.prevent="createPart" class="upload-form multipart-form">
+        <div class="form-row">
+          <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
+          <select v-model="newPart.first_scene_id" required>
+            <option disabled value="">Scène de départ</option>
+            <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="part-loop-upload" class="button secondary-btn">Vidéo Boucle (Optionnel)</label>
+          <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
+          <span v-if="partLoopFile" class="file-name">{{ partLoopFile.name }}</span>
+          <button type="submit" class="button">Ajouter la Partie</button>
+        </div>
       </form>
       <ul class="parts-list">
         <li v-for="part in parts" :key="part.id">
-          <span>{{ part.title }} (ID Départ: {{ part.first_scene_id }})</span>
+          <span>
+            {{ part.title }} (Départ ID: {{ part.first_scene_id }})
+            <span v-if="part.loop_video_path" class="badge-video">📹 Loop</span>
+          </span>
           <button @click="deletePart(part.id)" class="button-delete">&times;</button>
         </li>
       </ul>
@@ -88,6 +98,7 @@ const isSuccess = ref(false);
 const parts = ref([]);
 const allScenes = ref([]);
 const newPart = ref({ title: '', first_scene_id: '' });
+const partLoopFile = ref(null);
 const isSyncing = ref(false);
 
 const syncDatabase = async () => {
@@ -114,10 +125,28 @@ const fetchAllScenes = async () => {
   allScenes.value = res.data;
 };
 
+const handlePartFileChange = (event) => {
+  partLoopFile.value = event.target.files[0];
+};
+
 const createPart = async () => {
   try {
-    await axios.post('/api/parts', newPart.value);
+    const formData = new FormData();
+    formData.append('title', newPart.value.title);
+    formData.append('first_scene_id', newPart.value.first_scene_id);
+    if (partLoopFile.value) {
+      formData.append('loop_video', partLoopFile.value);
+    }
+
+    await axios.post('/api/parts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
     newPart.value = { title: '', first_scene_id: '' };
+    partLoopFile.value = null;
+    const fileInput = document.querySelector('#part-loop-upload');
+    if (fileInput) fileInput.value = '';
+
     fetchParts();
     alert('Partie créée avec succès !');
   } catch (err) {
@@ -274,5 +303,10 @@ onMounted(() => {
 .parts-list li { display: flex; justify-content: space-between; background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
 .button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; }
 .instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
-input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; }
+input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; flex: 1; }
+
+.multipart-form { flex-direction: column; align-items: stretch; }
+.form-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+.secondary-btn { background-color: #555 !important; }
+.badge-video { background: #42b983; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 10px; }
 </style>
