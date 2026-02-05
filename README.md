@@ -122,15 +122,36 @@ Chaque scène dans le graphe dispose de boutons pour **"Éditer"** (modifier ses
 ### Gérer les Scènes
 
 1.  **Ajouter une Scène Racine :** Utilisez le bouton **"Ajouter une Scène Racine"** pour créer une nouvelle scène qui sera un point de départ pour une branche de votre histoire.
-2.  **Éditer une Scène :** Sur la page d'édition, vous pouvez :
-    -   Modifier le titre de la scène.
+2.  **Création en série :** Lors de la création d'une scène, vous restez sur la page de formulaire après validation. Cela permet de créer rapidement de nombreuses scènes à la suite sans revenir à la liste.
+3.  **Éditer une Scène :** Sur la page d'édition, vous pouvez :
+    -   Modifier le titre de la scène et l'associer à un **Chapitre**.
     -   Téléverser une nouvelle vidéo et sa miniature.
     -   **Ajouter un choix (enfant) :** Liez cette scène à une autre en créant un choix.
     -   **Lier un parent :** Créez un lien *entrant* depuis une autre scène, la transformant en enfant de cette dernière.
 
+### Gestion des Parties (Chapitres)
+
+Le système de "Parties" permet d'organiser votre narration en chapitres distincts.
+
+-   **Création :** Donnez un titre à votre chapitre et sélectionnez sa scène de départ.
+-   **Édition :** Vous pouvez renommer un chapitre ou modifier sa scène de départ à tout moment.
+-   **Vidéo d'Ambiance (Loop) :** Vous pouvez téléverser une "vidéo boucle" par chapitre. Cette vidéo sera affichée en arrière-plan dans le lecteur (panneau de gauche) pour renforcer l'immersion.
+-   **Navigation :** Les chapitres apparaissent dans l'en-tête de l'application pour un accès rapide.
+
+### Synchronisation de la Base de Données
+
+Si vous rencontrez des erreurs de type "Unknown column" ou si vous venez de mettre à jour l'application, utilisez le bouton **"Synchroniser la Base de Données"** dans l'onglet Administration. Cet outil mettra à jour votre schéma SQL automatiquement.
+
+### Expérience de Lecture
+
+Le lecteur a été optimisé pour une immersion totale :
+-   **Pleine Page :** Les vidéos s'affichent automatiquement en mode "pleine page" (overlay CSS) pour masquer l'interface pendant la lecture.
+-   **Autoplay Intelligent :** L'application tente de lancer la vidéo avec le son, et bascule en mode muet si le navigateur bloque la lecture automatique.
+-   **Navigation Narrative :** Le bouton "Scènes Précédentes" permet de revenir en arrière dans l'histoire, et non simplement dans l'historique du navigateur.
+
 ### Personnaliser l'Arrière-plan
 
-Dans la section **"Arrière-plan du Lecteur"**, vous pouvez téléverser une image de fond qui sera affichée derrière les vidéos dans l'interface du lecteur.
+Dans la section **"Arrière-plan du Lecteur"**, vous pouvez téléverser une image de fond globale qui sera affichée derrière l'interface du lecteur.
 
 ## Auteur
 
