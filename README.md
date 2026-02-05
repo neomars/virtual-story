@@ -21,9 +21,9 @@ Follow these steps to set up the project for development.
 Ensure you have the following software installed on your system:
 
 -   **Node.js:** (v18 or later recommended)
--   **npm:** (comes with Node.js)
+-   **pnpm:** (used for dependency management)
 -   **MariaDB:** A running instance of the MariaDB server.
--   **ffmpeg:** This is required for video processing tasks in the administration panel (e.g., generating thumbnails). You can install it using your system's package manager (e.g., `apt`, `brew`, `choco`).
+-   **ffmpeg:** Required for video processing tasks in the administration panel (e.g., generating thumbnails). You can install it using your system's package manager (e.g., `apt`, `brew`, `choco`).
 
 ### 2. Clone the Repository
 
@@ -34,7 +34,7 @@ cd virtual-story
 
 ### 3. Database Setup
 
-You need to create a dedicated database and user for the application.
+Create a dedicated database and user for the application.
 
 1.  Log in to your MariaDB server as a user with sufficient privileges (e.g., `root`):
     ```bash
@@ -67,7 +67,7 @@ You need to create a dedicated database and user for the application.
 
 4.  Install the dependencies:
     ```bash
-    npm install
+    pnpm install
     ```
 
 ### 5. Frontend Setup
@@ -79,7 +79,7 @@ You need to create a dedicated database and user for the application.
 
 2.  Install the dependencies:
     ```bash
-    npm install
+    pnpm install
     ```
 
 ## How to Run
@@ -100,59 +100,60 @@ You need to create a dedicated database and user for the application.
 3.  **Start the Frontend Development Server:**
     In a new terminal, navigate to the **frontend directory** and run:
     ```bash
-    npm run dev
+    pnpm dev
     ```
     The application will be accessible at `http://localhost:5173` (or the next available port).
 
-## Tutoriel d'Utilisation
+## Usage Tutorial
 
-L'interface d'administration vous permet de construire et de visualiser votre histoire interactive.
+The administration interface allows you to build and visualize your interactive story.
 
-### Vue Principale : Graphe de l'Histoire
+### Main View: Story Graph
 
-La page principale de l'administration affiche le "Graphe de l'Histoire", une vue hiérarchique qui vous montre les connexions entre toutes vos scènes.
+The main admin page displays the "Story Graph", a hierarchical view showing connections between all your scenes.
 
--   **Scènes Racines :** Les scènes sans parent sont affichées au niveau supérieur.
--   **Scènes Enfants :** Les scènes liées par un choix sont imbriquées sous leur scène parente.
+-   **Root Scenes:** Scenes without a parent are displayed at the top level.
+-   **Child Scenes:** Scenes linked by a choice are nested under their parent scene.
+-   **Chapter Badges:** Scenes associated with a chapter display a badge with the chapter name.
 
-Chaque scène dans le graphe dispose de boutons pour **"Éditer"** (modifier ses détails et ses liens) ou **"Voir"** (la prévisualiser dans le lecteur).
+Each scene in the graph has buttons to **"Edit"** (modify details and links) or **"View"** (preview it in the player).
 
-![Graphe de l'Histoire](docs/images/admin_story_graph.png)
+![Story Graph](docs/images/admin_story_graph.png)
 
-### Gérer les Scènes
+### Managing Scenes
 
-1.  **Ajouter une Scène Racine :** Utilisez le bouton **"Ajouter une Scène Racine"** pour créer une nouvelle scène qui sera un point de départ pour une branche de votre histoire.
-2.  **Création en série :** Lors de la création d'une scène, vous restez sur la page de formulaire après validation. Cela permet de créer rapidement de nombreuses scènes à la suite sans revenir à la liste.
-3.  **Éditer une Scène :** Sur la page d'édition, vous pouvez :
-    -   Modifier le titre de la scène et l'associer à un **Chapitre**.
-    -   Téléverser une nouvelle vidéo et sa miniature.
-    -   **Ajouter un choix (enfant) :** Liez cette scène à une autre en créant un choix.
-    -   **Lier un parent :** Créez un lien *entrant* depuis une autre scène, la transformant en enfant de cette dernière.
+1.  **Add a Root Scene:** Use the **"Add Root Scene"** button to create a new scene that will be a starting point for a narrative branch.
+2.  **Sequential Creation:** When creating a scene, you stay on the form page after saving. This allows you to quickly enter multiple scenes in a row without returning to the list.
+3.  **Edit a Scene:** On the edit page, you can:
+    -   Modify the scene title and associate it with a **Chapter**.
+    -   Upload a new video and its thumbnail.
+    -   **Add a choice (child):** Link this scene to another by creating a choice.
+    -   **Link a parent:** Create an incoming link from another scene, making this one its child.
 
-### Gestion des Parties (Chapitres)
+### Chapter Management (Parts)
 
-Le système de "Parties" permet d'organiser votre narration en chapitres distincts.
+The "Parts" system organizes your narrative into distinct chapters.
 
--   **Création :** Donnez un titre à votre chapitre et sélectionnez sa scène de départ.
--   **Édition :** Vous pouvez renommer un chapitre ou modifier sa scène de départ à tout moment.
--   **Vidéo d'Ambiance (Loop) :** Vous pouvez téléverser une "vidéo boucle" par chapitre. Cette vidéo sera affichée en arrière-plan dans le lecteur (panneau de gauche) pour renforcer l'immersion.
--   **Navigation :** Les chapitres apparaissent dans l'en-tête de l'application pour un accès rapide.
+-   **Creation:** Give your chapter a title and select its starting scene.
+-   **Editing:** You can rename a chapter or change its starting scene at any time.
+-   **Ambient Loop Video:** You can upload one looping video per chapter. This video is displayed in the background of the player (left panel) to enhance immersion.
+-   **Navigation:** Chapters appear in the application header for quick access.
 
-### Synchronisation de la Base de Données
+### Database Synchronization
 
-Si vous rencontrez des erreurs de type "Unknown column" ou si vous venez de mettre à jour l'application, utilisez le bouton **"Synchroniser la Base de Données"** dans l'onglet Administration. Cet outil mettra à jour votre schéma SQL automatiquement.
+If you encounter "Unknown column" errors or after updating the application, use the **"Synchronize Database"** button in the Administration tab. This tool updates your SQL schema automatically.
 
-### Expérience de Lecture
+### Player Experience
 
-Le lecteur a été optimisé pour une immersion totale :
--   **Pleine Page :** Les vidéos s'affichent automatiquement en mode "pleine page" (overlay CSS) pour masquer l'interface pendant la lecture.
--   **Autoplay Intelligent :** L'application tente de lancer la vidéo avec le son, et bascule en mode muet si le navigateur bloque la lecture automatique.
--   **Navigation Narrative :** Le bouton "Scènes Précédentes" permet de revenir en arrière dans l'histoire, et non simplement dans l'historique du navigateur.
+The player is optimized for full immersion:
+-   **Full-Page Mode:** Videos automatically display in "full-page" mode (CSS overlay) to hide the interface during playback.
+-   **Smart Autoplay:** The application attempts to start the video with sound, falling back to muted mode if the browser blocks automatic playback.
+-   **Narrative Navigation:** The "Previous Scenes" button allows you to go back in the story flow rather than just the browser history.
 
-### Personnaliser l'Arrière-plan
+### Customizing the Background
 
-Dans la section **"Arrière-plan du Lecteur"**, vous pouvez téléverser une image de fond globale qui sera affichée derrière l'interface du lecteur.
+In the **"Player Background"** section, you can upload a global background image displayed behind the player interface.
 
-## Auteur
+## Author
 
 - **Martial Limousin** - martial.limousin@gmail.com
