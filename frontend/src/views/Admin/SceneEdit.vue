@@ -42,7 +42,7 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Supprimer le lien d'origine">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             Aucune scène ne mène ici.
@@ -93,11 +93,11 @@
       <div class="side-panel">
         <h3>Mène Vers (Choix)</h3>
         <ul class="relation-list">
-          <li v-for="child in relations.child_scenes" :key="child.id">
+          <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
               "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
             </router-link>
-             <!-- Ici, on pourrait ajouter un bouton pour supprimer le choix directement -->
+            <button @click="removeChoice(child.choice_id)" class="button-delete" aria-label="Supprimer ce choix">&times;</button>
           </li>
         </ul>
         <div class="add-choice-form">
@@ -262,6 +262,19 @@ const removeParentLink = async (choiceId) => {
   }
 };
 
+const removeChoice = async (choiceId) => {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer ce choix ?')) {
+    return;
+  }
+  try {
+    await axios.delete(`/api/choices/${choiceId}`);
+    await fetchSceneData(); // Refresh the child list
+  } catch (err) {
+    console.error('Failed to remove choice:', err);
+    alert('Failed to remove choice.');
+  }
+};
+
 onMounted(() => {
   fetchSceneData();
   fetchAllScenes();
@@ -328,20 +341,38 @@ watch(() => props.id, () => {
   padding: 0;
   margin: 0;
 }
-.relation-list li {
-  margin-bottom: 1rem;
-}
-.relation-list a {
-  display: block;
-  padding: 1rem;
+.relation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background-color: #3a3a3a;
   border-radius: 5px;
+  margin-bottom: 1rem;
+}
+.relation-item a {
+  flex-grow: 1;
+  padding: 1rem;
   color: #e0e0e0;
   text-decoration: none;
   transition: background-color 0.2s;
+  border-radius: 5px 0 0 5px;
 }
-.relation-list a:hover {
+.relation-item a:hover {
   background-color: #4a4a4a;
+}
+.button-delete {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+  transition: background-color 0.2s;
+}
+.button-delete:hover {
+  background: #dc2626;
 }
 .empty-state {
   font-style: italic;

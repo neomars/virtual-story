@@ -28,11 +28,17 @@
       <p class="instruction-text">Note : Utilisez le bouton "Synchroniser" si vous rencontrez des erreurs de chargement ou de création.</p>
       <form @submit.prevent="createPart" class="upload-form multipart-form">
         <div class="form-row">
-          <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
-          <select v-model="newPart.first_scene_id" required>
-            <option disabled value="">Scène de départ</option>
-            <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
-          </select>
+          <div class="input-group">
+            <label for="new-part-title" class="sr-only">Titre de la partie</label>
+            <input id="new-part-title" type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
+          </div>
+          <div class="input-group">
+            <label for="new-part-scene" class="sr-only">Scène de départ</label>
+            <select id="new-part-scene" v-model="newPart.first_scene_id" required>
+              <option disabled value="">Scène de départ</option>
+              <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+            </select>
+          </div>
         </div>
         <div class="form-row">
           <label for="part-loop-upload" class="button secondary-btn">Vidéo Boucle (Optionnel)</label>
@@ -44,10 +50,14 @@
       <ul class="parts-list">
         <li v-for="part in parts" :key="part.id">
           <div v-if="editingPartId === part.id" class="edit-part-inline">
-            <input type="text" v-model="editPartData.title" placeholder="Titre" />
-            <select v-model="editPartData.first_scene_id">
+            <label :for="'edit-title-' + part.id" class="sr-only">Titre</label>
+            <input :id="'edit-title-' + part.id" type="text" v-model="editPartData.title" placeholder="Titre" />
+
+            <label :for="'edit-scene-' + part.id" class="sr-only">Scène de départ</label>
+            <select :id="'edit-scene-' + part.id" v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
+
             <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Vidéo Loop</label>
             <input :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
             <button @click="updatePart(part.id)" class="button mini">Enregistrer</button>
@@ -60,7 +70,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini">Éditer</button>
-              <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" aria-label="Supprimer la partie">&times;</button>
             </div>
           </div>
         </li>
@@ -371,6 +381,7 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
 
 .multipart-form { flex-direction: column; align-items: stretch; }
 .form-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+.input-group { flex: 1; display: flex; flex-direction: column; }
 .secondary-btn { background-color: #555 !important; }
 .badge-video { background: #42b983; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 10px; }
 </style>
