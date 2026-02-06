@@ -16,8 +16,8 @@
           <p v-else>C'est le début de l'histoire.</p>
 
           <!-- Vidéo de Chapitre en Boucle -->
-          <div v-if="sceneData.current_scene.part_loop_video_path" class="part-loop-container">
-            <video :src="sceneData.current_scene.part_loop_video_path" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
+          <div v-if="currentPartLoopVideo" class="part-loop-container">
+            <video :src="currentPartLoopVideo" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
           </div>
         </div>
       </div>
@@ -78,6 +78,7 @@ const isVideoPlaying = ref(false);
 const showChoices = ref(false);
 const videoPlayer = ref(null);
 const backgroundUrl = ref(null);
+const currentPartLoopVideo = ref(null);
 
 
 // --- Background Image Handling ---
@@ -121,6 +122,14 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
+
+    // Logic for inheriting part loop video
+    // If the scene belongs to a part (part_id is not null), we update the current loop video.
+    // If it doesn't have a part_id, we keep the previous one (inheritance).
+    if (sceneData.value.current_scene.part_id !== null && sceneData.value.current_scene.part_id !== undefined) {
+      currentPartLoopVideo.value = sceneData.value.current_scene.part_loop_video_path;
+    }
+
     isVideoPlaying.value = true;
 
     // Si la vidéo était déjà affichée, le watcher sur videoPlayer ne se déclenchera pas.
