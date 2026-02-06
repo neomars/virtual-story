@@ -21,7 +21,7 @@
     <div class="settings-section">
       <div class="section-header">
         <h2>Gestion des Parties (Chapitres)</h2>
-        <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
+        <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing" :aria-busy="isSyncing">
           {{ isSyncing ? 'Synchronisation...' : 'Synchroniser la Base de Données' }}
         </button>
       </div>
@@ -60,7 +60,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini">Éditer</button>
-              <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" aria-label="Supprimer la partie">&times;</button>
             </div>
           </div>
         </li>
