@@ -389,15 +389,32 @@ app.get('/api/player/scenes/:id', async (req, res) => {
     const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
     const [choicesRows] = await dbPool.execute(`SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?`, [req.params.id]);
 
-    // Fetch siblings (scenes that share the same parent)
-    const [siblingsRows] = await dbPool.execute(
-      `SELECT DISTINCT s.id, s.title
-       FROM scenes s
-       JOIN choices c ON s.id = c.destination_scene_id
-       WHERE c.source_scene_id IN (
-         SELECT source_scene_id FROM choices WHERE destination_scene_id = ?
-       ) AND s.id != ?`, [req.params.id, req.params.id]
-    );
+    // Fetch siblings (scenes that share at least one common parent)
+    // If previous_scene_id is provided, we fetch siblings specifically from that parent
+    const prevId = req.query.previous_scene_id;
+    let siblingsQuery, queryParams;
+
+    if (prevId) {
+      siblingsQuery = `
+        SELECT s.id, s.title, c.choice_text
+        FROM scenes s
+        JOIN choices c ON s.id = c.destination_scene_id
+        WHERE c.source_scene_id = ? AND s.id != ?
+      `;
+      queryParams = [prevId, req.params.id];
+    } else {
+      siblingsQuery = `
+        SELECT DISTINCT s.id, s.title, c.choice_text
+        FROM scenes s
+        JOIN choices c ON s.id = c.destination_scene_id
+        WHERE c.source_scene_id IN (
+          SELECT source_scene_id FROM choices WHERE destination_scene_id = ?
+        ) AND s.id != ?
+      `;
+      queryParams = [req.params.id, req.params.id];
+    }
+
+    const [siblingsRows] = await dbPool.execute(siblingsQuery, queryParams);
 
     res.send({
       current_scene: currentScene,
