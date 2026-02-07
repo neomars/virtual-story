@@ -349,12 +349,42 @@ app.delete('/api/choices/:id', async (req, res) => {
 
 app.get('/api/player/scenes/:id', async (req, res) => {
   try {
+    // We try to get the scene and its part loop video.
+    // If the scene itself doesn't have a part_id, we look at its ancestors to see if they belong to a part.
+    // This allows inheritance of the loop video for scenes that are "inside" a chapter flow.
     const [sceneRows] = await dbPool.execute(
-      `SELECT s.*, p.loop_video_path as part_loop_video_path
-       FROM scenes s LEFT JOIN parts p ON s.part_id = p.id
-       WHERE s.id = ?`, [req.params.id]
+      `WITH RECURSIVE scene_ancestry AS (
+         SELECT id, part_id, 0 as depth FROM scenes WHERE id = ?
+         UNION ALL
+         SELECT s.id, s.part_id, sa.depth + 1
+         FROM scenes s
+         JOIN choices c ON s.id = c.source_scene_id
+         JOIN scene_ancestry sa ON c.destination_scene_id = sa.id
+         WHERE sa.part_id IS NULL AND sa.depth < 10
+       )
+       SELECT s.*, p.loop_video_path as part_loop_video_path, sa.part_id as inherited_part_id
+       FROM scenes s
+       CROSS JOIN (SELECT part_id FROM scene_ancestry WHERE part_id IS NOT NULL LIMIT 1) sa
+       LEFT JOIN parts p ON sa.part_id = p.id
+       WHERE s.id = ?`, [req.params.id, req.params.id]
     );
-    if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
+
+    // Fallback if no ancestor has a part_id or if it's the root scene itself
+    let currentScene;
+    if (sceneRows.length === 0) {
+      const [directRows] = await dbPool.execute(
+        `SELECT s.*, p.loop_video_path as part_loop_video_path
+         FROM scenes s LEFT JOIN parts p ON s.part_id = p.id
+         WHERE s.id = ?`, [req.params.id]
+      );
+      if (directRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
+      currentScene = directRows[0];
+    } else {
+      currentScene = sceneRows[0];
+      if (!currentScene.part_id && currentScene.inherited_part_id) {
+        currentScene.part_id = currentScene.inherited_part_id;
+      }
+    }
 
     const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
     const [choicesRows] = await dbPool.execute(`SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?`, [req.params.id]);
@@ -370,7 +400,7 @@ app.get('/api/player/scenes/:id', async (req, res) => {
     );
 
     res.send({
-      current_scene: sceneRows[0],
+      current_scene: currentScene,
       parent_scenes: parentScenesRows,
       next_choices: choicesRows,
       sibling_scenes: siblingsRows

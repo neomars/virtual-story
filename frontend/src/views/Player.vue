@@ -255,9 +255,13 @@ onUnmounted(() => {
 }
 
 .siblings-nav {
+  width: 100%;
   margin-bottom: 1rem;
   text-align: center;
   font-size: 0.85rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .sibling-link {
