@@ -27,7 +27,7 @@
         <!-- Sibling Navigation -->
         <div v-if="sceneData.sibling_scenes && sceneData.sibling_scenes.length > 0" class="siblings-nav">
           <template v-for="(sibling, index) in sceneData.sibling_scenes" :key="sibling.id">
-            <router-link :to="`/player/${sibling.id}`" class="sibling-link">{{ sibling.title }}</router-link>
+            <router-link :to="`/player/${sibling.id}`" class="sibling-link">{{ sibling.choice_text || sibling.title }}</router-link>
             <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator"> | </span>
           </template>
         </div>
