@@ -24,6 +24,14 @@
 
       <!-- Center: Thumbnail/Video -->
       <div class="center-panel">
+        <!-- Sibling Navigation -->
+        <div v-if="sceneData.sibling_scenes && sceneData.sibling_scenes.length > 0" class="siblings-nav">
+          <template v-for="(sibling, index) in sceneData.sibling_scenes" :key="sibling.id">
+            <router-link :to="`/player/${sibling.id}`" class="sibling-link">{{ sibling.title }}</router-link>
+            <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator"> | </span>
+          </template>
+        </div>
+
         <div
           v-if="!isVideoPlaying"
           @click="playVideo"
@@ -240,9 +248,30 @@ onUnmounted(() => {
 .center-panel {
   flex: 2;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   position: relative;
+}
+
+.siblings-nav {
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.sibling-link {
+  color: #42b983;
+  text-decoration: none;
+}
+
+.sibling-link:hover {
+  text-decoration: underline;
+}
+
+.separator {
+  margin: 0 0.3rem;
+  color: #42b983;
 }
 
 .thumbnail-container {

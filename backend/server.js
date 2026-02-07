@@ -359,7 +359,22 @@ app.get('/api/player/scenes/:id', async (req, res) => {
     const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
     const [choicesRows] = await dbPool.execute(`SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?`, [req.params.id]);
 
-    res.send({ current_scene: sceneRows[0], parent_scenes: parentScenesRows, next_choices: choicesRows });
+    // Fetch siblings (scenes that share the same parent)
+    const [siblingsRows] = await dbPool.execute(
+      `SELECT DISTINCT s.id, s.title
+       FROM scenes s
+       JOIN choices c ON s.id = c.destination_scene_id
+       WHERE c.source_scene_id IN (
+         SELECT source_scene_id FROM choices WHERE destination_scene_id = ?
+       ) AND s.id != ?`, [req.params.id, req.params.id]
+    );
+
+    res.send({
+      current_scene: sceneRows[0],
+      parent_scenes: parentScenesRows,
+      next_choices: choicesRows,
+      sibling_scenes: siblingsRows
+    });
   } catch (dbError) {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scene data for the player.' });
