@@ -10,7 +10,7 @@
           <h3>Scènes Précédentes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
-              <router-link :to="`/player/${parent.id}`">{{ parent.title }}</router-link>
+              <router-link :to="{ path: `/player/${parent.id}` }">{{ parent.title }}</router-link>
             </li>
           </ul>
           <p v-else>C'est le début de l'histoire.</p>
@@ -27,7 +27,9 @@
         <!-- Sibling Navigation -->
         <div v-if="sceneData.sibling_scenes && sceneData.sibling_scenes.length > 0" class="siblings-nav">
           <template v-for="(sibling, index) in sceneData.sibling_scenes" :key="sibling.id">
-            <router-link :to="`/player/${sibling.id}`" class="sibling-link">{{ sibling.choice_text || sibling.title }}</router-link>
+            <router-link :to="{ path: `/player/${sibling.id}`, query: { from: route.query.from } }" class="sibling-link">
+              {{ sibling.choice_text || sibling.title }}
+            </router-link>
             <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator"> | </span>
           </template>
         </div>
@@ -58,7 +60,9 @@
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="choice in sceneData.next_choices" :key="choice.id">
-                <router-link :to="`/player/${choice.destination_scene_id}`">{{ choice.choice_text }}</router-link>
+                <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
+                  {{ choice.choice_text }}
+                </router-link>
               </li>
             </ul>
             <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
@@ -116,7 +120,7 @@ const fetchBackground = async () => {
 
 
 // --- Scene Data Handling ---
-const fetchSceneData = async (sceneId, prevSceneId) => {
+const fetchSceneData = async (sceneId, parentId) => {
   loading.value = true;
   error.value = null;
   // On ne remet pas isVideoPlaying à false ici pour éviter le flash de la miniature
@@ -125,8 +129,8 @@ const fetchSceneData = async (sceneId, prevSceneId) => {
 
   try {
     let url = `/api/player/scenes/${sceneId}`;
-    if (prevSceneId) {
-      url += `?previous_scene_id=${prevSceneId}`;
+    if (parentId) {
+      url += `?previous_scene_id=${parentId}`;
     }
     const response = await axios.get(url);
     sceneData.value = response.data;
@@ -202,8 +206,8 @@ watch(videoPlayer, (el) => {
 });
 
 // Watch for route changes to fetch new scene data
-watch(() => props.id, (newId, oldId) => {
-  fetchSceneData(newId, oldId);
+watch([() => props.id, () => route.query.from], ([newId, newFrom]) => {
+  fetchSceneData(newId, newFrom);
 }, { immediate: true });
 
 // Masquer les barres de défilement en mode plein écran
