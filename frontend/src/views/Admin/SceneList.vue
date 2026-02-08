@@ -81,11 +81,19 @@
       <p>Astuce : Si c'est votre première utilisation ou après une mise à jour, cliquez sur le bouton <strong>"Synchroniser la Base de Données"</strong> ci-dessus pour préparer les tables.</p>
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
-      <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene">
-        <div v-if="rootScene.part_title" class="part-badge">
-          Chapitre : {{ rootScene.part_title }}
+      <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
+        <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
+          <div class="chapter-info">
+            <div v-if="rootScene.part_title" class="part-badge">
+              Chapitre : {{ rootScene.part_title }}
+            </div>
+            <span class="root-title">{{ rootScene.title }}</span>
+          </div>
+          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }">▼</span>
         </div>
-        <SceneNode :scene="rootScene" />
+        <div v-if="expandedChapters[rootScene.id]" class="chapter-content">
+          <SceneNode :scene="rootScene" />
+        </div>
       </div>
     </div>
     <div v-else class="empty-state">
@@ -103,6 +111,11 @@ import SceneNode from '../../components/SceneNode.vue';
 const storyGraph = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const expandedChapters = ref({});
+
+const toggleChapter = (id) => {
+  expandedChapters.value[id] = !expandedChapters.value[id];
+};
 
 // --- State for Background Upload ---
 const selectedFile = ref(null);
@@ -332,10 +345,41 @@ onMounted(() => {
 }
 .root-scene {
   background-color: #2a2a2a;
-  padding: 15px;
   border-radius: 5px;
   margin-bottom: 20px;
   border-top: 4px solid #42b983;
+  overflow: hidden;
+}
+.chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.chapter-header:hover {
+  background-color: #333;
+}
+.chapter-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.root-title {
+  font-weight: bold;
+  color: #eee;
+}
+.arrow {
+  font-size: 0.8rem;
+  color: #42b983;
+  transition: transform 0.3s ease;
+}
+.arrow.is-rotated {
+  transform: rotate(180deg);
+}
+.chapter-content {
+  padding: 0 15px 15px 15px;
 }
 .part-badge {
   display: inline-block;
@@ -345,7 +389,6 @@ onMounted(() => {
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: bold;
-  margin-bottom: 10px;
 }
 .root-scene > :deep(.scene-node) {
   margin-left: 0;
