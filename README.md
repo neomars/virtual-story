@@ -64,6 +64,7 @@ Create a dedicated database and user for the application.
     ```
 
 3.  Edit the new `.env` file and replace the placeholder values with the database credentials you just created.
+    - **Note:** You should also set a unique `SESSION_SECRET` for security.
 
 4.  Install the dependencies:
     ```bash
@@ -106,7 +107,15 @@ Create a dedicated database and user for the application.
 
 ## Usage Tutorial
 
-The administration interface allows you to build and visualize your interactive story.
+The administration interface allows you to build and visualize your interactive story. It is protected by authentication to ensure only authorized users can modify the story.
+
+### Security and Authentication
+
+-   **Initial Credentials:** After initializing the database, the default user is `admin` with the password `admin`.
+-   **Logging In:** Click the **"Admin"** link in the header. If you are not logged in, a modal will appear requesting your credentials.
+-   **Changing Password:** Once logged in, go to the **"Admin"** section and click the **"Utilisateurs & Profil"** button. Here you can change your password by providing your old password and a new one.
+-   **Managing Users:** The same section allows you to create new administrative users or delete existing ones (except your own account).
+-   **Session Security:** Authentication is handled via secure cookies. Brute-force protection is implemented (10 attempts allowed every 15 minutes).
 
 ### Main View: Story Graph
 
