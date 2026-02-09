@@ -1,5 +1,8 @@
 
 const express = require('express');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
@@ -10,8 +13,37 @@ const { pool: dbPool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'virtual-story-default-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true if using HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Login rate limiter
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login attempts per window
+  message: { message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' }
+});
+
+// Middleware to check authentication
+const isAuthenticated = (req, res, next) => {
+  if (req.session && req.session.userId) {
+    return next();
+  }
+  res.status(401).send({ message: 'Non autorisé. Veuillez vous connecter.' });
+};
 
 const videosDir = path.join(__dirname, 'uploads/videos');
 const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
@@ -69,13 +101,151 @@ const backgroundStorage = multer.diskStorage({
 });
 const backgroundUpload = multer({ storage: backgroundStorage });
 
-// --- All routes are now prefixed with /api ---
+// --- Auth Endpoints ---
 
-// --- Parts (Chapters) Endpoints ---
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const [rows] = await dbPool.query('SELECT * FROM users WHERE username = ?', [username]);
+    if (rows.length === 0) {
+      return res.status(401).send({ message: 'Identifiants invalides.' });
+    }
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).send({ message: 'Identifiants invalides.' });
+    }
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    res.send({ id: user.id, username: user.username });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).send({ message: 'Erreur lors de la connexion.' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).send({ message: 'Erreur lors de la déconnexion.' });
+    }
+    res.clearCookie('connect.sid');
+    res.send({ message: 'Déconnecté avec succès.' });
+  });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  if (req.session && req.session.userId) {
+    res.send({ id: req.session.userId, username: req.session.username });
+  } else {
+    res.status(401).send({ message: 'Non authentifié.' });
+  }
+});
+
+// --- Admin User Management Endpoints ---
+
+app.get('/api/admin/users', isAuthenticated, async (req, res) => {
+  try {
+    const [rows] = await dbPool.query('SELECT id, username FROM users');
+    res.send(rows);
+  } catch (err) {
+    console.error('Fetch users error:', err);
+    res.status(500).send({ message: 'Erreur lors de la récupération des utilisateurs.' });
+  }
+});
+
+app.post('/api/admin/users', isAuthenticated, async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const [result] = await dbPool.query('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash]);
+    res.status(201).send({ id: result.insertId, username });
+  } catch (err) {
+    console.error('Create user error:', err);
+    res.status(500).send({ message: 'Erreur lors de la création de l\'utilisateur.' });
+  }
+});
+
+app.put('/api/admin/users/:id', isAuthenticated, async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await dbPool.query('UPDATE users SET username = ?, password_hash = ? WHERE id = ?', [username, hash, req.params.id]);
+    } else {
+      await dbPool.query('UPDATE users SET username = ? WHERE id = ?', [username, req.params.id]);
+    }
+    res.send({ message: 'Utilisateur mis à jour.' });
+  } catch (err) {
+    console.error('Update user error:', err);
+    res.status(500).send({ message: 'Erreur lors de la mise à jour de l\'utilisateur.' });
+  }
+});
+
+app.delete('/api/admin/users/:id', isAuthenticated, async (req, res) => {
+  try {
+    // Prevent deleting self
+    if (parseInt(req.params.id) === req.session.userId) {
+      return res.status(400).send({ message: 'Vous ne pouvez pas supprimer votre propre compte.' });
+    }
+    await dbPool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+    res.send({ message: 'Utilisateur supprimé.' });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).send({ message: 'Erreur lors de la suppression de l\'utilisateur.' });
+  }
+});
+
+app.post('/api/admin/change-password', isAuthenticated, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  try {
+    const [rows] = await dbPool.query('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const user = rows[0];
+    const match = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!match) {
+      return res.status(401).send({ message: 'Ancien mot de passe incorrect.' });
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    await dbPool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.session.userId]);
+    res.send({ message: 'Mot de passe mis à jour avec succès.' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).send({ message: 'Erreur lors du changement de mot de passe.' });
+  }
+});
+
+// --- All routes are now prefixed with /api ---
 
 app.post('/api/admin/db-sync', async (req, res) => {
   try {
+    // Check if any users exist
+    const [existingUsers] = await dbPool.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = 'users'", [process.env.DB_NAME || 'virtualstory']);
+
+    if (existingUsers[0].count > 0) {
+      const [countResult] = await dbPool.query("SELECT COUNT(*) as count FROM users");
+      if (countResult[0].count > 0 && !(req.session && req.session.userId)) {
+        return res.status(401).send({ message: 'Authentification requise pour synchroniser la base de données.' });
+      }
+    }
+
     console.log('[DB-SYNC] Starting migration...');
+
+    // Ensure users table exists
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL
+      )
+    `);
+
+    // Ensure admin user exists
+    const [userRows] = await dbPool.query("SELECT * FROM users WHERE username = 'admin'");
+    if (userRows.length === 0) {
+      const hash = await bcrypt.hash('admin', 10);
+      await dbPool.query("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', hash]);
+    }
+
     // Ensure parts table exists
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS parts (
@@ -128,7 +298,7 @@ app.get('/api/parts', async (req, res) => {
   }
 });
 
-app.post('/api/parts', partUpload.single('loop_video'), async (req, res) => {
+app.post('/api/parts', isAuthenticated, partUpload.single('loop_video'), async (req, res) => {
   const { title, first_scene_id, order } = req.body;
   const loop_video_path = req.file ? `/parts/${req.file.filename}` : null;
   try {
@@ -143,7 +313,7 @@ app.post('/api/parts', partUpload.single('loop_video'), async (req, res) => {
   }
 });
 
-app.put('/api/parts/:id', partUpload.single('loop_video'), async (req, res) => {
+app.put('/api/parts/:id', isAuthenticated, partUpload.single('loop_video'), async (req, res) => {
   const { title, first_scene_id, order } = req.body;
   try {
     if (req.file) {
@@ -165,7 +335,7 @@ app.put('/api/parts/:id', partUpload.single('loop_video'), async (req, res) => {
   }
 });
 
-app.delete('/api/parts/:id', async (req, res) => {
+app.delete('/api/parts/:id', isAuthenticated, async (req, res) => {
   try {
     await dbPool.execute('DELETE FROM parts WHERE id = ?', [req.params.id]);
     res.send({ message: 'Part deleted successfully.' });
@@ -185,7 +355,7 @@ app.get('/api/settings/background', async (req, res) => {
     }
 });
 
-app.post('/api/admin/background', backgroundUpload.single('background'), async (req, res) => {
+app.post('/api/admin/background', isAuthenticated, backgroundUpload.single('background'), async (req, res) => {
     if (!req.file) {
         return res.status(400).send({ message: 'No background image was uploaded.' });
     }
@@ -210,7 +380,7 @@ app.post('/api/admin/background', backgroundUpload.single('background'), async (
     }
 });
 
-app.post('/api/scenes', upload.single('video'), (req, res) => {
+app.post('/api/scenes', isAuthenticated, upload.single('video'), (req, res) => {
   if (!req.file) {
     console.log('[UPLOAD] Upload failed: No file received.');
     return res.status(400).send({ message: 'No video file was uploaded.' });
@@ -260,7 +430,7 @@ app.post('/api/scenes', upload.single('video'), (req, res) => {
   });
 });
 
-app.get('/api/scenes', async (req, res) => {
+app.get('/api/scenes', isAuthenticated, async (req, res) => {
   try {
     const [rows] = await dbPool.execute('SELECT * FROM scenes ORDER BY created_at DESC');
     res.send(rows);
@@ -281,7 +451,7 @@ app.get('/api/scenes/:id', async (req, res) => {
   }
 });
 
-app.put('/api/scenes/:id', async (req, res) => {
+app.put('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
     const { title, part_id } = req.body;
     await dbPool.execute('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id || null, req.params.id]);
@@ -292,7 +462,7 @@ app.put('/api/scenes/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/scenes/:id', async (req, res) => {
+app.delete('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
     const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
@@ -326,7 +496,7 @@ app.get('/api/scenes/:id/choices', async (req, res) => {
   }
 });
 
-app.post('/api/scenes/:id/choices', async (req, res) => {
+app.post('/api/scenes/:id/choices', isAuthenticated, async (req, res) => {
   const { destination_scene_id, choice_text } = req.body;
   try {
     const [result] = await dbPool.execute('INSERT INTO choices (source_scene_id, destination_scene_id, choice_text) VALUES (?, ?, ?)', [req.params.id, destination_scene_id, choice_text]);
@@ -337,7 +507,7 @@ app.post('/api/scenes/:id/choices', async (req, res) => {
   }
 });
 
-app.delete('/api/choices/:id', async (req, res) => {
+app.delete('/api/choices/:id', isAuthenticated, async (req, res) => {
   try {
     await dbPool.execute('DELETE FROM choices WHERE id = ?', [req.params.id]);
     res.send({ message: 'Choice deleted successfully.' });
@@ -428,7 +598,7 @@ app.get('/api/player/scenes/:id', async (req, res) => {
   }
 });
 
-app.get('/api/admin/scenes/:id/relations', async (req, res) => {
+app.get('/api/admin/scenes/:id/relations', isAuthenticated, async (req, res) => {
   try {
     const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
@@ -453,7 +623,7 @@ app.get('/api/admin/scenes/:id/relations', async (req, res) => {
   }
 });
 
-app.get('/api/admin/story-graph', async (req, res) => {
+app.get('/api/admin/story-graph', isAuthenticated, async (req, res) => {
   try {
     const [scenes] = await dbPool.query('SELECT s.*, p.title AS part_title FROM scenes s LEFT JOIN parts p ON s.part_id = p.id');
     const [choices] = await dbPool.query('SELECT * FROM choices');
