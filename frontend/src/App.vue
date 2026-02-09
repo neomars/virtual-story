@@ -19,21 +19,79 @@
       </div>
       <nav>
         <router-link to="/player/1">Player</router-link>
-        <router-link to="/admin/scenes">Admin</router-link>
+        <router-link to="/admin/scenes" @click="handleAdminClick">Admin</router-link>
+        <a v-if="isAuthenticated" href="#" @click.prevent="handleLogout" class="logout-link">Déconnexion ({{ currentUser?.username }})</a>
       </nav>
     </header>
     <main>
       <router-view/>
     </main>
+    <LoginModal
+      :is-open="isLoginModalOpen"
+      @close="isLoginModalOpen = false"
+      @login-success="onLoginSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { RouterLink, RouterView } from 'vue-router'
+import { ref, onMounted, provide } from 'vue';
+import { RouterLink, RouterView, useRouter } from 'vue-router'
 import axios from 'axios';
+import LoginModal from './components/LoginModal.vue';
 
+const router = useRouter();
 const parts = ref([]);
+const isAuthenticated = ref(false);
+const currentUser = ref(null);
+const isLoginModalOpen = ref(false);
+
+// Provide auth state to child components
+provide('auth', {
+  isAuthenticated,
+  currentUser,
+  checkAuth
+});
+
+async function checkAuth() {
+  try {
+    const response = await axios.get('/api/auth/me');
+    isAuthenticated.value = true;
+    currentUser.value = response.data;
+    return true;
+  } catch (err) {
+    isAuthenticated.value = false;
+    currentUser.value = null;
+    return false;
+  }
+}
+
+const handleAdminClick = (e) => {
+  if (!isAuthenticated.value) {
+    e.preventDefault();
+    isLoginModalOpen.value = true;
+  }
+};
+
+const onLoginSuccess = (user) => {
+  isAuthenticated.value = true;
+  currentUser.value = user;
+  isLoginModalOpen.value = false;
+  router.push('/admin/scenes');
+};
+
+const handleLogout = async () => {
+  try {
+    await axios.post('/api/auth/logout');
+    isAuthenticated.value = false;
+    currentUser.value = null;
+    if (router.currentRoute.value.path.startsWith('/admin')) {
+      router.push('/');
+    }
+  } catch (err) {
+    console.error('Logout failed:', err);
+  }
+};
 
 const fetchParts = async () => {
   try {
@@ -44,7 +102,10 @@ const fetchParts = async () => {
   }
 };
 
-onMounted(fetchParts);
+onMounted(() => {
+  checkAuth();
+  fetchParts();
+});
 </script>
 
 <style>
@@ -107,10 +168,15 @@ h1 {
   margin: 0;
 }
 
-nav a {
+nav a, nav .logout-link {
   color: #42b983;
   text-decoration: none;
   margin-left: 1.5rem;
+}
+
+.logout-link {
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
 nav a.router-link-exact-active {

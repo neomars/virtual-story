@@ -72,7 +72,10 @@
     <!-- Nouvelle Section du Graphe de l'Histoire -->
     <div class="header-container">
       <h2 class="page-title">Graphe de l'Histoire</h2>
-      <router-link to="/admin/scenes/new" class="button">Ajouter une Scène Racine</router-link>
+      <div class="header-actions">
+        <router-link to="/admin/users" class="button secondary-btn">Utilisateurs & Profil</router-link>
+        <router-link to="/admin/scenes/new" class="button">Ajouter une Scène Racine</router-link>
+      </div>
     </div>
 
     <div v-if="loading">Chargement du graphe...</div>
@@ -314,6 +317,10 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+.header-actions {
+  display: flex;
+  gap: 1rem;
 }
 .page-title {
   margin: 0;

@@ -1,6 +1,15 @@
 
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
 const { dbConfig } = require('./db'); // Importe la configuration centralisée
+
+const createUsersTableSQL = `
+  CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL
+  );
+`;
 
 const createPartsTableSQL = `
   CREATE TABLE IF NOT EXISTS parts (
@@ -68,10 +77,20 @@ async function initializeDatabase() {
     connection = await mysql.createConnection(dbConfig);
 
     // Crée les tables
+    await connection.query(createUsersTableSQL);
     await connection.query(createPartsTableSQL);
     await connection.query(createScenesTableSQL);
     await connection.query(createChoicesTableSQL);
     await connection.query(createSettingsTableSQL);
+
+    // Insérer l'utilisateur admin par défaut si absent
+    const [userRows] = await connection.query("SELECT * FROM users WHERE username = 'admin'");
+    if (userRows.length === 0) {
+      console.log('Création de l\'utilisateur admin par défaut...');
+      const saltRounds = 10;
+      const hash = await bcrypt.hash('admin', saltRounds);
+      await connection.query("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', hash]);
+    }
 
     // Assurer le lien SQL de parts vers scenes (first_scene_id)
     try {
