@@ -218,10 +218,10 @@ app.post('/api/admin/change-password', isAuthenticated, async (req, res) => {
 
 app.post('/api/admin/db-sync', async (req, res) => {
   try {
-    // Check if any users exist
-    const [existingUsers] = await dbPool.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = 'users'", [process.env.DB_NAME || 'virtualstory']);
-
-    if (existingUsers[0].count > 0) {
+    console.log('[DB-SYNC] Checking user table...');
+    // Check if any users exist to protect the sync endpoint
+    const [tables] = await dbPool.query("SHOW TABLES LIKE 'users'");
+    if (tables.length > 0) {
       const [countResult] = await dbPool.query("SELECT COUNT(*) as count FROM users");
       if (countResult[0].count > 0 && !(req.session && req.session.userId)) {
         return res.status(401).send({ message: 'Authentification requise pour synchroniser la base de données.' });
@@ -230,7 +230,7 @@ app.post('/api/admin/db-sync', async (req, res) => {
 
     console.log('[DB-SYNC] Starting migration...');
 
-    // Ensure users table exists
+    // 1. Create tables in order of dependency if possible, or without constraints first
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -239,14 +239,6 @@ app.post('/api/admin/db-sync', async (req, res) => {
       )
     `);
 
-    // Ensure admin user exists
-    const [userRows] = await dbPool.query("SELECT * FROM users WHERE username = 'admin'");
-    if (userRows.length === 0) {
-      const hash = await bcrypt.hash('admin', 10);
-      await dbPool.query("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', hash]);
-    }
-
-    // Ensure parts table exists
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS parts (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -257,28 +249,74 @@ app.post('/api/admin/db-sync', async (req, res) => {
       )
     `);
 
-    // Ensure part_id column exists in scenes
-    const [columns] = await dbPool.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
-    if (columns.length === 0) {
-      console.log('[DB-SYNC] Adding part_id column to scenes...');
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS scenes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        video_path VARCHAR(255) NOT NULL,
+        thumbnail_path VARCHAR(255) NOT NULL,
+        part_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS choices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        source_scene_id INT NOT NULL,
+        destination_scene_id INT NOT NULL,
+        choice_text VARCHAR(255) NOT NULL
+      )
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        setting_key VARCHAR(50) PRIMARY KEY,
+        setting_value VARCHAR(255)
+      )
+    `);
+
+    // 2. Ensure admin user exists
+    const [userRows] = await dbPool.query("SELECT * FROM users WHERE username = 'admin'");
+    if (userRows.length === 0) {
+      const hash = await bcrypt.hash('admin', 10);
+      await dbPool.query("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', hash]);
+    }
+
+    // 3. Ensure columns exist (Migrations)
+    const [sceneCols] = await dbPool.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
+    if (sceneCols.length === 0) {
       await dbPool.query("ALTER TABLE scenes ADD COLUMN part_id INT");
     }
 
-    // Try to add constraints independently to be robust
-    try {
-      await dbPool.query("ALTER TABLE scenes ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
-    } catch (e) { /* Already exists */ }
-
-    try {
-      await dbPool.query("ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
-    } catch (e) { /* Already exists */ }
-
-    // Ensure loop_video_path column exists in parts
-    const [partColumns] = await dbPool.query("SHOW COLUMNS FROM parts LIKE 'loop_video_path'");
-    if (partColumns.length === 0) {
-      console.log('[DB-SYNC] Adding loop_video_path column to parts...');
+    const [partCols] = await dbPool.query("SHOW COLUMNS FROM parts LIKE 'loop_video_path'");
+    if (partCols.length === 0) {
       await dbPool.query("ALTER TABLE parts ADD COLUMN loop_video_path VARCHAR(255)");
     }
+
+    // 4. Try to add constraints independently (defensive)
+    const addConstraint = async (table, constraintName, sql) => {
+      try {
+        await dbPool.query(sql);
+      } catch (e) {
+        // Ignore if constraint already exists
+        if (!e.message.includes('already exists') && !e.message.includes('Duplicate')) {
+          console.warn(`[DB-SYNC] Could not add constraint ${constraintName} on ${table}:`, e.message);
+        }
+      }
+    };
+
+    await addConstraint('scenes', 'fk_part_id', "ALTER TABLE scenes ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
+    await addConstraint('parts', 'fk_parts_first_scene', "ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
+    await addConstraint('choices', 'fk_choices_source', "ALTER TABLE choices ADD CONSTRAINT fk_choices_source FOREIGN KEY (source_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
+    await addConstraint('choices', 'fk_choices_dest', "ALTER TABLE choices ADD CONSTRAINT fk_choices_dest FOREIGN KEY (destination_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
+
+    // 5. Default settings
+    await dbPool.query(`
+      INSERT INTO settings (setting_key, setting_value)
+      VALUES ('player_background', NULL)
+      ON DUPLICATE KEY UPDATE setting_key=setting_key
+    `);
 
     console.log('[DB-SYNC] Migration completed successfully.');
     res.send({ message: 'Base de données synchronisée avec succès !' });

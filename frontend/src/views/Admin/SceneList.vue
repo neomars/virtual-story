@@ -145,7 +145,8 @@ const syncDatabase = async () => {
     fetchParts();
     fetchStoryGraph();
   } catch (err) {
-    alert(err.response?.data?.message || 'Erreur lors de la synchronisation.');
+    console.error('Sync error:', err);
+    alert(err.response?.data?.message || `Erreur lors de la synchronisation : ${err.message}`);
   } finally {
     isSyncing.value = false;
   }
