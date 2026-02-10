@@ -26,7 +26,9 @@
         <label for="video">Fichier Vidéo</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
-      <button type="submit" class="button">Créer la Scène</button>
+      <button type="submit" class="button" :disabled="isSaving" :aria-busy="isSaving">
+        {{ isSaving ? 'Création...' : 'Créer la Scène' }}
+      </button>
       <router-link to="/admin" class="button secondary">Annuler</router-link>
     </form>
 
@@ -42,7 +44,7 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Supprimer le lien d'origine">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             Aucune scène ne mène ici.
@@ -85,7 +87,9 @@
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
             <img :src="scene.thumbnail_path" alt="Thumbnail">
           </div>
-          <button type="submit" class="button">Enregistrer les changements</button>
+          <button type="submit" class="button" :disabled="isSaving" :aria-busy="isSaving">
+            {{ isSaving ? 'Enregistrement...' : 'Enregistrer les changements' }}
+          </button>
         </form>
       </div>
 
@@ -145,6 +149,7 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const isSaving = ref(false);
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
@@ -188,6 +193,7 @@ const saveScene = async () => {
     formData.append('video', videoFile.value);
   }
 
+  isSaving.value = true;
   try {
     if (isEditing.value) {
       await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
@@ -211,6 +217,8 @@ const saveScene = async () => {
   } catch (err) {
     console.error('Failed to save scene:', err);
     alert('Échec de l\'enregistrement de la scène.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
@@ -390,5 +398,18 @@ input[type="text"], select {
 }
 .simple-form {
   max-width: 500px;
+}
+.button-delete {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+.button-delete:hover {
+  background-color: #dc2626;
 }
 </style>
