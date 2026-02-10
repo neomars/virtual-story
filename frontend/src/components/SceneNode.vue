@@ -7,9 +7,9 @@
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">
-        <button @click="deleteScene" class="button-small delete">Supprimer</button>
-        <router-link :to="`/admin/scenes/${scene.id}/edit`" class="button-small edit">Éditer</router-link>
-        <router-link :to="`/player/${scene.id}`" class="button-small view">Voir</router-link>
+        <button @click="deleteScene" class="button-small delete" aria-label="Delete scene">Delete</button>
+        <router-link :to="`/admin/scenes/${scene.id}/edit`" class="button-small edit">Edit</router-link>
+        <router-link :to="`/player/${scene.id}`" class="button-small view">View</router-link>
       </div>
     </div>
     <div v-if="scene.children && scene.children.length > 0" class="children-container">
@@ -38,7 +38,7 @@ const props = defineProps({
 const refreshStoryGraph = inject('refreshStoryGraph');
 
 const deleteScene = async () => {
-  if (confirm(`Êtes-vous sûr de vouloir supprimer la scène "${props.scene.title}" ?\nCela supprimera également tous les choix qui mènent à cette scène.`)) {
+  if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"?\nThis will also delete all choices leading to this scene.`)) {
     try {
       await axios.delete(`/api/scenes/${props.scene.id}`);
       if (refreshStoryGraph) {
@@ -46,7 +46,7 @@ const deleteScene = async () => {
       }
     } catch (err) {
       console.error('Failed to delete scene:', err);
-      alert('Échec de la suppression de la scène.');
+      alert('Failed to delete the scene.');
     }
   }
 };

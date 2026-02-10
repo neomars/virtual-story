@@ -1,19 +1,19 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Chargement...</div>
-    <div v-else-if="error">{{ error }}</div>
+    <div v-if="loading" role="status" aria-live="polite">Loading...</div>
+    <div v-else-if="error" role="alert">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Scènes Précédentes</h3>
+          <h3>Previous Scenes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
               <router-link :to="{ path: `/player/${parent.id}` }">{{ parent.title }}</router-link>
             </li>
           </ul>
-          <p v-else>C'est le début de l'histoire.</p>
+          <p v-else>This is the beginning of the story.</p>
 
           <!-- Vidéo de Chapitre en Boucle -->
           <div v-if="currentPartLoopVideo" class="part-loop-container">
@@ -30,7 +30,7 @@
             <router-link :to="{ path: `/player/${sibling.id}`, query: { from: route.query.from } }" class="sibling-link">
               {{ sibling.choice_text || sibling.title }}
             </router-link>
-            <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator"> | </span>
+            <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator" aria-hidden="true"> | </span>
           </template>
         </div>
 
@@ -41,10 +41,10 @@
           @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
+          :aria-label="`Play video: ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
@@ -56,16 +56,16 @@
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Choix suivants</h3>
+          <h3>Next choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
-              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
-                  {{ choice.choice_text }}
+                  {{ choice.choice_text }} <span class="shortcut-hint" v-if="index < 9">[{{ index + 1 }}]</span>
                 </router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
+            <p v-else key="waiting">Watch the video to see the choices.</p>
           </Transition>
         </div>
       </div>
@@ -75,7 +75,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const props = defineProps({
@@ -83,6 +83,7 @@ const props = defineProps({
 });
 
 const route = useRoute();
+const router = useRouter();
 const sceneData = ref(null);
 const loading = ref(true);
 const error = ref(null);
@@ -152,7 +153,7 @@ const fetchSceneData = async (sceneId, parentId) => {
       }
     });
   } catch (err) {
-    error.value = 'Échec du chargement des données de la scène.';
+    error.value = 'Failed to load scene data.';
     console.error(err);
   } finally {
     loading.value = false;
@@ -195,6 +196,22 @@ const onVideoEnd = () => {
   // The user can then click a choice to navigate away.
 };
 
+const handleKeyDown = (event) => {
+  if (!showChoices.value || !sceneData.value?.next_choices) return;
+
+  const key = parseInt(event.key);
+  if (key >= 1 && key <= 9) {
+    const index = key - 1;
+    if (sceneData.value.next_choices[index]) {
+      const choice = sceneData.value.next_choices[index];
+      router.push({
+        path: `/player/${choice.destination_scene_id}`,
+        query: { from: props.id }
+      });
+    }
+  }
+};
+
 
 // --- Lifecycle Hooks ---
 
@@ -221,9 +238,11 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 
 onMounted(() => {
   fetchBackground();
+  window.addEventListener('keydown', handleKeyDown);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
   document.body.style.overflow = '';
 });
 </script>
