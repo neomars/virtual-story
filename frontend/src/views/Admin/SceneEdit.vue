@@ -1,7 +1,7 @@
 
 <template>
   <div>
-    <h2 class="page-title">{{ isEditing ? 'Éditeur de Scène' : 'Ajouter une Scène' }}</h2>
+    <h2 class="page-title">{{ isEditing ? 'Scene Editor' : 'Add Scene' }}</h2>
 
     <Transition name="fade">
       <div v-if="successMessage" class="success-banner" role="alert">
@@ -10,24 +10,26 @@
     </Transition>
 
     <!-- Formulaire de création simple -->
-    <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form">
+    <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form" :aria-busy="isSaving">
       <div class="form-group">
-        <label for="title">Titre</label>
+        <label for="title">Title</label>
         <input type="text" id="title" v-model="scene.title" required>
       </div>
       <div class="form-group">
-        <label for="part">Partie (Optionnel)</label>
+        <label for="part">Chapter (Optional)</label>
         <select id="part" v-model="scene.part_id">
-          <option :value="null">Aucune</option>
+          <option :value="null">None</option>
           <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
         </select>
       </div>
       <div class="form-group">
-        <label for="video">Fichier Vidéo</label>
+        <label for="video">Video File</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
-      <button type="submit" class="button">Créer la Scène</button>
-      <router-link to="/admin" class="button secondary">Annuler</router-link>
+      <button type="submit" class="button" :disabled="isSaving">
+        {{ isSaving ? 'Creating...' : 'Create Scene' }}
+      </button>
+      <router-link to="/admin" class="button secondary">Cancel</router-link>
     </form>
 
     <!-- Vue d'édition graphique en trois colonnes -->
@@ -35,63 +37,67 @@
 
       <!-- Colonne 1: Scènes Parentes -->
       <div class="side-panel">
-        <h3>Accessible Depuis (Parents)</h3>
+        <h3>Accessible From (Parents)</h3>
         <ul class="relation-list">
           <li v-for="parent in relations.parent_scenes" :key="parent.id" class="relation-item">
             <router-link :to="`/admin/scenes/${parent.id}/edit`">
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove origin link">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
-            Aucune scène ne mène ici.
+            No scenes lead here.
           </li>
         </ul>
         <div class="add-choice-form">
-          <h4>Ajouter un lien d'origine</h4>
-          <form @submit.prevent="addParentLink">
+          <h4>Add Origin Link</h4>
+          <form @submit.prevent="addParentLink" :aria-busy="isSaving">
             <div class="form-group">
-              <label for="source-scene">Scène d'origine</label>
+              <label for="source-scene">Origin Scene</label>
               <select id="source-scene" v-model="newParentLink.source_scene_id" required>
-                <option disabled value="">Choisir une scène...</option>
+                <option disabled value="">Select a scene...</option>
                 <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="parent-choice-text">Texte du choix menant ici</label>
+              <label for="parent-choice-text">Choice text leading here</label>
               <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
             </div>
-            <button type="submit" class="button">Lier cette scène</button>
+            <button type="submit" class="button" :disabled="isSaving">
+              {{ isSaving ? 'Linking...' : 'Link Scene' }}
+            </button>
           </form>
         </div>
       </div>
 
       <!-- Colonne 2: Scène Actuelle -->
       <div class="center-panel">
-        <h3>Scène Actuelle</h3>
-        <form @submit.prevent="saveScene" class="center-form">
+        <h3>Current Scene</h3>
+        <form @submit.prevent="saveScene" class="center-form" :aria-busy="isSaving">
           <div class="form-group">
-            <label for="title-edit">Titre</label>
+            <label for="title-edit">Title</label>
             <input type="text" id="title-edit" v-model="scene.title" required>
           </div>
           <div class="form-group">
-            <label for="part-edit">Partie</label>
+            <label for="part-edit">Chapter</label>
             <select id="part-edit" v-model="scene.part_id">
-              <option :value="null">Aucune</option>
+              <option :value="null">None</option>
               <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
             </select>
           </div>
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
             <img :src="scene.thumbnail_path" alt="Thumbnail">
           </div>
-          <button type="submit" class="button">Enregistrer les changements</button>
+          <button type="submit" class="button" :disabled="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save Changes' }}
+          </button>
         </form>
       </div>
 
       <!-- Colonne 3: Scènes Enfants (Choix) -->
       <div class="side-panel">
-        <h3>Mène Vers (Choix)</h3>
+        <h3>Leads To (Choices)</h3>
         <ul class="relation-list">
           <li v-for="child in relations.child_scenes" :key="child.id">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
@@ -101,26 +107,28 @@
           </li>
         </ul>
         <div class="add-choice-form">
-           <h4>Ajouter un nouveau choix</h4>
-           <form @submit.prevent="addChoice">
+           <h4>Add New Choice</h4>
+           <form @submit.prevent="addChoice" :aria-busy="isSaving">
               <div class="form-group">
-                <label for="choice-text">Texte du choix</label>
+                <label for="choice-text">Choice Text</label>
                 <input type="text" id="choice-text" v-model="newChoice.choice_text" required>
               </div>
               <div class="form-group">
-                <label for="destination">Scène de destination</label>
+                <label for="destination">Destination Scene</label>
                 <select id="destination" v-model="newChoice.destination_scene_id" required>
-                  <option disabled value="">Choisir une scène...</option>
+                  <option disabled value="">Select a scene...</option>
                   <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
                 </select>
               </div>
-              <button type="submit" class="button">Ajouter le Choix</button>
+              <button type="submit" class="button" :disabled="isSaving">
+                {{ isSaving ? 'Adding...' : 'Add Choice' }}
+              </button>
            </form>
         </div>
       </div>
 
     </div>
-    <router-link to="/admin" class="back-link" v-if="isEditing">&larr; Retour à la liste</router-link>
+    <router-link to="/admin" class="back-link" v-if="isEditing">&larr; Back to list</router-link>
   </div>
 </template>
 
@@ -145,6 +153,7 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const isSaving = ref(false);
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
@@ -181,6 +190,7 @@ const handleFileUpload = (event) => {
 };
 
 const saveScene = async () => {
+  isSaving.value = true;
   const formData = new FormData();
   formData.append('title', scene.value.title);
   if (scene.value.part_id) formData.append('part_id', scene.value.part_id);
@@ -191,13 +201,13 @@ const saveScene = async () => {
   try {
     if (isEditing.value) {
       await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
-      successMessage.value = 'Scène mise à jour avec succès !';
+      successMessage.value = 'Scene updated successfully!';
       setTimeout(() => router.push('/admin'), 1500);
     } else {
       await axios.post('/api/scenes', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      successMessage.value = `Scène "${scene.value.title}" créée ! Prêt pour la suivante.`;
+      successMessage.value = `Scene "${scene.value.title}" created! Ready for the next one.`;
 
       // Reset form for next scene
       scene.value = { title: '', part_id: scene.value.part_id }; // Keep the part_id for convenience
@@ -210,11 +220,14 @@ const saveScene = async () => {
     }
   } catch (err) {
     console.error('Failed to save scene:', err);
-    alert('Échec de l\'enregistrement de la scène.');
+    alert('Failed to save scene.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
 const addChoice = async () => {
+  isSaving.value = true;
   try {
     await axios.post(`/api/scenes/${props.id}/choices`, newChoice.value);
     // Re-fetch data to show the new choice
@@ -225,15 +238,18 @@ const addChoice = async () => {
   } catch (err) {
     console.error('Failed to add choice:', err);
     alert('Failed to add choice.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
 const addParentLink = async () => {
   if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) {
-    alert('Veuillez sélectionner une scène d\'origine et saisir un texte pour le choix.');
+    alert('Please select an origin scene and enter choice text.');
     return;
   }
 
+  isSaving.value = true;
   const choiceData = {
     destination_scene_id: props.id,
     choice_text: newParentLink.value.choice_text,
@@ -246,11 +262,13 @@ const addParentLink = async () => {
   } catch (err) {
     console.error('Failed to add parent link:', err);
     alert('Failed to add parent link.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
 const removeParentLink = async (choiceId) => {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer ce lien d\'origine ?')) {
+  if (!confirm('Are you sure you want to remove this origin link?')) {
     return;
   }
   try {
