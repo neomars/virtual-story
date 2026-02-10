@@ -1,21 +1,21 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Chargement...</div>
+    <div v-if="loading">Loading...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Scènes Précédentes</h3>
+          <h3>Previous Scenes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
               <router-link :to="{ path: `/player/${parent.id}` }">{{ parent.title }}</router-link>
             </li>
           </ul>
-          <p v-else>C'est le début de l'histoire.</p>
+          <p v-else>It's the beginning of the story.</p>
 
-          <!-- Vidéo de Chapitre en Boucle -->
+          <!-- Chapter Loop Video -->
           <div v-if="currentPartLoopVideo" class="part-loop-container">
             <video :src="currentPartLoopVideo" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
           </div>
@@ -41,10 +41,10 @@
           @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
+          :aria-label="`Play video: ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
@@ -56,16 +56,16 @@
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Choix suivants</h3>
+          <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
-              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
-                  {{ choice.choice_text }}
+                  <span class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span> {{ choice.choice_text }}
                 </router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
+            <p v-else key="waiting">Watch the video to see the choices.</p>
           </Transition>
         </div>
       </div>
@@ -75,7 +75,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const props = defineProps({
@@ -83,6 +83,7 @@ const props = defineProps({
 });
 
 const route = useRoute();
+const router = useRouter();
 const sceneData = ref(null);
 const loading = ref(true);
 const error = ref(null);
@@ -152,7 +153,7 @@ const fetchSceneData = async (sceneId, parentId) => {
       }
     });
   } catch (err) {
-    error.value = 'Échec du chargement des données de la scène.';
+    error.value = 'Failed to load scene data.';
     console.error(err);
   } finally {
     loading.value = false;
@@ -175,7 +176,7 @@ const startPlayback = async (el, withFullscreen = false) => {
   try {
     await el.play();
   } catch (err) {
-    console.warn("Lecture avec son bloquée, tentative en muet...", err);
+    console.warn("Playback with sound blocked, attempting muted...", err);
     el.muted = true;
     await el.play().catch(() => {});
   }
@@ -219,12 +220,23 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
   }
 }, { immediate: true });
 
+const handleKeyPress = (event) => {
+  if (!showChoices.value || !sceneData.value?.next_choices) return;
+  const key = parseInt(event.key);
+  if (key >= 1 && key <= sceneData.value.next_choices.length) {
+    const choice = sceneData.value.next_choices[key - 1];
+    router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+  }
+};
+
 onMounted(() => {
   fetchBackground();
+  window.addEventListener('keydown', handleKeyPress);
 });
 
 onUnmounted(() => {
   document.body.style.overflow = '';
+  window.removeEventListener('keydown', handleKeyPress);
 });
 </script>
 
@@ -382,6 +394,19 @@ li a:focus-visible {
   background-color: #3a3a3a;
   outline: 2px solid transparent;
   box-shadow: 0 0 0 2px #42b983;
+  transform: translateY(-2px);
+}
+
+.shortcut-hint {
+  display: inline-block;
+  background-color: #42b983;
+  color: #121212;
+  font-weight: bold;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 .part-loop-container {
