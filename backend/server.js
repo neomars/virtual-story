@@ -218,107 +218,50 @@ app.post('/api/admin/change-password', isAuthenticated, async (req, res) => {
 
 app.post('/api/admin/db-sync', async (req, res) => {
   try {
-    console.log('[DB-SYNC] Checking user table...');
-    // Check if any users exist to protect the sync endpoint
-    const [tables] = await dbPool.query("SHOW TABLES LIKE 'users'");
-    if (tables.length > 0) {
-      const [countResult] = await dbPool.query("SELECT COUNT(*) as count FROM users");
-      if (countResult[0].count > 0 && !(req.session && req.session.userId)) {
-        return res.status(401).send({ message: 'Authentification requise pour synchroniser la base de données.' });
-      }
+    console.log('[DB-SYNC] Starting synchronization...');
+
+    // 1. Create tables without constraints first to avoid dependency issues
+    await dbPool.query("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL)");
+    await dbPool.query("CREATE TABLE IF NOT EXISTS parts (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, first_scene_id INT, `order` INT DEFAULT 0, loop_video_path VARCHAR(255))");
+    await dbPool.query("CREATE TABLE IF NOT EXISTS scenes (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, video_path VARCHAR(255) NOT NULL, thumbnail_path VARCHAR(255) NOT NULL, part_id INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+    await dbPool.query("CREATE TABLE IF NOT EXISTS choices (id INT AUTO_INCREMENT PRIMARY KEY, source_scene_id INT NOT NULL, destination_scene_id INT NOT NULL, choice_text VARCHAR(255) NOT NULL)");
+    await dbPool.query("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))");
+
+    // 2. Auth check (only after users table exists)
+    const [userRows] = await dbPool.query("SELECT * FROM users");
+    if (userRows.length > 0 && !(req.session && req.session.userId)) {
+      return res.status(401).send({ message: 'Authentification requise pour synchroniser la base de données.' });
     }
 
-    console.log('[DB-SYNC] Starting migration...');
-
-    // 1. Create tables in order of dependency if possible, or without constraints first
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL
-      )
-    `);
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS parts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        first_scene_id INT,
-        \`order\` INT DEFAULT 0,
-        loop_video_path VARCHAR(255)
-      )
-    `);
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS scenes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        video_path VARCHAR(255) NOT NULL,
-        thumbnail_path VARCHAR(255) NOT NULL,
-        part_id INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS choices (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        source_scene_id INT NOT NULL,
-        destination_scene_id INT NOT NULL,
-        choice_text VARCHAR(255) NOT NULL
-      )
-    `);
-
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS settings (
-        setting_key VARCHAR(50) PRIMARY KEY,
-        setting_value VARCHAR(255)
-      )
-    `);
-
-    // 2. Ensure admin user exists
-    const [userRows] = await dbPool.query("SELECT * FROM users WHERE username = 'admin'");
-    if (userRows.length === 0) {
+    // 3. Ensure admin user exists
+    const [adminRows] = await dbPool.query("SELECT * FROM users WHERE username = 'admin'");
+    if (adminRows.length === 0) {
       const hash = await bcrypt.hash('admin', 10);
       await dbPool.query("INSERT INTO users (username, password_hash) VALUES (?, ?)", ['admin', hash]);
     }
 
-    // 3. Ensure columns exist (Migrations)
-    const [sceneCols] = await dbPool.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
-    if (sceneCols.length === 0) {
+    // 4. Migrations (Columns)
+    const [columns] = await dbPool.query("SHOW COLUMNS FROM scenes LIKE 'part_id'");
+    if (columns.length === 0) {
       await dbPool.query("ALTER TABLE scenes ADD COLUMN part_id INT");
     }
 
-    const [partCols] = await dbPool.query("SHOW COLUMNS FROM parts LIKE 'loop_video_path'");
-    if (partCols.length === 0) {
+    const [partColumns] = await dbPool.query("SHOW COLUMNS FROM parts LIKE 'loop_video_path'");
+    if (partColumns.length === 0) {
       await dbPool.query("ALTER TABLE parts ADD COLUMN loop_video_path VARCHAR(255)");
     }
 
-    // 4. Try to add constraints independently (defensive)
-    const addConstraint = async (table, constraintName, sql) => {
-      try {
-        await dbPool.query(sql);
-      } catch (e) {
-        // Ignore if constraint already exists
-        if (!e.message.includes('already exists') && !e.message.includes('Duplicate')) {
-          console.warn(`[DB-SYNC] Could not add constraint ${constraintName} on ${table}:`, e.message);
-        }
-      }
-    };
+    // 5. Constraints (Defensive)
+    const addFK = async (sql) => { try { await dbPool.query(sql); } catch (e) { /* ignore existing */ } };
+    await addFK("ALTER TABLE scenes ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
+    await addFK("ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
+    await addFK("ALTER TABLE choices ADD CONSTRAINT fk_choices_source FOREIGN KEY (source_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
+    await addFK("ALTER TABLE choices ADD CONSTRAINT fk_choices_dest FOREIGN KEY (destination_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
 
-    await addConstraint('scenes', 'fk_part_id', "ALTER TABLE scenes ADD CONSTRAINT fk_part_id FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE SET NULL");
-    await addConstraint('parts', 'fk_parts_first_scene', "ALTER TABLE parts ADD CONSTRAINT fk_parts_first_scene FOREIGN KEY (first_scene_id) REFERENCES scenes(id) ON DELETE SET NULL");
-    await addConstraint('choices', 'fk_choices_source', "ALTER TABLE choices ADD CONSTRAINT fk_choices_source FOREIGN KEY (source_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
-    await addConstraint('choices', 'fk_choices_dest', "ALTER TABLE choices ADD CONSTRAINT fk_choices_dest FOREIGN KEY (destination_scene_id) REFERENCES scenes(id) ON DELETE CASCADE");
+    // 6. Default settings
+    await dbPool.query("INSERT INTO settings (setting_key, setting_value) VALUES ('player_background', NULL) ON DUPLICATE KEY UPDATE setting_key=setting_key");
 
-    // 5. Default settings
-    await dbPool.query(`
-      INSERT INTO settings (setting_key, setting_value)
-      VALUES ('player_background', NULL)
-      ON DUPLICATE KEY UPDATE setting_key=setting_key
-    `);
-
-    console.log('[DB-SYNC] Migration completed successfully.');
+    console.log('[DB-SYNC] Synchronization completed successfully.');
     res.send({ message: 'Base de données synchronisée avec succès !' });
   } catch (err) {
     console.error('[DB-SYNC] Error:', err);
@@ -556,73 +499,68 @@ app.delete('/api/choices/:id', isAuthenticated, async (req, res) => {
 });
 
 app.get('/api/player/scenes/:id', async (req, res) => {
+  const sceneId = req.params.id;
   try {
-    // We try to get the scene and its part loop video.
-    // If the scene itself doesn't have a part_id, we look at its ancestors to see if they belong to a part.
-    // This allows inheritance of the loop video for scenes that are "inside" a chapter flow.
-    const [sceneRows] = await dbPool.execute(
-      `WITH RECURSIVE scene_ancestry AS (
-         SELECT id, part_id, 0 as depth FROM scenes WHERE id = ?
-         UNION ALL
-         SELECT s.id, s.part_id, sa.depth + 1
-         FROM scenes s
-         JOIN choices c ON s.id = c.source_scene_id
-         JOIN scene_ancestry sa ON c.destination_scene_id = sa.id
-         WHERE sa.part_id IS NULL AND sa.depth < 10
-       )
-       SELECT s.*, p.loop_video_path as part_loop_video_path, sa.part_id as inherited_part_id
-       FROM scenes s
-       CROSS JOIN (SELECT part_id FROM scene_ancestry WHERE part_id IS NOT NULL LIMIT 1) sa
-       LEFT JOIN parts p ON sa.part_id = p.id
-       WHERE s.id = ?`, [req.params.id, req.params.id]
-    );
+    // 1. Fetch the scene directly
+    const [sceneRows] = await dbPool.query("SELECT s.*, p.loop_video_path as part_loop_video_path FROM scenes s LEFT JOIN parts p ON s.part_id = p.id WHERE s.id = ?", [sceneId]);
+    if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    // Fallback if no ancestor has a part_id or if it's the root scene itself
-    let currentScene;
-    if (sceneRows.length === 0) {
-      const [directRows] = await dbPool.execute(
-        `SELECT s.*, p.loop_video_path as part_loop_video_path
-         FROM scenes s LEFT JOIN parts p ON s.part_id = p.id
-         WHERE s.id = ?`, [req.params.id]
-      );
-      if (directRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
-      currentScene = directRows[0];
-    } else {
-      currentScene = sceneRows[0];
-      if (!currentScene.part_id && currentScene.inherited_part_id) {
-        currentScene.part_id = currentScene.inherited_part_id;
+    let currentScene = sceneRows[0];
+
+    // 2. Inheritance Logic for part loop video
+    // If the scene itself has no part_id, we look at ancestors up to 10 levels
+    let inheritedPartId = null;
+    let inheritedLoopVideo = null;
+
+    if (currentScene.part_id === null) {
+      let currentId = sceneId;
+      const visited = new Set([currentId]);
+
+      for (let depth = 0; depth < 10; depth++) {
+        // Find parents
+        const [parents] = await dbPool.query("SELECT source_scene_id FROM choices WHERE destination_scene_id = ?", [currentId]);
+        if (parents.length === 0) break;
+
+        // Check if any parent belongs to a part
+        const parentIds = parents.map(p => p.source_scene_id);
+        const [parentScenes] = await dbPool.query("SELECT id, part_id FROM scenes WHERE id IN (?)", [parentIds]);
+
+        const partParent = parentScenes.find(p => p.part_id !== null);
+        if (partParent) {
+          inheritedPartId = partParent.part_id;
+          const [partData] = await dbPool.query("SELECT loop_video_path FROM parts WHERE id = ?", [inheritedPartId]);
+          if (partData.length > 0) inheritedLoopVideo = partData[0].loop_video_path;
+          break;
+        }
+
+        // Move up one level (just pick first parent to keep it simple and avoid explosion)
+        currentId = parentIds[0];
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
       }
     }
 
-    const [parentScenesRows] = await dbPool.execute(`SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?`, [req.params.id]);
-    const [choicesRows] = await dbPool.execute(`SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?`, [req.params.id]);
+    if (inheritedPartId) {
+      currentScene.part_id = inheritedPartId;
+      currentScene.part_loop_video_path = inheritedLoopVideo;
+    }
 
-    // Fetch siblings (scenes that share at least one common parent)
-    // If previous_scene_id is provided, we fetch siblings specifically from that parent
+    // 3. Parents, Choices, Siblings
+    const [parentScenesRows] = await dbPool.query("SELECT s.id, s.title FROM scenes s JOIN choices c ON s.id = c.source_scene_id WHERE c.destination_scene_id = ?", [sceneId]);
+    const [choicesRows] = await dbPool.query("SELECT c.id, c.choice_text, s.id as destination_scene_id, s.title as destination_scene_title FROM choices c JOIN scenes s ON c.destination_scene_id = s.id WHERE c.source_scene_id = ?", [sceneId]);
+
     const prevId = req.query.previous_scene_id;
     let siblingsQuery, queryParams;
 
     if (prevId) {
-      siblingsQuery = `
-        SELECT s.id, s.title, c.choice_text
-        FROM scenes s
-        JOIN choices c ON s.id = c.destination_scene_id
-        WHERE c.source_scene_id = ? AND s.id != ?
-      `;
-      queryParams = [prevId, req.params.id];
+      siblingsQuery = "SELECT s.id, s.title, c.choice_text FROM scenes s JOIN choices c ON s.id = c.destination_scene_id WHERE c.source_scene_id = ? AND s.id != ?";
+      queryParams = [prevId, sceneId];
     } else {
-      siblingsQuery = `
-        SELECT DISTINCT s.id, s.title, c.choice_text
-        FROM scenes s
-        JOIN choices c ON s.id = c.destination_scene_id
-        WHERE c.source_scene_id IN (
-          SELECT source_scene_id FROM choices WHERE destination_scene_id = ?
-        ) AND s.id != ?
-      `;
-      queryParams = [req.params.id, req.params.id];
+      siblingsQuery = "SELECT DISTINCT s.id, s.title, c.choice_text FROM scenes s JOIN choices c ON s.id = c.destination_scene_id WHERE c.source_scene_id IN (SELECT source_scene_id FROM choices WHERE destination_scene_id = ?) AND s.id != ?";
+      queryParams = [sceneId, sceneId];
     }
 
-    const [siblingsRows] = await dbPool.execute(siblingsQuery, queryParams);
+    const [siblingsRows] = await dbPool.query(siblingsQuery, queryParams);
 
     res.send({
       current_scene: currentScene,
@@ -632,7 +570,7 @@ app.get('/api/player/scenes/:id', async (req, res) => {
     });
   } catch (dbError) {
     console.error('Database error:', dbError);
-    res.status(500).send({ message: 'Failed to retrieve scene data for the player.' });
+    res.status(500).send({ message: 'Failed to retrieve scene data.' });
   }
 });
 

@@ -59,9 +59,9 @@
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
-              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
+              <li v-for="choice in sceneData.next_choices" :key="choice.id">
                 <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
-                  <span v-if="index < 9">[{{ index + 1 }}] </span>{{ choice.choice_text }}
+                  {{ choice.choice_text }}
                 </router-link>
               </li>
             </ul>
@@ -75,14 +75,13 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import axios from 'axios';
 
 const props = defineProps({
   id: String
 });
 
-const router = useRouter();
 const route = useRoute();
 const sceneData = ref(null);
 const loading = ref(true);
@@ -136,12 +135,8 @@ const fetchSceneData = async (sceneId, parentId) => {
     const response = await axios.get(url);
     sceneData.value = response.data;
 
-    // Logic for inheriting part loop video
-    // If the scene belongs to a part (part_id is not null), we update the current loop video.
-    // If it doesn't have a part_id, we keep the previous one (inheritance).
-    if (sceneData.value.current_scene.part_id !== null && sceneData.value.current_scene.part_id !== undefined) {
-      currentPartLoopVideo.value = sceneData.value.current_scene.part_loop_video_path;
-    }
+    // Update the current loop video based on the scene's part (inherited or direct)
+    currentPartLoopVideo.value = sceneData.value.current_scene.part_loop_video_path || null;
 
     isVideoPlaying.value = true;
 
@@ -276,13 +271,11 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 }, { immediate: true });
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown);
   fetchBackground();
   window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown);
   document.body.style.overflow = '';
   window.removeEventListener('keydown', handleKeydown);
 });
