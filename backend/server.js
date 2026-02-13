@@ -397,7 +397,7 @@ app.post('/api/scenes', isAuthenticated, upload.single('video'), (req, res) => {
       console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
 
       let { part_id } = req.body;
-      if (part_id === '' || part_id === 'null' || part_id === 'undefined') {
+      if (part_id === undefined || part_id === '' || part_id === 'null' || part_id === 'undefined') {
         part_id = null;
       }
       const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
@@ -438,7 +438,7 @@ app.get('/api/scenes/:id', async (req, res) => {
 app.put('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
     let { title, part_id } = req.body;
-    if (part_id === '' || part_id === 'null' || part_id === 'undefined') {
+    if (part_id === undefined || part_id === '' || part_id === 'null' || part_id === 'undefined') {
       part_id = null;
     }
     await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
@@ -642,6 +642,12 @@ app.get('/api/admin/story-graph', isAuthenticated, async (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('Backend server is running!');
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).send({ message: 'An unexpected error occurred on the server.' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

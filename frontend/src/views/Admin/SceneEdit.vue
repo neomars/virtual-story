@@ -194,9 +194,8 @@ const saveScene = async () => {
       successMessage.value = 'Scene updated successfully!';
       setTimeout(() => router.push('/admin'), 1500);
     } else {
-      await axios.post('/api/scenes', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // Don't set Content-Type header manually, the browser will do it with the correct boundary
+      await axios.post('/api/scenes', formData);
       successMessage.value = `Scene "${scene.value.title}" created! Ready for the next one.`;
 
       // Reset form for next scene
