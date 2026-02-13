@@ -361,9 +361,21 @@ app.post('/api/admin/background', isAuthenticated, backgroundUpload.single('back
     }
 });
 
-app.post('/api/scenes', isAuthenticated, upload.single('video'), (req, res) => {
+app.post('/api/scenes', isAuthenticated, (req, res, next) => {
+  console.log('[UPLOAD] Received POST request to /api/scenes');
+  upload.single('video')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.error('[UPLOAD] Multer error:', err);
+      return res.status(400).send({ message: `Upload error: ${err.message}` });
+    } else if (err) {
+      console.error('[UPLOAD] Unknown error during multer processing:', err);
+      return res.status(500).send({ message: `Unknown upload error: ${err.message}` });
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) {
-    console.log('[UPLOAD] Upload failed: No file received.');
+    console.log('[UPLOAD] Upload failed: No file received in req.file after multer.');
     return res.status(400).send({ message: 'No video file was uploaded.' });
   }
 

@@ -84,7 +84,7 @@ const changePassword = async () => {
     alert('Password changed successfully!');
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || 'Failed to change password.');
+    alert(err.response?.data?.message || err.message || 'Failed to change password.');
   } finally {
     isChangingPass.value = false;
   }
@@ -97,7 +97,7 @@ const createUser = async () => {
     newUser.value = { username: '', password: '' };
     fetchUsers();
   } catch (err) {
-    alert(err.response?.data?.message || 'Failed to create user.');
+    alert(err.response?.data?.message || err.message || 'Failed to create user.');
   } finally {
     isCreatingUser.value = false;
   }
@@ -109,7 +109,7 @@ const deleteUser = async (id) => {
       await axios.delete(`/api/admin/users/${id}`);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Deletion failed.');
+      alert(err.response?.data?.message || err.message || 'Deletion failed.');
     }
   }
 };
