@@ -20,7 +20,7 @@
       <nav>
         <router-link to="/player/1">Player</router-link>
         <router-link to="/admin/scenes" @click="handleAdminClick">Admin</router-link>
-        <a v-if="isAuthenticated" href="#" @click.prevent="handleLogout" class="logout-link">Déconnexion ({{ currentUser?.username }})</a>
+        <a v-if="isAuthenticated" href="#" @click.prevent="handleLogout" class="logout-link">Logout ({{ currentUser?.username }})</a>
       </nav>
     </header>
     <main>

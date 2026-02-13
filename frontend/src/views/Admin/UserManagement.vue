@@ -2,24 +2,24 @@
 <template>
   <div class="user-management">
     <div class="header-container">
-      <router-link to="/admin/scenes" class="back-link">&larr; Retour au Graphe</router-link>
-      <h1>Gestion des Utilisateurs</h1>
+      <router-link to="/admin/scenes" class="back-link">&larr; Back to Graph</router-link>
+      <h1>Users Management</h1>
     </div>
 
     <!-- Password Change Section -->
     <section class="admin-section">
-      <h2>Changer mon mot de passe</h2>
+      <h2>Change my password</h2>
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
-          <label>Ancien mot de passe</label>
+          <label>Old password</label>
           <input type="password" v-model="passChange.oldPassword" required />
         </div>
         <div class="form-group">
-          <label>Nouveau mot de passe</label>
+          <label>New password</label>
           <input type="password" v-model="passChange.newPassword" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
-          {{ isChangingPass ? 'Changement...' : 'Mettre à jour le mot de passe' }}
+          {{ isChangingPass ? 'Changing...' : 'Update password' }}
         </button>
       </form>
     </section>
@@ -28,25 +28,25 @@
 
     <!-- User List & Add User Section -->
     <section class="admin-section">
-      <h2>Utilisateurs</h2>
+      <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
-        <input type="text" v-model="newUser.username" placeholder="Nom d'utilisateur" required />
-        <input type="password" v-model="newUser.password" placeholder="Mot de passe" required />
-        <button type="submit" class="button" :disabled="isCreatingUser">Ajouter</button>
+        <input type="text" v-model="newUser.username" placeholder="Username" required />
+        <input type="password" v-model="newUser.password" placeholder="Password" required />
+        <button type="submit" class="button" :disabled="isCreatingUser">Add</button>
       </form>
 
       <ul class="user-list">
         <li v-for="user in users" :key="user.id">
           <div class="user-info">
             <strong>{{ user.username }}</strong>
-            <span v-if="user.id === auth.currentUser.value?.id" class="self-badge">Moi</span>
+            <span v-if="user.id === auth.currentUser.value?.id" class="self-badge">Me</span>
           </div>
           <div class="user-actions">
             <button
               @click="deleteUser(user.id)"
               class="button-delete"
               :disabled="user.id === auth.currentUser.value?.id"
-              title="Supprimer"
+              title="Delete"
             >&times;</button>
           </div>
         </li>
@@ -81,10 +81,10 @@ const changePassword = async () => {
   isChangingPass.value = true;
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Mot de passe changé avec succès !');
+    alert('Password changed successfully!');
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || 'Échec du changement de mot de passe.');
+    alert(err.response?.data?.message || 'Failed to change password.');
   } finally {
     isChangingPass.value = false;
   }
@@ -97,19 +97,19 @@ const createUser = async () => {
     newUser.value = { username: '', password: '' };
     fetchUsers();
   } catch (err) {
-    alert(err.response?.data?.message || 'Échec de la création.');
+    alert(err.response?.data?.message || 'Failed to create user.');
   } finally {
     isCreatingUser.value = false;
   }
 };
 
 const deleteUser = async (id) => {
-  if (confirm('Supprimer cet utilisateur ?')) {
+  if (confirm('Delete this user?')) {
     try {
       await axios.delete(`/api/admin/users/${id}`);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Échec de la suppression.');
+      alert(err.response?.data?.message || 'Deletion failed.');
     }
   }
 };

@@ -1,21 +1,21 @@
 
 <template>
   <div class="player-container" :style="playerContainerStyle">
-    <div v-if="loading">Chargement...</div>
+    <div v-if="loading">Loading...</div>
     <div v-else-if="error">{{ error }}</div>
     <div v-else class="scene-layout">
       <!-- Parent Scenes -->
       <div class="side-panel left">
         <div class="panel-content">
-          <h3>Scènes Précédentes</h3>
+          <h3>Previous Scenes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
               <router-link :to="{ path: `/player/${parent.id}` }">{{ parent.title }}</router-link>
             </li>
           </ul>
-          <p v-else>C'est le début de l'histoire.</p>
+          <p v-else>This is the beginning of the story.</p>
 
-          <!-- Vidéo de Chapitre en Boucle -->
+          <!-- Chapter Loop Video -->
           <div v-if="currentPartLoopVideo" class="part-loop-container">
             <video :src="currentPartLoopVideo" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
           </div>
@@ -41,10 +41,10 @@
           @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-          :aria-label="`Jouer la vidéo : ${sceneData.current_scene.title}`"
+          :aria-label="`Play video: ${sceneData.current_scene.title}`"
           class="thumbnail-container"
         >
-          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Miniature pour ${sceneData.current_scene.title}`">
+          <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
           <h2>{{ sceneData.current_scene.title }}</h2>
         </div>
@@ -56,7 +56,7 @@
       <!-- Next Choices -->
       <div class="side-panel right">
         <div class="panel-content">
-          <h3>Choix suivants</h3>
+          <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="choice in sceneData.next_choices" :key="choice.id">
@@ -65,7 +65,7 @@
                 </router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Regardez la vidéo pour voir les choix.</p>
+            <p v-else key="waiting">Watch the video to see choices.</p>
           </Transition>
         </div>
       </div>
@@ -152,7 +152,7 @@ const fetchSceneData = async (sceneId, parentId) => {
       }
     });
   } catch (err) {
-    error.value = 'Échec du chargement des données de la scène.';
+    error.value = 'Failed to load scene data.';
     console.error(err);
   } finally {
     loading.value = false;
@@ -195,6 +195,61 @@ const onVideoEnd = () => {
   // The user can then click a choice to navigate away.
 };
 
+// --- Keyboard Shortcuts ---
+const handleKeydown = (e) => {
+  // Don't trigger if user is typing in an input or textarea
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (!videoPlayer.value || !isVideoPlaying.value) return;
+
+  switch (e.key.toLowerCase()) {
+    case ' ':
+    case 'k':
+      e.preventDefault();
+      if (videoPlayer.value.paused) {
+        videoPlayer.value.play();
+      } else {
+        videoPlayer.value.pause();
+      }
+      break;
+    case 'f':
+      e.preventDefault();
+      toggleFullscreen();
+      break;
+    case 'm':
+      e.preventDefault();
+      videoPlayer.value.muted = !videoPlayer.value.muted;
+      break;
+    case 'arrowleft':
+    case 'j':
+      e.preventDefault();
+      videoPlayer.value.currentTime = Math.max(0, videoPlayer.value.currentTime - 10);
+      break;
+    case 'arrowright':
+    case 'l':
+      e.preventDefault();
+      videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+  }
+};
+
+const toggleFullscreen = () => {
+  if (!videoPlayer.value) return;
+
+  if (!document.fullscreenElement) {
+    if (videoPlayer.value.requestFullscreen) {
+      videoPlayer.value.requestFullscreen();
+    } else if (videoPlayer.value.webkitRequestFullscreen) { /* Safari */
+      videoPlayer.value.webkitRequestFullscreen();
+    } else if (videoPlayer.value.msRequestFullscreen) { /* IE11 */
+      videoPlayer.value.msRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+};
 
 // --- Lifecycle Hooks ---
 
@@ -221,10 +276,12 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 
 onMounted(() => {
   fetchBackground();
+  window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
   document.body.style.overflow = '';
+  window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
