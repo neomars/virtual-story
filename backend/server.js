@@ -271,7 +271,7 @@ app.post('/api/admin/db-sync', async (req, res) => {
 
 app.get('/api/parts', async (req, res) => {
   try {
-    const [rows] = await dbPool.execute('SELECT * FROM parts ORDER BY `order` ASC');
+    const [rows] = await dbPool.query('SELECT * FROM parts ORDER BY `order` ASC');
     res.send(rows);
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -283,7 +283,7 @@ app.post('/api/parts', isAuthenticated, partUpload.single('loop_video'), async (
   const { title, first_scene_id, order } = req.body;
   const loop_video_path = req.file ? `/parts/${req.file.filename}` : null;
   try {
-    const [result] = await dbPool.execute(
+    const [result] = await dbPool.query(
       'INSERT INTO parts (title, first_scene_id, `order`, loop_video_path) VALUES (?, ?, ?, ?)',
       [title, first_scene_id, order || 0, loop_video_path]
     );
@@ -299,12 +299,12 @@ app.put('/api/parts/:id', isAuthenticated, partUpload.single('loop_video'), asyn
   try {
     if (req.file) {
       const loop_video_path = `/parts/${req.file.filename}`;
-      await dbPool.execute(
+      await dbPool.query(
         'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ?, loop_video_path = ? WHERE id = ?',
         [title, first_scene_id, order, loop_video_path, req.params.id]
       );
     } else {
-      await dbPool.execute(
+      await dbPool.query(
         'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ? WHERE id = ?',
         [title, first_scene_id, order, req.params.id]
       );
@@ -318,7 +318,7 @@ app.put('/api/parts/:id', isAuthenticated, partUpload.single('loop_video'), asyn
 
 app.delete('/api/parts/:id', isAuthenticated, async (req, res) => {
   try {
-    await dbPool.execute('DELETE FROM parts WHERE id = ?', [req.params.id]);
+    await dbPool.query('DELETE FROM parts WHERE id = ?', [req.params.id]);
     res.send({ message: 'Part deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -328,7 +328,7 @@ app.delete('/api/parts/:id', isAuthenticated, async (req, res) => {
 
 app.get('/api/settings/background', async (req, res) => {
     try {
-        const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
+        const [rows] = await dbPool.query("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
         res.send({ backgroundUrl: rows.length > 0 ? rows[0].setting_value : null });
     } catch (dbError) {
         console.error('Database error:', dbError);
@@ -342,10 +342,10 @@ app.post('/api/admin/background', isAuthenticated, backgroundUpload.single('back
     }
     const newBackgroundUrl = `/backgrounds/${req.file.filename}`;
     try {
-        const [rows] = await dbPool.execute("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
+        const [rows] = await dbPool.query("SELECT setting_value FROM settings WHERE setting_key = 'player_background'");
         const oldBackgroundUrl = rows.length > 0 ? rows[0].setting_value : null;
 
-        await dbPool.execute(
+        await dbPool.query(
             "INSERT INTO settings (setting_key, setting_value) VALUES ('player_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?",
             [newBackgroundUrl, newBackgroundUrl]
         );
@@ -396,8 +396,11 @@ app.post('/api/scenes', isAuthenticated, upload.single('video'), (req, res) => {
 
       console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
 
-      const { part_id } = req.body;
-      const [result] = await dbPool.execute('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id || null]);
+      let { part_id } = req.body;
+      if (part_id === '' || part_id === 'null' || part_id === 'undefined') {
+        part_id = null;
+      }
+      const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
 
       console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
       res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
@@ -413,7 +416,7 @@ app.post('/api/scenes', isAuthenticated, upload.single('video'), (req, res) => {
 
 app.get('/api/scenes', isAuthenticated, async (req, res) => {
   try {
-    const [rows] = await dbPool.execute('SELECT * FROM scenes ORDER BY created_at DESC');
+    const [rows] = await dbPool.query('SELECT * FROM scenes ORDER BY created_at DESC');
     res.send(rows);
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -423,7 +426,7 @@ app.get('/api/scenes', isAuthenticated, async (req, res) => {
 
 app.get('/api/scenes/:id', async (req, res) => {
   try {
-    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    const [rows] = await dbPool.query('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
     res.send(rows[0]);
   } catch (dbError) {
@@ -434,8 +437,11 @@ app.get('/api/scenes/:id', async (req, res) => {
 
 app.put('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
-    const { title, part_id } = req.body;
-    await dbPool.execute('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id || null, req.params.id]);
+    let { title, part_id } = req.body;
+    if (part_id === '' || part_id === 'null' || part_id === 'undefined') {
+      part_id = null;
+    }
+    await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
     res.send({ message: 'Scene updated successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -445,7 +451,7 @@ app.put('/api/scenes/:id', isAuthenticated, async (req, res) => {
 
 app.delete('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
-    const [rows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    const [rows] = await dbPool.query('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
     const scene = rows[0];
 
@@ -455,7 +461,7 @@ app.delete('/api/scenes/:id', isAuthenticated, async (req, res) => {
     await fs.unlink(videoPath).catch(err => console.error("Error deleting video file:", err.message));
     await fs.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail file:", err.message));
 
-    await dbPool.execute('DELETE FROM scenes WHERE id = ?', [req.params.id]);
+    await dbPool.query('DELETE FROM scenes WHERE id = ?', [req.params.id]);
     res.send({ message: 'Scene deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -465,7 +471,7 @@ app.delete('/api/scenes/:id', isAuthenticated, async (req, res) => {
 
 app.get('/api/scenes/:id/choices', async (req, res) => {
   try {
-    const [rows] = await dbPool.execute(
+    const [rows] = await dbPool.query(
       `SELECT c.id, c.choice_text, s.id as destination_id, s.title as destination_title
        FROM choices c JOIN scenes s ON c.destination_scene_id = s.id
        WHERE c.source_scene_id = ?`, [req.params.id]
@@ -480,7 +486,7 @@ app.get('/api/scenes/:id/choices', async (req, res) => {
 app.post('/api/scenes/:id/choices', isAuthenticated, async (req, res) => {
   const { destination_scene_id, choice_text } = req.body;
   try {
-    const [result] = await dbPool.execute('INSERT INTO choices (source_scene_id, destination_scene_id, choice_text) VALUES (?, ?, ?)', [req.params.id, destination_scene_id, choice_text]);
+    const [result] = await dbPool.query('INSERT INTO choices (source_scene_id, destination_scene_id, choice_text) VALUES (?, ?, ?)', [req.params.id, destination_scene_id, choice_text]);
     res.status(201).send({ id: result.insertId });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -490,7 +496,7 @@ app.post('/api/scenes/:id/choices', isAuthenticated, async (req, res) => {
 
 app.delete('/api/choices/:id', isAuthenticated, async (req, res) => {
   try {
-    await dbPool.execute('DELETE FROM choices WHERE id = ?', [req.params.id]);
+    await dbPool.query('DELETE FROM choices WHERE id = ?', [req.params.id]);
     res.send({ message: 'Choice deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
@@ -576,16 +582,16 @@ app.get('/api/player/scenes/:id', async (req, res) => {
 
 app.get('/api/admin/scenes/:id/relations', isAuthenticated, async (req, res) => {
   try {
-    const [sceneRows] = await dbPool.execute('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    const [sceneRows] = await dbPool.query('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
-    const [parentScenesRows] = await dbPool.execute(
+    const [parentScenesRows] = await dbPool.query(
       `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
        FROM scenes s JOIN choices c ON s.id = c.source_scene_id
        WHERE c.destination_scene_id = ?`,
       [req.params.id]
     );
-    const [childScenesRows] = await dbPool.execute(
+    const [childScenesRows] = await dbPool.query(
       `SELECT s.id, s.title, c.choice_text, c.id AS choice_id
        FROM scenes s JOIN choices c ON s.id = c.destination_scene_id
        WHERE c.source_scene_id = ?`,
