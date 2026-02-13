@@ -3,12 +3,12 @@
   <div v-if="isOpen" class="modal-overlay" @click.self="close">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Connexion Admin</h2>
-        <button class="close-btn" @click="close" aria-label="Fermer">&times;</button>
+        <h2>Admin Login</h2>
+        <button class="close-btn" @click="close" aria-label="Close">&times;</button>
       </div>
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
-          <label for="username">Nom d'utilisateur</label>
+          <label for="username">Username</label>
           <input
             type="text"
             id="username"
@@ -19,7 +19,7 @@
           >
         </div>
         <div class="form-group">
-          <label for="password">Mot de passe</label>
+          <label for="password">Password</label>
           <input
             type="password"
             id="password"
@@ -32,7 +32,7 @@
           {{ errorMessage }}
         </div>
         <button type="submit" class="submit-btn" :disabled="isLoading">
-          {{ isLoading ? 'Connexion en cours...' : 'Se connecter' }}
+          {{ isLoading ? 'Connecting...' : 'Login' }}
         </button>
       </form>
     </div>
@@ -73,7 +73,7 @@ const handleLogin = async () => {
     emit('login-success', response.data);
     close();
   } catch (err) {
-    errorMessage.value = err.response?.data?.message || 'Une erreur est survenue lors de la connexion.';
+    errorMessage.value = err.response?.data?.message || 'An error occurred during login.';
   } finally {
     isLoading.value = false;
   }

@@ -3,12 +3,12 @@
   <div>
     <!-- Section des Paramètres (conservée) -->
     <div class="settings-section">
-      <h2>Arrière-plan du Lecteur</h2>
+      <h2>Player Background</h2>
       <div class="upload-form">
-        <label for="background-upload" class="button">Choisir une Image</label>
+        <label for="background-upload" class="button">Choose Image</label>
         <input id="background-upload" type="file" @change="handleFileChange" accept="image/png, image/jpeg" class="sr-only" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
-        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Téléverser</button>
+        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Upload</button>
       </div>
       <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
         {{ uploadStatus }}
@@ -20,46 +20,46 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
-        <h2>Gestion des Parties (Chapitres)</h2>
+        <h2>Chapters Management (Parts)</h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
-          {{ isSyncing ? 'Synchronisation...' : 'Synchroniser la Base de Données' }}
+          {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
         </button>
       </div>
-      <p class="instruction-text">Note : Utilisez le bouton "Synchroniser" si vous rencontrez des erreurs de chargement ou de création.</p>
+      <p class="instruction-text">Note: Use the "Sync" button if you encounter loading or creation errors.</p>
       <form @submit.prevent="createPart" class="upload-form multipart-form">
         <div class="form-row">
-          <input type="text" v-model="newPart.title" placeholder="Titre de la partie" required />
+          <input type="text" v-model="newPart.title" placeholder="Chapter title" required />
           <select v-model="newPart.first_scene_id" required>
-            <option disabled value="">Scène de départ</option>
+            <option disabled value="">Starting scene</option>
             <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
           </select>
         </div>
         <div class="form-row">
-          <label for="part-loop-upload" class="button secondary-btn">Vidéo Boucle (Optionnel)</label>
+          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional)</label>
           <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
           <span v-if="partLoopFile" class="file-name">{{ partLoopFile.name }}</span>
-          <button type="submit" class="button">Ajouter la Partie</button>
+          <button type="submit" class="button">Add Chapter</button>
         </div>
       </form>
       <ul class="parts-list">
         <li v-for="part in parts" :key="part.id">
           <div v-if="editingPartId === part.id" class="edit-part-inline">
-            <input type="text" v-model="editPartData.title" placeholder="Titre" />
+            <input type="text" v-model="editPartData.title" placeholder="Title" />
             <select v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
-            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Vidéo Loop</label>
+            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video</label>
             <input :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
-            <button @click="updatePart(part.id)" class="button mini">Enregistrer</button>
-            <button @click="cancelEdit" class="button secondary-btn mini">Annuler</button>
+            <button @click="updatePart(part.id)" class="button mini">Save</button>
+            <button @click="cancelEdit" class="button secondary-btn mini">Cancel</button>
           </div>
           <div v-else class="part-item-content">
             <span>
-              <strong>{{ part.title }}</strong> (Départ ID: {{ part.first_scene_id }})
+              <strong>{{ part.title }}</strong> (Starting ID: {{ part.first_scene_id }})
               <span v-if="part.loop_video_path" class="badge-video">📹 Loop</span>
             </span>
             <div class="part-actions">
-              <button @click="startEdit(part)" class="button mini">Éditer</button>
+              <button @click="startEdit(part)" class="button mini">Edit</button>
               <button @click="deletePart(part.id)" class="button-delete">&times;</button>
             </div>
           </div>
@@ -71,24 +71,24 @@
 
     <!-- Nouvelle Section du Graphe de l'Histoire -->
     <div class="header-container">
-      <h2 class="page-title">Graphe de l'Histoire</h2>
+      <h2 class="page-title">Story Graph</h2>
       <div class="header-actions">
-        <router-link to="/admin/users" class="button secondary-btn">Utilisateurs & Profil</router-link>
-        <router-link to="/admin/scenes/new" class="button">Ajouter une Scène Racine</router-link>
+        <router-link to="/admin/users" class="button secondary-btn">Users & Profile</router-link>
+        <router-link to="/admin/scenes/new" class="button">Add Root Scene</router-link>
       </div>
     </div>
 
-    <div v-if="loading">Chargement du graphe...</div>
+    <div v-if="loading">Loading graph...</div>
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
-      <p>Astuce : Si c'est votre première utilisation ou après une mise à jour, cliquez sur le bouton <strong>"Synchroniser la Base de Données"</strong> ci-dessus pour préparer les tables.</p>
+      <p>Tip: If this is your first time or after an update, click the <strong>"Sync Database"</strong> button above to prepare the tables.</p>
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
         <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
           <div class="chapter-info">
             <div v-if="rootScene.part_title" class="part-badge">
-              Chapitre : {{ rootScene.part_title }}
+              Chapter: {{ rootScene.part_title }}
             </div>
             <span class="root-title">{{ rootScene.title }}</span>
           </div>
@@ -100,7 +100,7 @@
       </div>
     </div>
     <div v-else class="empty-state">
-      <p>Aucune scène trouvée. Commencez par créer une scène racine !</p>
+      <p>No scenes found. Start by creating a root scene!</p>
     </div>
   </div>
 </template>
@@ -146,7 +146,7 @@ const syncDatabase = async () => {
     fetchStoryGraph();
   } catch (err) {
     console.error('Sync error:', err);
-    alert(err.response?.data?.message || `Erreur lors de la synchronisation : ${err.message}`);
+    alert(err.response?.data?.message || `Error during synchronization: ${err.message}`);
   } finally {
     isSyncing.value = false;
   }
@@ -198,10 +198,10 @@ const updatePart = async (id) => {
     editingPartId.value = null;
     editPartFile.value = null;
     fetchParts();
-    alert('Partie mise à jour !');
+    alert('Chapter updated!');
   } catch (err) {
     console.error(err);
-    alert('Échec de la mise à jour.');
+    alert('Update failed.');
   }
 };
 
@@ -224,21 +224,21 @@ const createPart = async () => {
     if (fileInput) fileInput.value = '';
 
     fetchParts();
-    alert('Partie créée avec succès !');
+    alert('Chapter created successfully!');
   } catch (err) {
     console.error(err);
-    alert('Échec de la création de la partie. Vérifiez que la base de données est à jour.');
+    alert('Failed to create chapter. Check if database is up to date.');
   }
 };
 
 const deletePart = async (id) => {
-  if (confirm('Supprimer cette partie ?')) {
+  if (confirm('Delete this chapter?')) {
     try {
       await axios.delete(`/api/parts/${id}`);
       fetchParts();
     } catch (err) {
       console.error(err);
-      alert('Échec de la suppression.');
+      alert('Deletion failed.');
     }
   }
 };
@@ -261,7 +261,7 @@ const uploadBackground = async () => {
     selectedFile.value = null;
     document.querySelector('#background-upload').value = '';
   } catch (err) {
-    uploadStatus.value = err.response?.data?.message || 'Échec du téléversement.';
+    uploadStatus.value = err.response?.data?.message || 'Upload failed.';
     isSuccess.value = false;
   }
 };
@@ -271,7 +271,7 @@ const fetchStoryGraph = async () => {
     const response = await axios.get('/api/admin/story-graph');
     storyGraph.value = response.data;
   } catch (err) {
-    error.value = 'Échec du chargement du graphe de l\'histoire.';
+    error.value = 'Failed to load story graph.';
     console.error(err);
   } finally {
     loading.value = false;

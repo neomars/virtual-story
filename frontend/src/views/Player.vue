@@ -15,7 +15,7 @@
           </ul>
           <p v-else>This is the beginning of the story.</p>
 
-          <!-- Vidéo de Chapitre en Boucle -->
+          <!-- Chapter Loop Video -->
           <div v-if="currentPartLoopVideo" class="part-loop-container">
             <video :src="currentPartLoopVideo" autoplay loop muted playsinline class="loop-video" aria-hidden="true"></video>
           </div>
@@ -65,7 +65,7 @@
                 </router-link>
               </li>
             </ul>
-            <p v-else key="waiting">Watch the video to see the choices.</p>
+            <p v-else key="waiting">Watch the video to see choices.</p>
           </Transition>
         </div>
       </div>
@@ -196,22 +196,61 @@ const onVideoEnd = () => {
   // The user can then click a choice to navigate away.
 };
 
-const handleKeyDown = (event) => {
-  if (!showChoices.value || !sceneData.value?.next_choices) return;
+// --- Keyboard Shortcuts ---
+const handleKeydown = (e) => {
+  // Don't trigger if user is typing in an input or textarea
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-  const key = event.key;
-  if (key >= '1' && key <= '9') {
-    const index = parseInt(key) - 1;
-    const choices = sceneData.value.next_choices;
-    if (choices && choices[index]) {
-      router.push({
-        path: `/player/${choices[index].destination_scene_id}`,
-        query: { from: props.id }
-      });
-    }
+  if (!videoPlayer.value || !isVideoPlaying.value) return;
+
+  switch (e.key.toLowerCase()) {
+    case ' ':
+    case 'k':
+      e.preventDefault();
+      if (videoPlayer.value.paused) {
+        videoPlayer.value.play();
+      } else {
+        videoPlayer.value.pause();
+      }
+      break;
+    case 'f':
+      e.preventDefault();
+      toggleFullscreen();
+      break;
+    case 'm':
+      e.preventDefault();
+      videoPlayer.value.muted = !videoPlayer.value.muted;
+      break;
+    case 'arrowleft':
+    case 'j':
+      e.preventDefault();
+      videoPlayer.value.currentTime = Math.max(0, videoPlayer.value.currentTime - 10);
+      break;
+    case 'arrowright':
+    case 'l':
+      e.preventDefault();
+      videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
   }
 };
 
+const toggleFullscreen = () => {
+  if (!videoPlayer.value) return;
+
+  if (!document.fullscreenElement) {
+    if (videoPlayer.value.requestFullscreen) {
+      videoPlayer.value.requestFullscreen();
+    } else if (videoPlayer.value.webkitRequestFullscreen) { /* Safari */
+      videoPlayer.value.webkitRequestFullscreen();
+    } else if (videoPlayer.value.msRequestFullscreen) { /* IE11 */
+      videoPlayer.value.msRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+};
 
 // --- Lifecycle Hooks ---
 
@@ -239,11 +278,13 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown);
   fetchBackground();
+  window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown);
   document.body.style.overflow = '';
+  window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
