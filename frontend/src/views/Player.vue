@@ -59,9 +59,9 @@
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
-              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
-                  {{ choice.choice_text }}
+                  <span v-if="index < 9">[{{ index + 1 }}] </span>{{ choice.choice_text }}
                 </router-link>
               </li>
             </ul>
@@ -75,13 +75,14 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 const props = defineProps({
   id: String
 });
 
+const router = useRouter();
 const route = useRoute();
 const sceneData = ref(null);
 const loading = ref(true);
@@ -275,11 +276,13 @@ watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
 }, { immediate: true });
 
 onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
   fetchBackground();
   window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
   document.body.style.overflow = '';
   window.removeEventListener('keydown', handleKeydown);
 });
