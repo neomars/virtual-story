@@ -210,7 +210,8 @@ const saveScene = async () => {
     }
   } catch (err) {
     console.error('Failed to save scene:', err);
-    alert('Failed to save scene.');
+    const msg = err.response?.data?.message || err.message || 'Unknown error';
+    alert(`Failed to save scene: ${msg}`);
   }
 };
 
@@ -224,7 +225,8 @@ const addChoice = async () => {
     newChoice.value.destination_scene_id = '';
   } catch (err) {
     console.error('Failed to add choice:', err);
-    alert('Failed to add choice.');
+    const msg = err.response?.data?.message || err.message || 'Unknown error';
+    alert(`Failed to add choice: ${msg}`);
   }
 };
 
@@ -245,7 +247,8 @@ const addParentLink = async () => {
     newParentLink.value = { source_scene_id: '', choice_text: '' }; // Reset form
   } catch (err) {
     console.error('Failed to add parent link:', err);
-    alert('Failed to add parent link.');
+    const msg = err.response?.data?.message || err.message || 'Unknown error';
+    alert(`Failed to add parent link: ${msg}`);
   }
 };
 
