@@ -209,8 +209,19 @@ const saveScene = async () => {
     }
   } catch (err) {
     console.error('Failed to save scene:', err);
-    const msg = err.response?.data?.message || err.message || 'Unknown error';
-    alert(`Failed to save scene: ${msg}`);
+    let msg = err.message || 'Unknown error';
+    if (err.response && err.response.data && err.response.data.message) {
+      msg = err.response.data.message;
+    }
+
+    let details = '';
+    if (err.response) {
+      details = ` (Status: ${err.response.status})`;
+    } else if (err.request) {
+      details = ' (No response received - verify that backend is running on port 3000 and Vite proxy is correctly configured to 127.0.0.1:3000)';
+    }
+
+    alert(`Failed to save scene: ${msg}${details}`);
   }
 };
 
@@ -224,8 +235,12 @@ const addChoice = async () => {
     newChoice.value.destination_scene_id = '';
   } catch (err) {
     console.error('Failed to add choice:', err);
-    const msg = err.response?.data?.message || err.message || 'Unknown error';
-    alert(`Failed to add choice: ${msg}`);
+    let msg = err.message || 'Unknown error';
+    if (err.response && err.response.data && err.response.data.message) {
+      msg = err.response.data.message;
+    }
+    let details = err.response ? ` (Status: ${err.response.status})` : (err.request ? ' (No response from server)' : '');
+    alert(`Failed to add choice: ${msg}${details}`);
   }
 };
 
@@ -246,8 +261,12 @@ const addParentLink = async () => {
     newParentLink.value = { source_scene_id: '', choice_text: '' }; // Reset form
   } catch (err) {
     console.error('Failed to add parent link:', err);
-    const msg = err.response?.data?.message || err.message || 'Unknown error';
-    alert(`Failed to add parent link: ${msg}`);
+    let msg = err.message || 'Unknown error';
+    if (err.response && err.response.data && err.response.data.message) {
+      msg = err.response.data.message;
+    }
+    let details = err.response ? ` (Status: ${err.response.status})` : (err.request ? ' (No response from server)' : '');
+    alert(`Failed to add parent link: ${msg}${details}`);
   }
 };
 

@@ -201,7 +201,7 @@ const updatePart = async (id) => {
     alert('Chapter updated!');
   } catch (err) {
     console.error(err);
-    alert('Update failed.');
+    alert(`Update failed: ${err.response?.data?.message || err.message}`);
   }
 };
 
@@ -227,7 +227,7 @@ const createPart = async () => {
     alert('Chapter created successfully!');
   } catch (err) {
     console.error(err);
-    alert('Failed to create chapter. Check if database is up to date.');
+    alert(`Failed to create chapter: ${err.response?.data?.message || err.message}`);
   }
 };
 
@@ -238,7 +238,7 @@ const deletePart = async (id) => {
       fetchParts();
     } catch (err) {
       console.error(err);
-      alert('Deletion failed.');
+      alert(`Deletion failed: ${err.response?.data?.message || err.message}`);
     }
   }
 };
