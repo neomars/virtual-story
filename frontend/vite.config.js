@@ -20,25 +20,25 @@ export default defineConfig({
       // Single, simple rule for all API calls.
       // The backend now expects the /api prefix, so no rewrite is needed.
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
 
       // Asset proxy rules remain the same
       '/videos': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
       '/thumbnails': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
       '/parts': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
       '/backgrounds': {
-        target: 'http://127.0.0.1:3000',
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       }
     }
