@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const multer = require('multer');
+const ffmpegPath = require('ffmpeg-static');
 const { exec } = require('child_process');
 const { pool: dbPool } = require('./db');
 
@@ -381,15 +382,71 @@ app.post('/api/scenes', isAuthenticated, (req, res, next) => {
 
   console.log('[UPLOAD] Step 1: Video file received successfully.', req.file);
 
-  const { title } = req.body;
+  const { title, prepend_scene_id, append_scene_id } = req.body;
   const videoFilename = req.file.filename;
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
   const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
 
+  // Helper to get absolute path from DB video_path
+  const getAbsPath = (vPath) => path.join(__dirname, 'uploads', vPath.startsWith('/') ? vPath.slice(1) : vPath);
+
+  try {
+    let inputs = [];
+    if (prepend_scene_id && prepend_scene_id !== 'null') {
+      const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [prepend_scene_id]);
+      if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
+    }
+    inputs.push(req.file.path);
+    if (append_scene_id && append_scene_id !== 'null') {
+      const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [append_scene_id]);
+      if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
+    }
+
+    if (inputs.length > 1) {
+      console.log(`[FFMPEG] Concatenating ${inputs.length} videos...`);
+      const tempOutput = req.file.path + '.concat.mp4';
+
+      // We use filter_complex concat for robustness (re-encoding)
+      // We also scale to a common resolution (e.g. 1280x720) to ensure success if sources differ
+      let filter = '';
+      for (let i = 0; i < inputs.length; i++) {
+        filter += `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
+      }
+      for (let i = 0; i < inputs.length; i++) {
+        filter += `[v${i}][${i}:a]`;
+      }
+      filter += `concat=n=${inputs.length}:v=1:a=1[outv][outa]`;
+
+      const inputArgs = inputs.map(p => `-i "${p}"`).join(' ');
+      const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" ${inputArgs} -filter_complex "${filter}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k "${tempOutput}"`;
+
+      await new Promise((resolve, reject) => {
+        exec(concatCmd, (err, stdout, stderr) => {
+          if (err) {
+            console.error('[FFMPEG] Concat error:', stderr);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Replace original upload with concatenated result
+      await fs.unlink(req.file.path);
+      await fs.rename(tempOutput, req.file.path);
+      console.log('[FFMPEG] Concatenation successful.');
+    }
+  } catch (concatError) {
+    console.error('[FFMPEG] Failed to concatenate videos:', concatError);
+    // We continue with the original video if concat fails, or should we abort?
+    // The user requested concatenation, so if it fails, we should probably inform them.
+    return res.status(500).send({ message: 'Failed to concatenate videos: ' + concatError.message });
+  }
+
   console.log(`[FFMPEG] Step 2: Starting thumbnail generation for '${req.file.path}'.`);
 
   // Define the direct ffmpeg command
-  const ffmpegCommand = `unset LD_LIBRARY_PATH; /usr/bin/ffmpeg -i "${req.file.path}" -ss 00:00:05.000 -vframes 1 -s 320x240 "${thumbnailFullPath}"`;
+  const ffmpegCommand = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -i "${req.file.path}" -ss 00:00:05.000 -vframes 1 -s 320x240 "${thumbnailFullPath}"`;
 
   exec(ffmpegCommand, async (error, stdout, stderr) => {
     if (error) {
