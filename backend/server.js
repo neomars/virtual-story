@@ -88,17 +88,35 @@ const getAbsPath = (vPath) => path.join(__dirname, 'uploads', vPath.startsWith('
 
 const deleteSceneInternal = async (sceneId) => {
   try {
-    const [rows] = await dbPool.query('SELECT video_path, thumbnail_path FROM scenes WHERE id = ?', [sceneId]);
-    if (rows.length === 0) return;
+    const [rows] = await dbPool.query('SELECT title, video_path, thumbnail_path FROM scenes WHERE id = ?', [sceneId]);
+    if (rows.length === 0) return null;
     const scene = rows[0];
+
+    // Identify links to be broken
+    const [brokenLinks] = await dbPool.query(`
+      SELECT 'incoming' as type, s.title as other_scene, c.choice_text
+      FROM choices c JOIN scenes s ON c.source_scene_id = s.id
+      WHERE c.destination_scene_id = ?
+      UNION ALL
+      SELECT 'outgoing' as type, s.title as other_scene, c.choice_text
+      FROM choices c JOIN scenes s ON c.destination_scene_id = s.id
+      WHERE c.source_scene_id = ?
+    `, [sceneId, sceneId]);
 
     await fs.unlink(getAbsPath(scene.video_path)).catch(err => console.error(`[CLEANUP] Error deleting video ${scene.video_path}:`, err.message));
     await fs.unlink(getAbsPath(scene.thumbnail_path)).catch(err => console.error(`[CLEANUP] Error deleting thumbnail ${scene.thumbnail_path}:`, err.message));
 
     await dbPool.query('DELETE FROM scenes WHERE id = ?', [sceneId]);
-    console.log(`[CLEANUP] Scene ${sceneId} and its files removed after concatenation.`);
+    console.log(`[CLEANUP] Scene ${sceneId} ("${scene.title}") and its files removed.`);
+
+    return {
+      id: sceneId,
+      title: scene.title,
+      brokenLinks
+    };
   } catch (err) {
     console.error(`[CLEANUP] Failed to delete scene ${sceneId}:`, err);
+    return null;
   }
 };
 
@@ -473,11 +491,24 @@ app.post('/api/scenes', isAuthenticated, (req, res, next) => {
     const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
     const newId = result.insertId;
 
-    // Remove source scenes after successful creation of the concatenated scene
-    if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != newId) await deleteSceneInternal(prepend_scene_id);
-    if (append_scene_id && append_scene_id !== 'null' && append_scene_id != newId) await deleteSceneInternal(append_scene_id);
+    // Remove source scenes and collect summary
+    let summary = { mergedVideos: [title], brokenLinks: [] };
+    if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != newId) {
+      const report = await deleteSceneInternal(prepend_scene_id);
+      if (report) {
+        summary.mergedVideos.unshift(report.title);
+        summary.brokenLinks.push(...report.brokenLinks.map(l => ({ ...l, scene: report.title })));
+      }
+    }
+    if (append_scene_id && append_scene_id !== 'null' && append_scene_id != newId) {
+      const report = await deleteSceneInternal(append_scene_id);
+      if (report) {
+        summary.mergedVideos.push(report.title);
+        summary.brokenLinks.push(...report.brokenLinks.map(l => ({ ...l, scene: report.title })));
+      }
+    }
 
-    res.status(201).send({ id: newId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
+    res.status(201).send({ id: newId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl, concatenationSummary: summary });
   } catch (error) {
     console.error('[UPLOAD] Error processing upload:', error);
     await fs.unlink(req.file.path).catch(() => {});
@@ -519,36 +550,65 @@ app.put('/api/scenes/:id', isAuthenticated, (req, res, next) => {
       part_id = null;
     }
 
-    if (req.file) {
-      const videoFilename = req.file.filename;
-      const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
+    let summary = null;
+    const hasConcatRequest = (prepend_scene_id && prepend_scene_id !== 'null') || (append_scene_id && append_scene_id !== 'null');
+
+    if (req.file || hasConcatRequest) {
+      const [currRows] = await dbPool.query('SELECT video_path, thumbnail_path, title FROM scenes WHERE id = ?', [req.params.id]);
+      if (currRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
+
+      let workVideoPath;
+      let finalVideoFilename;
+
+      if (req.file) {
+        workVideoPath = req.file.path;
+        finalVideoFilename = req.file.filename;
+      } else {
+        // Concatenation without new upload: use existing video as base
+        const ext = path.extname(currRows[0].video_path);
+        finalVideoFilename = `video-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+        workVideoPath = path.join(videosDir, finalVideoFilename);
+        await fs.copyFile(getAbsPath(currRows[0].video_path), workVideoPath);
+      }
+
+      const thumbnailFilename = `thumb-${path.parse(finalVideoFilename).name}.png`;
       const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
 
-      await processVideoAndThumbnail(req.file.path, prepend_scene_id, append_scene_id, thumbnailFullPath);
+      await processVideoAndThumbnail(workVideoPath, prepend_scene_id, append_scene_id, thumbnailFullPath);
 
-      const videoUrl = `/videos/${videoFilename}`;
+      const videoUrl = `/videos/${finalVideoFilename}`;
       const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
 
-      // Delete old files
-      const [oldRows] = await dbPool.query('SELECT video_path, thumbnail_path FROM scenes WHERE id = ?', [req.params.id]);
-      if (oldRows.length > 0) {
-        await fs.unlink(getAbsPath(oldRows[0].video_path)).catch(() => {});
-        await fs.unlink(getAbsPath(oldRows[0].thumbnail_path)).catch(() => {});
-      }
+      // Delete old files of current scene
+      await fs.unlink(getAbsPath(currRows[0].video_path)).catch(() => {});
+      await fs.unlink(getAbsPath(currRows[0].thumbnail_path)).catch(() => {});
 
       await dbPool.query(
         'UPDATE scenes SET title = ?, part_id = ?, video_path = ?, thumbnail_path = ? WHERE id = ?',
         [title, part_id, videoUrl, thumbnailUrl, req.params.id]
       );
 
-      // Remove source scenes after successful update
-      if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != req.params.id) await deleteSceneInternal(prepend_scene_id);
-      if (append_scene_id && append_scene_id !== 'null' && append_scene_id != req.params.id) await deleteSceneInternal(append_scene_id);
+      // Cleanup sources and build summary
+      summary = { mergedVideos: [title], brokenLinks: [] };
+      if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != req.params.id) {
+        const report = await deleteSceneInternal(prepend_scene_id);
+        if (report) {
+          summary.mergedVideos.unshift(report.title);
+          summary.brokenLinks.push(...report.brokenLinks.map(l => ({ ...l, scene: report.title })));
+        }
+      }
+      if (append_scene_id && append_scene_id !== 'null' && append_scene_id != req.params.id) {
+        const report = await deleteSceneInternal(append_scene_id);
+        if (report) {
+          summary.mergedVideos.push(report.title);
+          summary.brokenLinks.push(...report.brokenLinks.map(l => ({ ...l, scene: report.title })));
+        }
+      }
     } else {
       await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
     }
 
-    res.send({ message: 'Scene updated successfully.' });
+    res.send({ message: 'Scene updated successfully.', concatenationSummary: summary });
   } catch (error) {
     console.error('Update error:', error);
     res.status(500).send({ message: 'Failed to update scene: ' + error.message });

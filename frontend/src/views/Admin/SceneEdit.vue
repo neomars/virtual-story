@@ -6,6 +6,18 @@
     <Transition name="fade">
       <div v-if="successMessage" class="success-banner" role="alert">
         {{ successMessage }}
+        <div v-if="mergeSummary" class="merge-summary-details">
+          <p><strong>Merging Result:</strong> {{ mergeSummary.mergedVideos.join(' + ') }}</p>
+          <div v-if="mergeSummary.brokenLinks.length > 0">
+            <p>The following links were removed:</p>
+            <ul>
+              <li v-for="(link, i) in mergeSummary.brokenLinks" :key="i">
+                [{{ link.scene }}] {{ link.type === 'incoming' ? 'From' : 'To' }} {{ link.other_scene }} ("{{ link.choice_text }}")
+              </li>
+            </ul>
+          </div>
+          <p v-else>No links were broken during this merge.</p>
+        </div>
       </div>
     </Transition>
 
@@ -123,7 +135,7 @@
                 <option v-for="s in allScenes" :key="'app-edit-'+s.id" :value="s.id">{{ s.title }}</option>
               </select>
             </div>
-            <p class="help-text">Only upload a file if you want to replace the current video. Merging only works with a new upload.</p>
+            <p class="help-text">Select BEFORE or AFTER to merge existing scenes with this one. If you don't upload a new file, the current video will be used as the base.</p>
           </fieldset>
 
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
@@ -169,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -189,6 +201,7 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const mergeSummary = ref(null);
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
@@ -235,14 +248,31 @@ const saveScene = async () => {
   }
 
   try {
+    successMessage.value = 'Processing...';
+    mergeSummary.value = null;
+
     if (isEditing.value) {
-      await axios.put(`/api/scenes/${props.id}`, formData);
+      const res = await axios.put(`/api/scenes/${props.id}`, formData);
       successMessage.value = 'Scene updated successfully!';
-      setTimeout(() => router.push('/admin'), 1500);
+      mergeSummary.value = res.data.concatenationSummary;
+
+      // Reset concat options
+      scene.value.prepend_scene_id = null;
+      scene.value.append_scene_id = null;
+      videoFile.value = null;
+      const fileInput = document.getElementById('video-edit');
+      if (fileInput) fileInput.value = '';
+
+      await fetchSceneData();
+      await fetchAllScenes();
+
+      if (!mergeSummary.value) {
+        setTimeout(() => { successMessage.value = ''; }, 2000);
+      }
     } else {
-      // Don't set Content-Type header manually, the browser will do it with the correct boundary
-      await axios.post('/api/scenes', formData);
-      successMessage.value = `Scene "${scene.value.title}" created! Ready for the next one.`;
+      const res = await axios.post('/api/scenes', formData);
+      successMessage.value = `Scene "${scene.value.title}" created!`;
+      mergeSummary.value = res.data.concatenationSummary;
 
       // Reset form for next scene
       scene.value = {
@@ -250,13 +280,16 @@ const saveScene = async () => {
         part_id: scene.value.part_id,
         prepend_scene_id: null,
         append_scene_id: null
-      }; // Keep the part_id for convenience
+      };
       videoFile.value = null;
       const fileInput = document.getElementById('video');
       if (fileInput) fileInput.value = '';
 
-      // Clear success message after 3 seconds
-      setTimeout(() => { successMessage.value = ''; }, 3000);
+      await fetchAllScenes();
+
+      if (!mergeSummary.value) {
+        setTimeout(() => { successMessage.value = ''; }, 3000);
+      }
     }
   } catch (err) {
     console.error('Failed to save scene:', err);
@@ -273,6 +306,7 @@ const saveScene = async () => {
     }
 
     alert(`Failed to save scene: ${msg}${details}`);
+    successMessage.value = '';
   }
 };
 
@@ -341,7 +375,6 @@ onMounted(() => {
 });
 
 // Re-fetch data when the route changes (e.g., navigating from one scene edit to another)
-import { watch } from 'vue';
 watch(() => props.id, () => {
     fetchSceneData();
     fetchAllScenes();
@@ -356,13 +389,26 @@ watch(() => props.id, () => {
   margin-bottom: 2rem;
 }
 .success-banner {
-  background-color: #42b983;
+  background-color: #2e7d32;
   color: white;
-  padding: 1rem;
-  border-radius: 5px;
+  padding: 1.5rem;
+  border-radius: 8px;
   margin-bottom: 2rem;
-  text-align: center;
-  font-weight: bold;
+  text-align: left;
+  border-left: 5px solid #42b983;
+}
+.merge-summary-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.3);
+  font-weight: normal;
+  font-size: 0.95rem;
+  color: #e0e0e0;
+}
+.merge-summary-details ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  list-style: disc;
 }
 
 .fade-enter-active,
