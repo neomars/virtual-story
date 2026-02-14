@@ -62,7 +62,7 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove parent link">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             No scenes lead here.
