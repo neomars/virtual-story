@@ -59,8 +59,9 @@
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
-              <li v-for="choice in sceneData.next_choices" :key="choice.id">
+              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
+                  <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
                 </router-link>
               </li>
@@ -75,7 +76,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const props = defineProps({
@@ -83,6 +84,7 @@ const props = defineProps({
 });
 
 const route = useRoute();
+const router = useRouter();
 const sceneData = ref(null);
 const loading = ref(true);
 const error = ref(null);
@@ -225,6 +227,24 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      if (showChoices.value && sceneData.value?.next_choices) {
+        const index = parseInt(e.key) - 1;
+        if (index < sceneData.value.next_choices.length) {
+          e.preventDefault();
+          const choice = sceneData.value.next_choices[index];
+          router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+        }
+      }
       break;
   }
 };
@@ -418,6 +438,16 @@ ul {
 
 li {
   margin-bottom: 1rem;
+}
+
+.shortcut-hint {
+  font-family: monospace;
+  background-color: #444;
+  color: #42b983;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-right: 0.5rem;
+  font-weight: bold;
 }
 
 li a {
