@@ -86,6 +86,22 @@ const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
 const getAbsPath = (vPath) => path.join(__dirname, 'uploads', vPath.startsWith('/') ? vPath.slice(1) : vPath);
 
+const deleteSceneInternal = async (sceneId) => {
+  try {
+    const [rows] = await dbPool.query('SELECT video_path, thumbnail_path FROM scenes WHERE id = ?', [sceneId]);
+    if (rows.length === 0) return;
+    const scene = rows[0];
+
+    await fs.unlink(getAbsPath(scene.video_path)).catch(err => console.error(`[CLEANUP] Error deleting video ${scene.video_path}:`, err.message));
+    await fs.unlink(getAbsPath(scene.thumbnail_path)).catch(err => console.error(`[CLEANUP] Error deleting thumbnail ${scene.thumbnail_path}:`, err.message));
+
+    await dbPool.query('DELETE FROM scenes WHERE id = ?', [sceneId]);
+    console.log(`[CLEANUP] Scene ${sceneId} and its files removed after concatenation.`);
+  } catch (err) {
+    console.error(`[CLEANUP] Failed to delete scene ${sceneId}:`, err);
+  }
+};
+
 const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnailPath) => {
   let inputs = [];
   if (prependId && prependId !== 'null' && prependId !== 'undefined') {
@@ -445,8 +461,13 @@ app.post('/api/scenes', isAuthenticated, (req, res, next) => {
       part_id = null;
     }
     const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
+    const newId = result.insertId;
 
-    res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
+    // Remove source scenes after successful creation of the concatenated scene
+    if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != newId) await deleteSceneInternal(prepend_scene_id);
+    if (append_scene_id && append_scene_id !== 'null' && append_scene_id != newId) await deleteSceneInternal(append_scene_id);
+
+    res.status(201).send({ id: newId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
   } catch (error) {
     console.error('[UPLOAD] Error processing upload:', error);
     await fs.unlink(req.file.path).catch(() => {});
@@ -509,6 +530,10 @@ app.put('/api/scenes/:id', isAuthenticated, (req, res, next) => {
         'UPDATE scenes SET title = ?, part_id = ?, video_path = ?, thumbnail_path = ? WHERE id = ?',
         [title, part_id, videoUrl, thumbnailUrl, req.params.id]
       );
+
+      // Remove source scenes after successful update
+      if (prepend_scene_id && prepend_scene_id !== 'null' && prepend_scene_id != req.params.id) await deleteSceneInternal(prepend_scene_id);
+      if (append_scene_id && append_scene_id !== 'null' && append_scene_id != req.params.id) await deleteSceneInternal(append_scene_id);
     } else {
       await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
     }
@@ -522,17 +547,10 @@ app.put('/api/scenes/:id', isAuthenticated, (req, res, next) => {
 
 app.delete('/api/scenes/:id', isAuthenticated, async (req, res) => {
   try {
-    const [rows] = await dbPool.query('SELECT * FROM scenes WHERE id = ?', [req.params.id]);
+    const [rows] = await dbPool.query('SELECT id FROM scenes WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
-    const scene = rows[0];
 
-    const videoPath = path.join(videosDir, path.basename(scene.video_path));
-    const thumbnailPath = path.join(thumbnailsDir, path.basename(scene.thumbnail_path));
-
-    await fs.unlink(videoPath).catch(err => console.error("Error deleting video file:", err.message));
-    await fs.unlink(thumbnailPath).catch(err => console.error("Error deleting thumbnail file:", err.message));
-
-    await dbPool.query('DELETE FROM scenes WHERE id = ?', [req.params.id]);
+    await deleteSceneInternal(req.params.id);
     res.send({ message: 'Scene deleted successfully.' });
   } catch (dbError) {
     console.error('Database error:', dbError);
