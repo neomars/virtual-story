@@ -666,18 +666,29 @@ app.delete('/api/choices/:id', isAuthenticated, async (req, res) => {
 app.get('/api/player/scenes/:id', async (req, res) => {
   const sceneId = req.params.id;
   try {
-    // 1. Fetch the scene directly
-    const [sceneRows] = await dbPool.query("SELECT s.*, p.loop_video_path as part_loop_video_path FROM scenes s LEFT JOIN parts p ON s.part_id = p.id WHERE s.id = ?", [sceneId]);
+    // 1. Fetch the scene directly, checking both direct part_id and if it's a starting scene of a part
+    const [sceneRows] = await dbPool.query(`
+      SELECT s.*,
+             COALESCE(p1.loop_video_path, p2.loop_video_path) as part_loop_video_path,
+             COALESCE(s.part_id, p2.id) as effective_part_id
+      FROM scenes s
+      LEFT JOIN parts p1 ON s.part_id = p1.id
+      LEFT JOIN parts p2 ON s.id = p2.first_scene_id
+      WHERE s.id = ?`, [sceneId]);
+
     if (sceneRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
 
     let currentScene = sceneRows[0];
+    if (currentScene.effective_part_id) {
+        currentScene.part_id = currentScene.effective_part_id;
+    }
 
     // 2. Inheritance Logic for part loop video
-    // If the scene itself has no part_id, we look at ancestors up to 10 levels
+    // If the scene itself has no part assigned directly or as a starting scene, we look at ancestors up to 10 levels
     let inheritedPartId = null;
     let inheritedLoopVideo = null;
 
-    if (currentScene.part_id === null) {
+    if (!currentScene.part_loop_video_path) {
       let currentId = sceneId;
       const visited = new Set([currentId]);
 
@@ -686,19 +697,29 @@ app.get('/api/player/scenes/:id', async (req, res) => {
         const [parents] = await dbPool.query("SELECT source_scene_id FROM choices WHERE destination_scene_id = ?", [currentId]);
         if (parents.length === 0) break;
 
-        // Check if any parent belongs to a part
+        // Check if any parent belongs to a part (directly or as starting scene)
         const parentIds = parents.map(p => p.source_scene_id);
-        const [parentScenes] = await dbPool.query("SELECT id, part_id FROM scenes WHERE id IN (?)", [parentIds]);
+        const [parentScenes] = await dbPool.query(`
+          SELECT s.id, s.part_id, p.id as starting_part_id, p.loop_video_path
+          FROM scenes s
+          LEFT JOIN parts p ON s.id = p.first_scene_id
+          WHERE s.id IN (?)`, [parentIds]);
 
-        const partParent = parentScenes.find(p => p.part_id !== null);
+        // Find first parent that has a part associated
+        const partParent = parentScenes.find(p => p.part_id !== null || p.starting_part_id !== null);
         if (partParent) {
-          inheritedPartId = partParent.part_id;
-          const [partData] = await dbPool.query("SELECT loop_video_path FROM parts WHERE id = ?", [inheritedPartId]);
-          if (partData.length > 0) inheritedLoopVideo = partData[0].loop_video_path;
+          inheritedPartId = partParent.part_id || partParent.starting_part_id;
+
+          if (partParent.loop_video_path) {
+            inheritedLoopVideo = partParent.loop_video_path;
+          } else {
+            const [partData] = await dbPool.query("SELECT loop_video_path FROM parts WHERE id = ?", [inheritedPartId]);
+            if (partData.length > 0) inheritedLoopVideo = partData[0].loop_video_path;
+          }
           break;
         }
 
-        // Move up one level (just pick first parent to keep it simple and avoid explosion)
+        // Move up one level
         currentId = parentIds[0];
         if (visited.has(currentId)) break;
         visited.add(currentId);
