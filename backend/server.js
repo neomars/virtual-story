@@ -84,6 +84,55 @@ const videoFileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
+const getAbsPath = (vPath) => path.join(__dirname, 'uploads', vPath.startsWith('/') ? vPath.slice(1) : vPath);
+
+const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnailPath) => {
+  let inputs = [];
+  if (prependId && prependId !== 'null' && prependId !== 'undefined') {
+    const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [prependId]);
+    if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
+  }
+  inputs.push(videoPath);
+  if (appendId && appendId !== 'null' && appendId !== 'undefined') {
+    const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [appendId]);
+    if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
+  }
+
+  if (inputs.length > 1) {
+    console.log(`[FFMPEG] Concatenating ${inputs.length} videos...`);
+    const tempOutput = videoPath + '.concat.mp4';
+    let filter = '';
+    for (let i = 0; i < inputs.length; i++) {
+      filter += `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
+    }
+    for (let i = 0; i < inputs.length; i++) {
+      filter += `[v${i}][${i}:a]`;
+    }
+    filter += `concat=n=${inputs.length}:v=1:a=1[outv][outa]`;
+
+    const inputArgs = inputs.map(p => `-i "${p}"`).join(' ');
+    const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" ${inputArgs} -filter_complex "${filter}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "${tempOutput}"`;
+
+    await new Promise((resolve, reject) => {
+      exec(concatCmd, (err, stdout, stderr) => {
+        if (err) { reject(new Error(stderr)); } else { resolve(); }
+      });
+    });
+
+    await fs.unlink(videoPath);
+    await fs.rename(tempOutput, videoPath);
+    console.log('[FFMPEG] Concatenation successful.');
+  }
+
+  console.log(`[FFMPEG] Generating thumbnail for '${videoPath}'.`);
+  const thumbCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -i "${videoPath}" -ss 00:00:05.000 -vframes 1 -s 320x240 -y "${thumbnailPath}"`;
+  await new Promise((resolve, reject) => {
+    exec(thumbCmd, (err, stdout, stderr) => {
+      if (err) { reject(new Error(stderr)); } else { resolve(); }
+    });
+  });
+};
+
 const partStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, partsDir),
   filename: (req, file, cb) => {
@@ -380,107 +429,30 @@ app.post('/api/scenes', isAuthenticated, (req, res, next) => {
     return res.status(400).send({ message: 'No video file was uploaded.' });
   }
 
-  console.log('[UPLOAD] Step 1: Video file received successfully.', req.file);
-
   const { title, prepend_scene_id, append_scene_id } = req.body;
   const videoFilename = req.file.filename;
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
   const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
 
-  // Helper to get absolute path from DB video_path
-  const getAbsPath = (vPath) => path.join(__dirname, 'uploads', vPath.startsWith('/') ? vPath.slice(1) : vPath);
-
   try {
-    let inputs = [];
-    if (prepend_scene_id && prepend_scene_id !== 'null') {
-      const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [prepend_scene_id]);
-      if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
+    await processVideoAndThumbnail(req.file.path, prepend_scene_id, append_scene_id, thumbnailFullPath);
+
+    const videoUrl = `/videos/${videoFilename}`;
+    const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+
+    let { part_id } = req.body;
+    if (part_id === undefined || part_id === '' || part_id === 'null' || part_id === 'undefined') {
+      part_id = null;
     }
-    inputs.push(req.file.path);
-    if (append_scene_id && append_scene_id !== 'null') {
-      const [rows] = await dbPool.query('SELECT video_path FROM scenes WHERE id = ?', [append_scene_id]);
-      if (rows.length > 0) inputs.push(getAbsPath(rows[0].video_path));
-    }
+    const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
 
-    if (inputs.length > 1) {
-      console.log(`[FFMPEG] Concatenating ${inputs.length} videos...`);
-      const tempOutput = req.file.path + '.concat.mp4';
-
-      // We use filter_complex concat for robustness (re-encoding)
-      // We also scale to a common resolution (e.g. 1280x720) to ensure success if sources differ
-      let filter = '';
-      for (let i = 0; i < inputs.length; i++) {
-        filter += `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-      }
-      for (let i = 0; i < inputs.length; i++) {
-        filter += `[v${i}][${i}:a]`;
-      }
-      filter += `concat=n=${inputs.length}:v=1:a=1[outv][outa]`;
-
-      const inputArgs = inputs.map(p => `-i "${p}"`).join(' ');
-      const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" ${inputArgs} -filter_complex "${filter}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k "${tempOutput}"`;
-
-      await new Promise((resolve, reject) => {
-        exec(concatCmd, (err, stdout, stderr) => {
-          if (err) {
-            console.error('[FFMPEG] Concat error:', stderr);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      // Replace original upload with concatenated result
-      await fs.unlink(req.file.path);
-      await fs.rename(tempOutput, req.file.path);
-      console.log('[FFMPEG] Concatenation successful.');
-    }
-  } catch (concatError) {
-    console.error('[FFMPEG] Failed to concatenate videos:', concatError);
-    // We continue with the original video if concat fails, or should we abort?
-    // The user requested concatenation, so if it fails, we should probably inform them.
-    return res.status(500).send({ message: 'Failed to concatenate videos: ' + concatError.message });
+    res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
+  } catch (error) {
+    console.error('[UPLOAD] Error processing upload:', error);
+    await fs.unlink(req.file.path).catch(() => {});
+    await fs.unlink(thumbnailFullPath).catch(() => {});
+    res.status(500).send({ message: 'Failed to process video: ' + error.message });
   }
-
-  console.log(`[FFMPEG] Step 2: Starting thumbnail generation for '${req.file.path}'.`);
-
-  // Define the direct ffmpeg command
-  const ffmpegCommand = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -i "${req.file.path}" -ss 00:00:05.000 -vframes 1 -s 320x240 "${thumbnailFullPath}"`;
-
-  exec(ffmpegCommand, async (error, stdout, stderr) => {
-    if (error) {
-      console.error('[FFMPEG] Error during thumbnail generation:', error.message);
-      console.error('[FFMPEG] stderr:', stderr);
-      // Clean up the uploaded video file if thumbnail generation fails
-      await fs.unlink(req.file.path).catch(err => console.error('Error cleaning up video file:', err.message));
-      return res.status(500).send({ message: 'Failed to generate thumbnail.' });
-    }
-
-    console.log('[FFMPEG] Step 3: Thumbnail generation finished successfully.');
-
-    try {
-      const videoUrl = `/videos/${videoFilename}`;
-      const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
-
-      console.log(`[DB] Step 4: Saving scene to database with title: '${title}', video_path: '${videoUrl}', thumbnail_path: '${thumbnailUrl}'`);
-
-      let { part_id } = req.body;
-      if (part_id === undefined || part_id === '' || part_id === 'null' || part_id === 'undefined') {
-        part_id = null;
-      }
-      const [result] = await dbPool.query('INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)', [title, videoUrl, thumbnailUrl, part_id]);
-
-      console.log('[DB] Step 5: Scene saved successfully. Insert ID:', result.insertId);
-      res.status(201).send({ id: result.insertId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl });
-    } catch (dbError) {
-      console.error('[DB] Error saving scene to database:', dbError);
-      // Clean up uploaded files if DB insertion fails
-      await fs.unlink(req.file.path).catch(err => console.error('Error cleaning up video file:', err.message));
-      await fs.unlink(thumbnailFullPath).catch(err => console.error('Error cleaning up thumbnail file:', err.message));
-      res.status(500).send({ message: 'Failed to save scene to database.' });
-    }
-  });
 });
 
 app.get('/api/scenes', isAuthenticated, async (req, res) => {
@@ -504,17 +476,47 @@ app.get('/api/scenes/:id', async (req, res) => {
   }
 });
 
-app.put('/api/scenes/:id', isAuthenticated, async (req, res) => {
+app.put('/api/scenes/:id', isAuthenticated, (req, res, next) => {
+  upload.single('video')(req, res, (err) => {
+    if (err) return res.status(400).send({ message: `Upload error: ${err.message}` });
+    next();
+  });
+}, async (req, res) => {
   try {
-    let { title, part_id } = req.body;
+    let { title, part_id, prepend_scene_id, append_scene_id } = req.body;
     if (part_id === undefined || part_id === '' || part_id === 'null' || part_id === 'undefined') {
       part_id = null;
     }
-    await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
+
+    if (req.file) {
+      const videoFilename = req.file.filename;
+      const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
+      const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
+
+      await processVideoAndThumbnail(req.file.path, prepend_scene_id, append_scene_id, thumbnailFullPath);
+
+      const videoUrl = `/videos/${videoFilename}`;
+      const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+
+      // Delete old files
+      const [oldRows] = await dbPool.query('SELECT video_path, thumbnail_path FROM scenes WHERE id = ?', [req.params.id]);
+      if (oldRows.length > 0) {
+        await fs.unlink(getAbsPath(oldRows[0].video_path)).catch(() => {});
+        await fs.unlink(getAbsPath(oldRows[0].thumbnail_path)).catch(() => {});
+      }
+
+      await dbPool.query(
+        'UPDATE scenes SET title = ?, part_id = ?, video_path = ?, thumbnail_path = ? WHERE id = ?',
+        [title, part_id, videoUrl, thumbnailUrl, req.params.id]
+      );
+    } else {
+      await dbPool.query('UPDATE scenes SET title = ?, part_id = ? WHERE id = ?', [title, part_id, req.params.id]);
+    }
+
     res.send({ message: 'Scene updated successfully.' });
-  } catch (dbError) {
-    console.error('Database error:', dbError);
-    res.status(500).send({ message: 'Failed to update scene.' });
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).send({ message: 'Failed to update scene: ' + error.message });
   }
 });
 

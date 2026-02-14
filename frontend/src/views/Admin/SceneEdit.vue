@@ -22,20 +22,26 @@
           <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
         </select>
       </div>
-      <div class="form-group">
-        <label for="prepend">Prepend Video (Optional)</label>
-        <select id="prepend" v-model="scene.prepend_scene_id">
-          <option :value="null">None</option>
-          <option v-for="s in allScenes" :key="'pre-'+s.id" :value="s.id">{{ s.title }}</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="append">Append Video (Optional)</label>
-        <select id="append" v-model="scene.append_scene_id">
-          <option :value="null">None</option>
-          <option v-for="s in allScenes" :key="'app-'+s.id" :value="s.id">{{ s.title }}</option>
-        </select>
-      </div>
+
+      <fieldset class="video-merging-section">
+        <legend>Video Merging Options (Optional)</legend>
+        <div class="form-group">
+          <label for="prepend">Video BEFORE</label>
+          <select id="prepend" v-model="scene.prepend_scene_id">
+            <option :value="null">None</option>
+            <option v-for="s in allScenes" :key="'pre-'+s.id" :value="s.id">{{ s.title }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="append">Video AFTER</label>
+          <select id="append" v-model="scene.append_scene_id">
+            <option :value="null">None</option>
+            <option v-for="s in allScenes" :key="'app-'+s.id" :value="s.id">{{ s.title }}</option>
+          </select>
+        </div>
+        <p class="help-text">Selected videos will be merged with the new upload automatically.</p>
+      </fieldset>
+
       <div class="form-group">
         <label for="video">Video File</label>
         <input type="file" id="video" @change="handleFileUpload" required>
@@ -96,6 +102,30 @@
               <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
             </select>
           </div>
+
+          <fieldset class="video-merging-section">
+            <legend>Replace/Merge Video</legend>
+            <div class="form-group">
+              <label for="video-edit">New Video File</label>
+              <input type="file" id="video-edit" @change="handleFileUpload">
+            </div>
+            <div class="form-group">
+              <label for="prepend-edit">Video BEFORE</label>
+              <select id="prepend-edit" v-model="scene.prepend_scene_id">
+                <option :value="null">None</option>
+                <option v-for="s in allScenes" :key="'pre-edit-'+s.id" :value="s.id">{{ s.title }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="append-edit">Video AFTER</label>
+              <select id="append-edit" v-model="scene.append_scene_id">
+                <option :value="null">None</option>
+                <option v-for="s in allScenes" :key="'app-edit-'+s.id" :value="s.id">{{ s.title }}</option>
+              </select>
+            </div>
+            <p class="help-text">Only upload a file if you want to replace the current video. Merging only works with a new upload.</p>
+          </fieldset>
+
           <div v-if="scene.thumbnail_path" class="thumbnail-preview">
             <img :src="scene.thumbnail_path" alt="Thumbnail">
           </div>
@@ -197,16 +227,16 @@ const handleFileUpload = (event) => {
 const saveScene = async () => {
   const formData = new FormData();
   formData.append('title', scene.value.title);
-  if (scene.value.part_id) formData.append('part_id', scene.value.part_id);
-  if (scene.value.prepend_scene_id) formData.append('prepend_scene_id', scene.value.prepend_scene_id);
-  if (scene.value.append_scene_id) formData.append('append_scene_id', scene.value.append_scene_id);
+  formData.append('part_id', scene.value.part_id || '');
+  formData.append('prepend_scene_id', scene.value.prepend_scene_id || '');
+  formData.append('append_scene_id', scene.value.append_scene_id || '');
   if (videoFile.value) {
     formData.append('video', videoFile.value);
   }
 
   try {
     if (isEditing.value) {
-      await axios.put(`/api/scenes/${props.id}`, { title: scene.value.title, part_id: scene.value.part_id });
+      await axios.put(`/api/scenes/${props.id}`, formData);
       successMessage.value = 'Scene updated successfully!';
       setTimeout(() => router.push('/admin'), 1500);
     } else {
@@ -432,5 +462,22 @@ input[type="text"], select {
 }
 .simple-form {
   max-width: 500px;
+}
+.video-merging-section {
+  border: 1px dashed #42b983;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: rgba(66, 185, 131, 0.05);
+}
+.video-merging-section legend {
+  padding: 0 0.5rem;
+  color: #42b983;
+  font-weight: bold;
+}
+.help-text {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-top: 0.5rem;
 }
 </style>
