@@ -102,20 +102,6 @@ const deleteSceneInternal = async (sceneId) => {
   }
 };
 
-const getVideoMetadata = async (filePath) => {
-  return new Promise((resolve) => {
-    const cmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -i "${filePath}" -f null -`;
-    exec(cmd, (err, stdout, stderr) => {
-      const hasAudio = /Stream #.*: Audio:/.test(stderr);
-      const durationMatch = stderr.match(/Duration: (\d+):(\d+):(\d+.\d+)/);
-      let duration = 0;
-      if (durationMatch) {
-        duration = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
-      }
-      resolve({ hasAudio, duration });
-    });
-  });
-};
 
 const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnailPath) => {
   let inputs = [];
@@ -130,52 +116,38 @@ const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnai
   }
 
   if (inputs.length > 1) {
-    console.log(`[FFMPEG] Concatenating ${inputs.length} videos...`);
+    console.log(`[FFMPEG] Concatenating ${inputs.length} videos using demuxer...`);
     const tempOutput = videoPath + '.concat.mp4';
+    const listFilePath = videoPath + '.list.txt';
 
-    // Check which inputs have audio and their duration
-    const metadata = await Promise.all(inputs.map(getVideoMetadata));
-    console.log(`[FFMPEG] Metadata:`, metadata);
+    // Create list file for FFmpeg concat demuxer
+    const listContent = inputs.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
+    await fs.writeFile(listFilePath, listContent);
 
-    let filter = '';
-    let inputArgs = '';
-
-    for (let i = 0; i < inputs.length; i++) {
-      inputArgs += `-i "${inputs[i]}" `;
-      // Normalize video
-      filter += `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=25,setsar=1[v${i}];`;
-
-      // Handle audio: if missing, create silent track with exact duration
-      if (metadata[i].hasAudio) {
-        filter += `[${i}:a]aresample=44100[a${i}];`;
-      } else {
-        filter += `anullsrc=channel_layout=stereo:sample_rate=44100:d=${metadata[i].duration}[a${i}];`;
-      }
-    }
-
-    for (let i = 0; i < inputs.length; i++) {
-      filter += `[v${i}][a${i}]`;
-    }
-    filter += `concat=n=${inputs.length}:v=1:a=1[outv][outa]`;
-
-    const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" ${inputArgs} -filter_complex "${filter}" -map "[outv]" -map "[outa]" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "${tempOutput}"`;
+    // Command structure requested by user, with re-encoding for robustness
+    const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -f concat -safe 0 -i "${listFilePath}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "${tempOutput}"`;
 
     console.log(`[FFMPEG] Executing: ${concatCmd}`);
 
-    await new Promise((resolve, reject) => {
-      exec(concatCmd, (err, stdout, stderr) => {
-        if (err) {
-          console.error('[FFMPEG] Concat error output:', stderr);
-          reject(new Error(stderr));
-        } else {
-          resolve();
-        }
+    try {
+      await new Promise((resolve, reject) => {
+        exec(concatCmd, (err, stdout, stderr) => {
+          if (err) {
+            console.error('[FFMPEG] Concat error output:', stderr);
+            reject(new Error(stderr));
+          } else {
+            resolve();
+          }
+        });
       });
-    });
 
-    await fs.unlink(videoPath);
-    await fs.rename(tempOutput, videoPath);
-    console.log('[FFMPEG] Concatenation successful.');
+      await fs.unlink(videoPath);
+      await fs.rename(tempOutput, videoPath);
+      console.log('[FFMPEG] Concatenation successful.');
+    } finally {
+      // Always cleanup the list file
+      await fs.unlink(listFilePath).catch(() => {});
+    }
   }
 
   console.log(`[FFMPEG] Generating thumbnail for '${videoPath}'.`);
