@@ -23,6 +23,20 @@
         </select>
       </div>
       <div class="form-group">
+        <label for="prepend">Prepend Video (Optional)</label>
+        <select id="prepend" v-model="scene.prepend_scene_id">
+          <option :value="null">None</option>
+          <option v-for="s in allScenes" :key="'pre-'+s.id" :value="s.id">{{ s.title }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="append">Append Video (Optional)</label>
+        <select id="append" v-model="scene.append_scene_id">
+          <option :value="null">None</option>
+          <option v-for="s in allScenes" :key="'app-'+s.id" :value="s.id">{{ s.title }}</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label for="video">Video File</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
@@ -137,7 +151,7 @@ const route = useRoute();
 const router = useRouter();
 const isEditing = computed(() => !!props.id);
 
-const scene = ref({ title: '', part_id: null });
+const scene = ref({ title: '', part_id: null, prepend_scene_id: null, append_scene_id: null });
 const videoFile = ref(null);
 const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
@@ -184,6 +198,8 @@ const saveScene = async () => {
   const formData = new FormData();
   formData.append('title', scene.value.title);
   if (scene.value.part_id) formData.append('part_id', scene.value.part_id);
+  if (scene.value.prepend_scene_id) formData.append('prepend_scene_id', scene.value.prepend_scene_id);
+  if (scene.value.append_scene_id) formData.append('append_scene_id', scene.value.append_scene_id);
   if (videoFile.value) {
     formData.append('video', videoFile.value);
   }
@@ -199,7 +215,12 @@ const saveScene = async () => {
       successMessage.value = `Scene "${scene.value.title}" created! Ready for the next one.`;
 
       // Reset form for next scene
-      scene.value = { title: '', part_id: scene.value.part_id }; // Keep the part_id for convenience
+      scene.value = {
+        title: '',
+        part_id: scene.value.part_id,
+        prepend_scene_id: null,
+        append_scene_id: null
+      }; // Keep the part_id for convenience
       videoFile.value = null;
       const fileInput = document.getElementById('video');
       if (fileInput) fileInput.value = '';
