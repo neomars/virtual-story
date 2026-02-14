@@ -30,7 +30,7 @@
             <router-link :to="{ path: `/player/${sibling.id}`, query: { from: route.query.from } }" class="sibling-link">
               {{ sibling.choice_text || sibling.title }}
             </router-link>
-            <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator"> | </span>
+            <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator" aria-hidden="true"> | </span>
           </template>
         </div>
 

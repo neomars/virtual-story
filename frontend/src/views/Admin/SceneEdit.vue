@@ -62,12 +62,47 @@
       <router-link to="/admin" class="button secondary">Cancel</router-link>
     </form>
 
-    <!-- Formulaire d'édition simple (Reversion de l'Improved Side-Panel) -->
-    <div v-if="isEditing && relations" class="edit-flow">
+    <!-- Vue d'édition graphique en trois colonnes (Restored as requested) -->
+    <div v-if="isEditing && relations" class="editor-layout">
 
-      <div class="edit-section main-form">
+      <!-- Colonne 1: Scènes Parentes -->
+      <div class="side-panel">
+        <h3>Accessible From (Parents)</h3>
+        <ul class="relation-list">
+          <li v-for="parent in relations.parent_scenes" :key="parent.id" class="relation-item">
+            <router-link :to="`/admin/scenes/${parent.id}/edit`">
+              <strong>{{ parent.title }}</strong><br>
+              <small>"{{ parent.choice_text }}"</small>
+            </router-link>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove link">&times;</button>
+          </li>
+          <li v-if="relations.parent_scenes.length === 0" class="empty-state">
+            No scenes lead here.
+          </li>
+        </ul>
+        <div class="add-choice-form">
+          <h4>Add origin link</h4>
+          <form @submit.prevent="addParentLink">
+            <div class="form-group">
+              <label for="source-scene">Source scene</label>
+              <select id="source-scene" v-model="newParentLink.source_scene_id" required>
+                <option disabled value="">Choose a scene...</option>
+                <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="parent-choice-text">Choice text leading here</label>
+              <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
+            </div>
+            <button type="submit" class="button">Link this scene</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Colonne 2: Scène Actuelle -->
+      <div class="center-panel">
         <h3>Current Scene</h3>
-        <form @submit.prevent="saveScene">
+        <form @submit.prevent="saveScene" class="center-form">
           <div class="form-group">
             <label for="title-edit">Title</label>
             <input type="text" id="title-edit" v-model="scene.title" required>
@@ -116,68 +151,33 @@
         </form>
       </div>
 
-      <div class="edit-relations-grid">
-        <!-- Scènes Parentes -->
-        <div class="edit-section">
-          <h3>Accessible From (Parents)</h3>
-          <ul class="relation-list">
-            <li v-for="parent in relations.parent_scenes" :key="parent.id" class="relation-item">
-              <router-link :to="`/admin/scenes/${parent.id}/edit`">
-                <strong>{{ parent.title }}</strong><br>
-                <small>"{{ parent.choice_text }}"</small>
-              </router-link>
-              <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove link">&times;</button>
-            </li>
-            <li v-if="relations.parent_scenes.length === 0" class="empty-state">
-              No scenes lead here.
-            </li>
-          </ul>
-          <div class="add-relation-form">
-            <h4>Add origin link</h4>
-            <form @submit.prevent="addParentLink">
+      <!-- Colonne 3: Scènes Enfants (Choix) -->
+      <div class="side-panel">
+        <h3>Leads To (Choices)</h3>
+        <ul class="relation-list">
+          <li v-for="child in relations.child_scenes" :key="child.id">
+            <router-link :to="`/admin/scenes/${child.id}/edit`">
+              "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
+            </router-link>
+             <button @click="removeChoice(child.choice_id)" class="button-delete" aria-label="Delete choice">&times;</button>
+          </li>
+        </ul>
+        <div class="add-choice-form">
+           <h4>Add new choice</h4>
+           <form @submit.prevent="addChoice">
               <div class="form-group">
-                <label for="source-scene">Source scene</label>
-                <select id="source-scene" v-model="newParentLink.source_scene_id" required>
+                <label for="choice-text">Choice text</label>
+                <input type="text" id="choice-text" v-model="newChoice.choice_text" required>
+              </div>
+              <div class="form-group">
+                <label for="destination">Destination scene</label>
+                <select id="destination" v-model="newChoice.destination_scene_id" required>
                   <option disabled value="">Choose a scene...</option>
                   <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="parent-choice-text">Choice text leading here</label>
-                <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
-              </div>
-              <button type="submit" class="button secondary">Link this scene</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- Scènes Enfants (Choix) -->
-        <div class="edit-section">
-          <h3>Leads To (Choices)</h3>
-          <ul class="relation-list">
-            <li v-for="child in relations.child_scenes" :key="child.id">
-              <router-link :to="`/admin/scenes/${child.id}/edit`">
-                "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
-              </router-link>
-            </li>
-          </ul>
-          <div class="add-relation-form">
-             <h4>Add new choice</h4>
-             <form @submit.prevent="addChoice">
-                <div class="form-group">
-                  <label for="choice-text">Choice text</label>
-                  <input type="text" id="choice-text" v-model="newChoice.choice_text" required>
-                </div>
-                <div class="form-group">
-                  <label for="destination">Destination scene</label>
-                  <select id="destination" v-model="newChoice.destination_scene_id" required>
-                    <option disabled value="">Choose a scene...</option>
-                    <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
-                  </select>
-                </div>
-                <button type="submit" class="button secondary">Add Choice</button>
-             </form>
-          </div>
+              <button type="submit" class="button">Add Choice</button>
+           </form>
         </div>
       </div>
 
@@ -336,6 +336,19 @@ const addChoice = async () => {
   }
 };
 
+const removeChoice = async (choiceId) => {
+  if (!confirm('Are you sure you want to delete this choice?')) {
+    return;
+  }
+  try {
+    await axios.delete(`/api/choices/${choiceId}`);
+    fetchSceneData();
+  } catch (err) {
+    console.error('Failed to delete choice:', err);
+    alert('Failed to delete choice.');
+  }
+};
+
 const addParentLink = async () => {
   if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) {
     alert('Veuillez sélectionner une scène d\'origine et saisir un texte pour le choix.');
@@ -429,24 +442,18 @@ watch(() => props.id, () => {
   opacity: 0;
 }
 
-.edit-flow {
-  display: flex;
-  flex-direction: column;
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
   gap: 2rem;
-  max-width: 1000px;
 }
-.edit-section {
+.side-panel, .center-panel {
   background-color: #2a2a2a;
   padding: 1.5rem;
   border-radius: 8px;
 }
-.main-form {
-  border-top: 4px solid #42b983;
-}
-.edit-relations-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+.center-form .form-group {
+  margin-bottom: 1rem;
 }
 .video-preview-container {
   margin-top: 1rem;
@@ -506,8 +513,14 @@ watch(() => props.id, () => {
 .relation-list li {
   margin-bottom: 1rem;
 }
+.relation-list li .relation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
 .relation-list a {
   display: block;
+  flex: 1;
   padding: 1rem;
   background-color: #3a3a3a;
   border-radius: 5px;
@@ -522,7 +535,7 @@ watch(() => props.id, () => {
   font-style: italic;
   color: #888;
 }
-.add-relation-form {
+.add-choice-form {
   margin-top: 2rem;
   border-top: 1px solid #444;
   padding-top: 1.5rem;
@@ -582,5 +595,18 @@ input[type="text"], select {
   font-size: 0.8rem;
   color: #aaa;
   margin-top: 0.5rem;
+}
+.button-delete {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+.button-delete:hover {
+  background-color: #dc2626;
 }
 </style>
