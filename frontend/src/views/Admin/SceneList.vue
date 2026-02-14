@@ -41,8 +41,17 @@
           <button type="submit" class="button">Add Chapter</button>
         </div>
       </form>
-      <ul class="parts-list">
-        <li v-for="part in parts" :key="part.id">
+      <ul class="parts-list" @dragover.prevent @dragenter.prevent>
+        <li
+          v-for="(part, index) in parts"
+          :key="part.id"
+          draggable="true"
+          @dragstart="handleDragStart(index)"
+          @dragover.prevent="handleDragOver(index)"
+          @drop="handleDrop(index)"
+          :class="{ 'is-dragging': draggingIndex === index }"
+        >
+          <div class="drag-handle" title="Drag to reorder">⠿</div>
           <div v-if="editingPartId === part.id" class="edit-part-inline">
             <input type="text" v-model="editPartData.title" placeholder="Title" />
             <select v-model="editPartData.first_scene_id">
@@ -131,6 +140,7 @@ const allScenes = ref([]);
 const newPart = ref({ title: '', first_scene_id: '' });
 const partLoopFile = ref(null);
 const isSyncing = ref(false);
+const draggingIndex = ref(null);
 
 // State for editing parts
 const editingPartId = ref(null);
@@ -240,6 +250,42 @@ const deletePart = async (id) => {
       console.error(err);
       alert(`Deletion failed: ${err.response?.data?.message || err.message}`);
     }
+  }
+};
+
+const handleDragStart = (index) => {
+  draggingIndex.value = index;
+};
+
+const handleDragOver = (index) => {
+  if (draggingIndex.value === index) return;
+};
+
+const handleDrop = async (index) => {
+  if (draggingIndex.value === null || draggingIndex.value === index) {
+    draggingIndex.value = null;
+    return;
+  }
+
+  const movedPart = parts.value.splice(draggingIndex.value, 1)[0];
+  parts.value.splice(index, 0, movedPart);
+  draggingIndex.value = null;
+
+  // Persist the new order
+  try {
+    const updatePromises = parts.value.map((part, i) => {
+      const formData = new FormData();
+      formData.append('title', part.title);
+      formData.append('first_scene_id', part.first_scene_id);
+      formData.append('order', i);
+      return axios.put(`/api/parts/${part.id}`, formData);
+    });
+    await Promise.all(updatePromises);
+    console.log('Order updated successfully');
+  } catch (err) {
+    console.error('Failed to update order:', err);
+    alert('Failed to save the new order.');
+    fetchParts(); // Revert on failure
   }
 };
 
@@ -410,8 +456,32 @@ onMounted(() => {
   margin-top: 3rem;
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
-.parts-list li { background: #333; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; }
-.part-item-content { display: flex; justify-content: space-between; align-items: center; }
+.parts-list li {
+  background: #333;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.2s, background-color 0.2s;
+}
+.parts-list li.is-dragging {
+  opacity: 0.5;
+  background-color: #444;
+  transform: scale(1.02);
+}
+.drag-handle {
+  cursor: grab;
+  color: #888;
+  font-size: 1.2rem;
+  user-select: none;
+  padding: 0 0.5rem;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.part-item-content { flex: 1; display: flex; justify-content: space-between; align-items: center; }
 .part-actions { display: flex; gap: 0.5rem; }
 .edit-part-inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .edit-part-inline input, .edit-part-inline select { flex: 1; min-width: 120px; }

@@ -62,8 +62,21 @@
       <router-link to="/admin" class="button secondary">Cancel</router-link>
     </form>
 
-    <!-- Vue d'édition graphique en trois colonnes -->
+    <!-- Vue d'édition graphique en quatre colonnes -->
     <div v-if="isEditing && relations" class="editor-layout">
+
+      <!-- Colonne 0: Historique (Recent Scenes) -->
+      <div class="side-panel history-panel">
+        <h3>Recent Scenes</h3>
+        <ul class="relation-list">
+          <li v-for="h in history" :key="h.id">
+            <router-link :to="`/admin/scenes/${h.id}/edit`" :class="{ 'active-history': h.id === parseInt(props.id) }">
+              <strong>{{ h.title }}</strong>
+            </router-link>
+          </li>
+          <li v-if="history.length === 0" class="empty-state">No history yet.</li>
+        </ul>
+      </div>
 
       <!-- Colonne 1: Scènes Parentes -->
       <div class="side-panel">
@@ -138,8 +151,14 @@
             <p class="help-text">Select BEFORE or AFTER to merge existing scenes with this one. If you don't upload a new file, the current video will be used as the base.</p>
           </fieldset>
 
-          <div v-if="scene.thumbnail_path" class="thumbnail-preview">
-            <img :src="scene.thumbnail_path" alt="Thumbnail">
+          <div v-if="scene.video_path" class="video-preview-container">
+            <video v-if="isPlayingPreview" :src="scene.video_path" controls autoplay class="preview-video"></video>
+            <div v-else @click="isPlayingPreview = true" class="thumbnail-preview" title="Click to play preview">
+              <img :src="scene.thumbnail_path" alt="Thumbnail">
+              <div class="play-overlay">
+                <span class="play-icon">▶</span>
+              </div>
+            </div>
           </div>
           <button type="submit" class="button">Save changes</button>
         </form>
@@ -201,11 +220,32 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const isPlayingPreview = ref(false);
 const mergeSummary = ref(null);
+const history = ref([]);
 
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
   parts.value = res.data;
+};
+
+const updateHistory = (currentScene) => {
+  if (!currentScene || !currentScene.id) return;
+
+  const MAX_HISTORY = 8;
+  let newHistory = JSON.parse(localStorage.getItem('admin_scene_history') || '[]');
+
+  // Remove existing entry for this scene if it exists
+  newHistory = newHistory.filter(h => h.id !== currentScene.id);
+
+  // Add current scene to the beginning
+  newHistory.unshift({ id: currentScene.id, title: currentScene.title });
+
+  // Limit size
+  newHistory = newHistory.slice(0, MAX_HISTORY);
+
+  localStorage.setItem('admin_scene_history', JSON.stringify(newHistory));
+  history.value = newHistory;
 };
 
 const fetchSceneData = async () => {
@@ -216,7 +256,7 @@ const fetchSceneData = async () => {
     relations.value = response.data;
     // On met à jour la scène actuelle avec les données reçues
     scene.value = response.data.current_scene;
-
+    updateHistory(scene.value);
   } catch (err) {
     console.error('Failed to load scene data:', err);
     alert('Failed to load scene data.');
@@ -372,10 +412,12 @@ onMounted(() => {
   fetchSceneData();
   fetchAllScenes();
   fetchParts();
+  history.value = JSON.parse(localStorage.getItem('admin_scene_history') || '[]');
 });
 
 // Re-fetch data when the route changes (e.g., navigating from one scene edit to another)
 watch(() => props.id, () => {
+    isPlayingPreview.value = false;
     fetchSceneData();
     fetchAllScenes();
 });
@@ -423,8 +465,16 @@ watch(() => props.id, () => {
 
 .editor-layout {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  gap: 2rem;
+  grid-template-columns: 0.8fr 1fr 2fr 1fr;
+  gap: 1.5rem;
+}
+.history-panel {
+  background-color: #222;
+  border-right: 1px solid #333;
+}
+.active-history {
+  border-left: 3px solid #42b983 !important;
+  background-color: #444 !important;
 }
 .side-panel, .center-panel {
   background-color: #2a2a2a;
@@ -434,12 +484,55 @@ watch(() => props.id, () => {
 .center-form .form-group {
   margin-bottom: 1rem;
 }
-.thumbnail-preview img {
-  width: 100%; /* Make it fill the container */
-  height: 240px; /* Give it a fixed height */
-  object-fit: cover; /* This is the magic property */
-  border-radius: 5px;
+.video-preview-container {
   margin-top: 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #000;
+  position: relative;
+  height: 240px;
+}
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.thumbnail-preview {
+  position: relative;
+  cursor: pointer;
+  height: 100%;
+}
+.thumbnail-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.3s;
+}
+.thumbnail-preview:hover img {
+  opacity: 0.7;
+}
+.play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(66, 185, 131, 0.8);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.thumbnail-preview:hover .play-overlay {
+  opacity: 1;
+}
+.play-icon {
+  color: white;
+  font-size: 2rem;
+  margin-left: 5px;
 }
 .relation-list {
   list-style: none;
