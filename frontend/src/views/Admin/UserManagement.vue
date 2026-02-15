@@ -32,7 +32,9 @@
       <form @submit.prevent="createUser" class="add-user-form">
         <input type="text" v-model="newUser.username" placeholder="Username" required />
         <input type="password" v-model="newUser.password" placeholder="Password" required />
-        <button type="submit" class="button" :disabled="isCreatingUser">Add</button>
+        <button type="submit" class="button" :disabled="isCreatingUser">
+          {{ isCreatingUser ? 'Adding...' : 'Add' }}
+        </button>
       </form>
 
       <ul class="user-list">
@@ -46,7 +48,8 @@
               @click="deleteUser(user.id)"
               class="button-delete"
               :disabled="user.id === auth.currentUser.value?.id"
-              title="Delete"
+              :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user'"
+              :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user'"
             >&times;</button>
           </div>
         </li>
