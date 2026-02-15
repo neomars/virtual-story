@@ -47,7 +47,6 @@
               class="button-delete"
               :disabled="user.id === auth.currentUser.value?.id"
               title="Delete"
-              aria-label="Delete user"
             >&times;</button>
           </div>
         </li>
