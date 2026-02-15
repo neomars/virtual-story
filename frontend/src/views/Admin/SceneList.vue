@@ -20,7 +20,7 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
-        <h2>Chapters Management (Parts)</h2>
+        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video">{{ reorderStatus }}</span></h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
           {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
         </button>
@@ -51,7 +51,7 @@
           @drop="handleDrop(index)"
           :class="{ 'is-dragging': draggingIndex === index }"
         >
-          <div class="drag-handle" title="Drag to reorder">⠿</div>
+          <div class="drag-handle" title="Drag to reorder" aria-label="Drag handle to reorder">⠿</div>
           <div v-if="editingPartId === part.id" class="edit-part-inline">
             <input type="text" v-model="editPartData.title" placeholder="Title" />
             <select v-model="editPartData.first_scene_id">
@@ -69,7 +69,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" aria-label="Delete chapter">&times;</button>
             </div>
           </div>
         </li>
@@ -137,6 +137,7 @@ const isSuccess = ref(false);
 // --- State for Parts ---
 const parts = ref([]);
 const allScenes = ref([]);
+const reorderStatus = ref('');
 const newPart = ref({ title: '', first_scene_id: '' });
 const partLoopFile = ref(null);
 const isSyncing = ref(false);
@@ -273,6 +274,7 @@ const handleDrop = async (index) => {
 
   // Persist the new order
   try {
+    reorderStatus.value = 'Saving...';
     const updatePromises = parts.value.map((part, i) => {
       const formData = new FormData();
       formData.append('title', part.title);
@@ -281,8 +283,11 @@ const handleDrop = async (index) => {
       return axios.put(`/api/parts/${part.id}`, formData);
     });
     await Promise.all(updatePromises);
+    reorderStatus.value = 'Saved!';
+    setTimeout(() => { reorderStatus.value = ''; }, 2000);
     console.log('Order updated successfully');
   } catch (err) {
+    reorderStatus.value = '';
     console.error('Failed to update order:', err);
     alert('Failed to save the new order.');
     fetchParts(); // Revert on failure
