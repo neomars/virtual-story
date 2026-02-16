@@ -11,3 +11,11 @@
 ## 2025-05-15 - Visual Feedback for Background Operations
 **Learning:** For user actions that trigger background API calls (like drag-and-drop reordering or form submissions), providing immediate and transient visual status indicators (e.g., "Saving...", "Saved!") significantly improves the perceived responsiveness of the application and reduces user uncertainty.
 **Action:** Implement transient status badges or loading states for all administrative operations that don't result in immediate page navigation.
+
+## 2025-05-20 - Contextual ARIA Labels for Narrative Graphs
+**Learning:** In complex narrative editors, generic labels like "Delete choice" or "Remove link" are confusing for screen reader users when multiple links exist. Including the target scene's title in the `aria-label` provides the necessary context to make destructive actions safe and understandable.
+**Action:** Use dynamic attributes to include object titles in accessibility labels for repetitive action buttons.
+
+## 2025-05-20 - Accessibility of Keyboard Shortcuts
+**Learning:** Visual-only keyboard shortcut hints (like `[1]`) that are `aria-hidden` are helpful for sighted users but leave screen reader users unaware of the functionality. Including the shortcut information in the element's `aria-label` (e.g., "Choice 1: [Text]") ensures parity of experience.
+**Action:** Always include keyboard shortcut triggers in the accessible descriptions of interactive elements when those shortcuts are a primary means of interaction.
