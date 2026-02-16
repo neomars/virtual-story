@@ -74,7 +74,7 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove link">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" :aria-label="'Remove link from ' + parent.title">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             No scenes lead here.
@@ -155,11 +155,11 @@
       <div class="side-panel">
         <h3>Leads To (Choices)</h3>
         <ul class="relation-list">
-          <li v-for="child in relations.child_scenes" :key="child.id">
+          <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
               "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
             </router-link>
-             <button @click="removeChoice(child.choice_id)" class="button-delete" aria-label="Delete choice">&times;</button>
+             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title">&times;</button>
           </li>
         </ul>
         <div class="add-choice-form">
@@ -513,10 +513,10 @@ watch(() => props.id, () => {
 .relation-list li {
   margin-bottom: 1rem;
 }
-.relation-list li .relation-item {
+.relation-list li.relation-item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
 }
 .relation-list a {
   display: block;

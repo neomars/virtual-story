@@ -60,7 +60,10 @@
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
-                <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
+                <router-link
+                  :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
+                  :aria-label="index < 9 ? 'Choice ' + (index + 1) + ': ' + choice.choice_text : choice.choice_text"
+                >
                   <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
                 </router-link>
