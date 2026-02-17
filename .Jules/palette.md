@@ -19,3 +19,7 @@
 ## 2025-05-20 - Accessibility of Keyboard Shortcuts
 **Learning:** Visual-only keyboard shortcut hints (like `[1]`) that are `aria-hidden` are helpful for sighted users but leave screen reader users unaware of the functionality. Including the shortcut information in the element's `aria-label` (e.g., "Choice 1: [Text]") ensures parity of experience.
 **Action:** Always include keyboard shortcut triggers in the accessible descriptions of interactive elements when those shortcuts are a primary means of interaction.
+
+## 2025-05-22 - Form Accessibility and Feedback
+**Learning:** Generic forms often lack proper label-to-input association and focus indicators, hindering accessibility for screen reader and keyboard users. Additionally, using blocking browser alerts for success feedback disrupts the user flow.
+**Action:** Always link labels to inputs via id and for, provide clear focus state styles, and prefer non-blocking transient banners for success notifications.

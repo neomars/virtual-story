@@ -9,14 +9,21 @@
     <!-- Password Change Section -->
     <section class="admin-section">
       <h2>Change my password</h2>
+
+      <Transition name="fade">
+        <div v-if="successMessage" class="success-banner" role="alert">
+          {{ successMessage }}
+        </div>
+      </Transition>
+
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
-          <label>Old password</label>
-          <input type="password" v-model="passChange.oldPassword" required />
+          <label for="old-password">Old password</label>
+          <input id="old-password" type="password" v-model="passChange.oldPassword" required />
         </div>
         <div class="form-group">
-          <label>New password</label>
-          <input type="password" v-model="passChange.newPassword" required />
+          <label for="new-password">New password</label>
+          <input id="new-password" type="password" v-model="passChange.newPassword" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -29,9 +36,15 @@
     <!-- User List & Add User Section -->
     <section class="admin-section">
       <h2>Users</h2>
-      <form @submit.prevent="createUser" class="add-user-form">
-        <input type="text" v-model="newUser.username" placeholder="Username" required />
-        <input type="password" v-model="newUser.password" placeholder="Password" required />
+      <form @submit.prevent="createUser" class="settings-form">
+        <div class="form-group">
+          <label for="new-username">Username</label>
+          <input id="new-username" type="text" v-model="newUser.username" placeholder="Username" required />
+        </div>
+        <div class="form-group">
+          <label for="create-password">Password</label>
+          <input id="create-password" type="password" v-model="newUser.password" placeholder="Password" required />
+        </div>
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
@@ -67,6 +80,7 @@ const auth = inject('auth');
 const users = ref([]);
 const passChange = ref({ oldPassword: '', newPassword: '' });
 const newUser = ref({ username: '', password: '' });
+const successMessage = ref('');
 
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
@@ -82,9 +96,13 @@ const fetchUsers = async () => {
 
 const changePassword = async () => {
   isChangingPass.value = true;
+  successMessage.value = '';
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Password changed successfully!');
+    successMessage.value = 'Password changed successfully!';
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 3000);
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
     alert(err.response?.data?.message || err.message || 'Failed to change password.');
@@ -180,6 +198,12 @@ onMounted(fetchUsers);
   color: white;
   padding: 0.6rem;
   border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #42b983;
 }
 
 .button {
@@ -202,20 +226,6 @@ onMounted(fetchUsers);
   margin: 2rem 0;
 }
 
-.add-user-form {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.add-user-form input {
-  flex: 1;
-  background-color: #1e1e1e;
-  border: 1px solid #444;
-  color: white;
-  padding: 0.6rem;
-  border-radius: 4px;
-}
 
 .user-list {
   list-style: none;
@@ -253,5 +263,25 @@ onMounted(fetchUsers);
 .button-delete:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.success-banner {
+  background-color: #2e7d32;
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  border-left: 5px solid #42b983;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
