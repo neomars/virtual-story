@@ -19,3 +19,7 @@
 ## 2025-05-20 - Accessibility of Keyboard Shortcuts
 **Learning:** Visual-only keyboard shortcut hints (like `[1]`) that are `aria-hidden` are helpful for sighted users but leave screen reader users unaware of the functionality. Including the shortcut information in the element's `aria-label` (e.g., "Choice 1: [Text]") ensures parity of experience.
 **Action:** Always include keyboard shortcut triggers in the accessible descriptions of interactive elements when those shortcuts are a primary means of interaction.
+
+## 2025-05-22 - Visual Feedback for Secondary Admin Actions
+**Learning:** In complex forms with multiple secondary actions (like linking scenes in a side panel), users benefit from immediate feedback that their click was registered. Using a ".mini" button variant with a loading state (e.g., "Adding...") prevents accidental multiple submissions and makes the interface feel more responsive.
+**Action:** Implement loading states and disabled visual styles for all secondary submission buttons in the admin interface.
