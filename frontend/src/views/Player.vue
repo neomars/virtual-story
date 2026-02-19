@@ -58,17 +58,26 @@
         <div class="panel-content">
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
-            <ul v-if="showChoices" key="choices">
-              <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
-                <router-link
-                  :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
-                  :aria-label="index < 9 ? 'Choice ' + (index + 1) + ': ' + choice.choice_text : choice.choice_text"
-                >
-                  <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
-                  {{ choice.choice_text }}
-                </router-link>
-              </li>
-            </ul>
+            <div v-if="showChoices" key="choices" class="choices-container">
+              <ul v-if="sceneData.next_choices && sceneData.next_choices.length > 0">
+                <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
+                  <router-link
+                    :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
+                    :aria-label="index < 9 ? 'Choice ' + (index + 1) + ': ' + choice.choice_text : choice.choice_text"
+                  >
+                    <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
+                    {{ choice.choice_text }}
+                  </router-link>
+                </li>
+              </ul>
+              <div v-else class="end-of-story">
+                <p>This is the end of this path.</p>
+                <router-link to="/player/1" class="restart-link">Restart Story</router-link>
+              </div>
+              <button @click="replayVideo" class="replay-button" aria-label="Replay Scene (Press R)">
+                <span class="shortcut-hint" aria-hidden="true">[R]</span> Replay Scene
+              </button>
+            </div>
             <p v-else key="waiting">Watch the video to see choices.</p>
           </Transition>
         </div>
@@ -169,6 +178,14 @@ const playVideo = (withFullscreen = false) => {
   });
 };
 
+const replayVideo = () => {
+  if (videoPlayer.value) {
+    videoPlayer.value.currentTime = 0;
+    showChoices.value = false;
+    startPlayback(videoPlayer.value);
+  }
+};
+
 const startPlayback = async (el, withFullscreen = false) => {
   if (!el) return;
   // Tente la lecture avec le son
@@ -230,6 +247,10 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case 'r':
+      e.preventDefault();
+      replayVideo();
       break;
     case '1':
     case '2':
@@ -480,5 +501,49 @@ li a:focus-visible {
 .loop-video {
   width: 100%;
   display: block;
+}
+
+.replay-button {
+  background: none;
+  border: 1px solid #42b983;
+  color: #42b983;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.replay-button:hover {
+  background-color: rgba(66, 185, 131, 0.1);
+}
+
+.replay-button:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
+.end-of-story {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: rgba(66, 185, 131, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #42b983;
+}
+
+.restart-link {
+  color: #42b983;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.sibling-link:focus-visible,
+.restart-link:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 </style>

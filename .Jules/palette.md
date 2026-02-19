@@ -23,3 +23,7 @@
 ## 2025-05-22 - Visual Feedback for Secondary Admin Actions
 **Learning:** In complex forms with multiple secondary actions (like linking scenes in a side panel), users benefit from immediate feedback that their click was registered. Using a ".mini" button variant with a loading state (e.g., "Adding...") prevents accidental multiple submissions and makes the interface feel more responsive.
 **Action:** Implement loading states and disabled visual styles for all secondary submission buttons in the admin interface.
+
+## 2025-05-25 - Narrative Closure and Replayability
+**Learning:** In interactive branching narratives, reaching a "dead end" without UI guidance feels like a bug to the user. Providing a clear "End of Story" state with an option to restart ensures narrative closure. Additionally, a dedicated "Replay" feature allows users to re-examine the current segment's details before making a decision.
+**Action:** Always provide a clear way to restart the experience at narrative endpoints and include a "Replay" action for current story segments.
