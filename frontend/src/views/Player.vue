@@ -68,6 +68,14 @@
                   {{ choice.choice_text }}
                 </router-link>
               </li>
+              <li v-if="!sceneData.next_choices || sceneData.next_choices.length === 0">
+                <router-link to="/player/1" aria-label="End of story. Restart from the beginning">End of Story - Restart?</router-link>
+              </li>
+              <li class="replay-item">
+                <a href="#" @click.prevent="replayVideo" :aria-label="'Replay current scene: ' + sceneData.current_scene.title">
+                  <span class="shortcut-hint" aria-hidden="true">[R]</span> Replay Scene
+                </a>
+              </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
           </Transition>
@@ -192,8 +200,14 @@ const onVideoEnd = () => {
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
-  // We don't set isVideoPlaying to false, so the (ended) video remains visible.
-  // The user can then click a choice to navigate away.
+};
+
+const replayVideo = () => {
+  if (videoPlayer.value) {
+    videoPlayer.value.currentTime = 0;
+    videoPlayer.value.play();
+    showChoices.value = false;
+  }
 };
 
 // --- Keyboard Shortcuts ---
@@ -230,6 +244,10 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case 'r':
+      e.preventDefault();
+      replayVideo();
       break;
     case '1':
     case '2':
@@ -468,6 +486,12 @@ li a:focus-visible {
   background-color: #3a3a3a;
   outline: 2px solid transparent;
   box-shadow: 0 0 0 2px #42b983;
+}
+
+.replay-item {
+  margin-top: 2rem;
+  border-top: 1px solid #444;
+  padding-top: 1.5rem;
 }
 
 .part-loop-container {
