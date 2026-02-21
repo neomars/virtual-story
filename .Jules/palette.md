@@ -23,3 +23,11 @@
 ## 2025-05-22 - Visual Feedback for Secondary Admin Actions
 **Learning:** In complex forms with multiple secondary actions (like linking scenes in a side panel), users benefit from immediate feedback that their click was registered. Using a ".mini" button variant with a loading state (e.g., "Adding...") prevents accidental multiple submissions and makes the interface feel more responsive.
 **Action:** Implement loading states and disabled visual styles for all secondary submission buttons in the admin interface.
+
+## 2026-02-21 - Explicit Video Control on Manual Navigation
+**Learning:** When providing a 'Skip' button or manual navigation that triggers the same logic as the video's 'ended' event, it's crucial to explicitly pause the video element. Relying on the 'ended' event alone is insufficient for manual triggers and can lead to ghost audio playing in the background.
+**Action:** Always include an explicit `video.pause()` call in handlers that transition the UI away from an active video playback state, even if they are shared with natural video termination events.
+
+## 2026-02-21 - Consistent Styling for Narrative Choice Extensions
+**Learning:** UX extensions like 'Replay Scene' or 'Restart Story' should be visually integrated into the existing choice architecture to maintain a cohesive design system. Using dashed borders or slight background variations can distinguish them as meta-actions while keeping them within the user's established scanning pattern.
+**Action:** Mirror the component structure and base styles of primary narrative elements when adding utility or meta-navigation links to a list.

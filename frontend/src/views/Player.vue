@@ -50,6 +50,7 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
+          <button v-if="!showChoices" class="skip-button" @click="onVideoEnd" aria-label="Skip video and show choices">Skip</button>
         </div>
       </div>
 
@@ -67,6 +68,17 @@
                   <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
                 </router-link>
+              </li>
+              <li v-if="sceneData.next_choices.length === 0">
+                <router-link to="/player/1" aria-label="End of Story - Restart?">
+                  End of Story - Restart?
+                </router-link>
+              </li>
+              <li class="replay-item">
+                <a href="#" @click.prevent="replayVideo" aria-label="Replay current scene [R]">
+                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                  Replay Scene
+                </a>
               </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
@@ -189,11 +201,25 @@ const startPlayback = async (el, withFullscreen = false) => {
 
 const onVideoEnd = () => {
   showChoices.value = true;
+  if (videoPlayer.value) {
+    videoPlayer.value.pause();
+  }
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
   // We don't set isVideoPlaying to false, so the (ended) video remains visible.
   // The user can then click a choice to navigate away.
+};
+
+const replayVideo = () => {
+  showChoices.value = false;
+  isVideoPlaying.value = true;
+  nextTick(() => {
+    if (videoPlayer.value) {
+      videoPlayer.value.currentTime = 0;
+      startPlayback(videoPlayer.value);
+    }
+  });
 };
 
 // --- Keyboard Shortcuts ---
@@ -230,6 +256,10 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case 'r':
+      e.preventDefault();
+      replayVideo();
       break;
     case '1':
     case '2':
@@ -480,5 +510,38 @@ li a:focus-visible {
 .loop-video {
   width: 100%;
   display: block;
+}
+
+.skip-button {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.2s, border-color 0.2s;
+  font-size: 0.9rem;
+}
+
+.skip-button:hover,
+.skip-button:focus-visible {
+  background-color: rgba(66, 185, 131, 0.8);
+  border-color: #42b983;
+  outline: none;
+}
+
+.replay-item a {
+  background-color: rgba(66, 185, 131, 0.1);
+  border: 1px dashed rgba(66, 185, 131, 0.4);
+}
+
+.replay-item a:hover,
+.replay-item a:focus-visible {
+  background-color: rgba(66, 185, 131, 0.2);
+  border-style: solid;
 }
 </style>
