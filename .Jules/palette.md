@@ -23,3 +23,7 @@
 ## 2025-05-22 - Visual Feedback for Secondary Admin Actions
 **Learning:** In complex forms with multiple secondary actions (like linking scenes in a side panel), users benefit from immediate feedback that their click was registered. Using a ".mini" button variant with a loading state (e.g., "Adding...") prevents accidental multiple submissions and makes the interface feel more responsive.
 **Action:** Implement loading states and disabled visual styles for all secondary submission buttons in the admin interface.
+
+## 2025-05-25 - Non-Linear Video Player Controls
+**Learning:** In interactive video narratives, users often want to skip scenes they've already seen or replay a scene to catch missed details. Providing explicit "Skip" and "Replay" controls with keyboard shortcuts ('s' and 'r') significantly improves the fluidity of the experience.
+**Action:** Always provide "Skip Scene" (during playback) and "Replay Scene" (after playback) controls in interactive video views, ensuring they have associated keyboard shortcuts and clear ARIA labels.

@@ -50,6 +50,14 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
+          <button
+            v-if="!showChoices"
+            @click="onVideoEnd"
+            class="skip-button"
+            aria-label="Skip scene"
+          >
+            Skip &rarr;
+          </button>
         </div>
       </div>
 
@@ -66,6 +74,17 @@
                 >
                   <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
+                </router-link>
+              </li>
+              <li class="replay-item">
+                <a href="#" @click.prevent="replayVideo" aria-label="Replay current scene [R]">
+                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                  Replay Scene
+                </a>
+              </li>
+              <li v-if="sceneData.next_choices.length === 0">
+                <router-link to="/player/1" aria-label="End of Story - Restart?">
+                  End of Story - Restart?
                 </router-link>
               </li>
             </ul>
@@ -192,8 +211,18 @@ const onVideoEnd = () => {
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
-  // We don't set isVideoPlaying to false, so the (ended) video remains visible.
-  // The user can then click a choice to navigate away.
+  if (videoPlayer.value) {
+    videoPlayer.value.pause();
+  }
+};
+
+const replayVideo = () => {
+  showChoices.value = false;
+  isVideoPlaying.value = true;
+  if (videoPlayer.value) {
+    videoPlayer.value.currentTime = 0;
+    startPlayback(videoPlayer.value);
+  }
 };
 
 // --- Keyboard Shortcuts ---
@@ -230,6 +259,18 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case 's':
+      if (!showChoices.value) {
+        e.preventDefault();
+        onVideoEnd();
+      }
+      break;
+    case 'r':
+      if (showChoices.value) {
+        e.preventDefault();
+        replayVideo();
+      }
       break;
     case '1':
     case '2':
@@ -422,6 +463,31 @@ onUnmounted(() => {
 }
 .full-page video { width: 100%; height: 100%; object-fit: contain; }
 video { width: 100%; height: auto; display: block; }
+
+.skip-button {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 1010;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.skip-button:hover {
+  background-color: rgba(66, 185, 131, 0.8);
+}
+
+.replay-item {
+  margin-top: 2rem;
+  border-top: 1px solid #444;
+  padding-top: 1rem;
+}
 
 /* Transition de fondu (fade) */
 .fade-enter-active,
