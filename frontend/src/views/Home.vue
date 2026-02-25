@@ -17,18 +17,4 @@
 import { RouterLink } from 'vue-router'
 </script>
 
-<style scoped>
-.home-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 2rem;
-  height: 100%;
-}
-
-a {
-  color: #42b983;
-}
-</style>
+<style scoped src="../assets/styles/Home.css"></style>
