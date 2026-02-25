@@ -69,7 +69,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" aria-label="Delete chapter">&times;</button>
             </div>
           </div>
         </li>
