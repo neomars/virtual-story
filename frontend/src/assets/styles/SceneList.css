@@ -1,0 +1,160 @@
+/* Styles existants pour la section des paramètres */
+.settings-section {
+  background-color: #2a2a2a;
+  padding: 1.5rem;
+  border-radius: 5px;
+  margin-bottom: 2rem;
+}
+.settings-section h2 {
+  margin-top: 0;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.upload-form {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.file-name { color: #ccc; font-style: italic; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+.status-success { color: #42b983; margin-top: 1rem; }
+.status-error { color: #ef4444; margin-top: 1rem; }
+.separator { border: none; border-top: 1px solid #444; margin: 2rem 0; }
+
+/* Nouveaux styles pour la vue en graphe */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+.page-title {
+  margin: 0;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.sync-button {
+  background-color: #3a3a3a;
+  font-size: 0.8rem;
+}
+.button {
+  background-color: #42b983;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 5px;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.story-graph-container {
+  background-color: #1e1e1e;
+  padding: 20px;
+  border-radius: 8px;
+}
+.root-scene {
+  background-color: #2a2a2a;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  border-top: 4px solid #42b983;
+  overflow: hidden;
+}
+.chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.chapter-header:hover {
+  background-color: #333;
+}
+.chapter-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.root-title {
+  font-weight: bold;
+  color: #eee;
+}
+.arrow {
+  font-size: 0.8rem;
+  color: #42b983;
+  transition: transform 0.3s ease;
+}
+.arrow.is-rotated {
+  transform: rotate(180deg);
+}
+.chapter-content {
+  padding: 0 15px 15px 15px;
+}
+.part-badge {
+  display: inline-block;
+  background-color: #42b983;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+.root-scene > :deep(.scene-node) {
+  margin-left: 0;
+  border-left: none;
+  padding-left: 0;
+}
+.empty-state, .error-state {
+  text-align: center;
+  font-style: italic;
+  color: #888;
+  margin-top: 3rem;
+}
+.parts-list { list-style: none; padding: 0; margin-top: 1rem; }
+.parts-list li {
+  background: #333;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.2s, background-color 0.2s;
+}
+.parts-list li.is-dragging {
+  opacity: 0.5;
+  background-color: #444;
+  transform: scale(1.02);
+}
+.drag-handle {
+  cursor: grab;
+  color: #888;
+  font-size: 1.2rem;
+  user-select: none;
+  padding: 0 0.5rem;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.part-item-content { flex: 1; display: flex; justify-content: space-between; align-items: center; }
+.part-actions { display: flex; gap: 0.5rem; }
+.edit-part-inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.edit-part-inline input, .edit-part-inline select { flex: 1; min-width: 120px; }
+.button.mini { padding: 0.3rem 0.6rem; font-size: 0.8rem; margin: 0; }
+.button-delete { background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+.instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
+input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; flex: 1; }
+
+.multipart-form { flex-direction: column; align-items: stretch; }
+.form-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+.secondary-btn { background-color: #555 !important; }
+.badge-video { background: #42b983; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 10px; }
