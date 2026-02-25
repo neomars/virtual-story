@@ -50,6 +50,9 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
+          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene">
+            Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
+          </button>
         </div>
       </div>
 
@@ -60,10 +63,24 @@
           <Transition name="fade" mode="out-in">
             <ul v-if="showChoices" key="choices">
               <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
-                <router-link :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }">
+                <router-link
+                  :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
+                  :aria-label="index < 9 ? 'Choice ' + (index + 1) + ': ' + choice.choice_text : choice.choice_text"
+                >
                   <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
                 </router-link>
+              </li>
+              <li v-if="sceneData.next_choices.length === 0">
+                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                  End of Story - Restart?
+                </router-link>
+              </li>
+              <li class="replay-item">
+                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene">
+                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                  Replay Scene
+                </a>
               </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
@@ -125,8 +142,8 @@ const fetchBackground = async () => {
 const fetchSceneData = async (sceneId, parentId) => {
   loading.value = true;
   error.value = null;
-  // On ne remet pas isVideoPlaying à false ici pour éviter le flash de la miniature
-  // si on navigue entre deux scènes qui doivent toutes deux être lues.
+  // We don't reset isVideoPlaying to false here to avoid thumbnail flashing
+  // if navigating between two scenes that must both be played.
   showChoices.value = false;
 
   try {
@@ -142,8 +159,8 @@ const fetchSceneData = async (sceneId, parentId) => {
 
     isVideoPlaying.value = true;
 
-    // Si la vidéo était déjà affichée, le watcher sur videoPlayer ne se déclenchera pas.
-    // On force donc le redémarrage.
+    // If the video was already displayed, the watcher on videoPlayer won't trigger.
+    // We force a restart.
     nextTick(() => {
       if (videoPlayer.value) {
         startPlayback(videoPlayer.value);
@@ -168,24 +185,35 @@ const playVideo = (withFullscreen = false) => {
 
 const startPlayback = async (el, withFullscreen = false) => {
   if (!el) return;
-  // Tente la lecture avec le son
+  // Attempt playback with sound
   el.muted = false;
   try {
     await el.play();
   } catch (err) {
-    console.warn("Lecture avec son bloquée, tentative en muet...", err);
+    console.warn("Playback with sound blocked, attempting muted...", err);
     el.muted = true;
     await el.play().catch(() => {});
   }
 
-  // Tente le plein écran natif
+  // Attempt native fullscreen
   if ((withFullscreen || !showChoices.value) && el.requestFullscreen) {
     el.requestFullscreen().catch(() => {});
   }
 };
 
+const replayScene = () => {
+  if (videoPlayer.value) {
+    videoPlayer.value.currentTime = 0;
+    showChoices.value = false;
+    videoPlayer.value.play();
+  }
+};
+
 const onVideoEnd = () => {
   showChoices.value = true;
+  if (videoPlayer.value) {
+    videoPlayer.value.pause();
+  }
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
@@ -201,6 +229,16 @@ const handleKeydown = (e) => {
   if (!videoPlayer.value || !isVideoPlaying.value) return;
 
   switch (e.key.toLowerCase()) {
+    case 's':
+      if (!showChoices.value) {
+        e.preventDefault();
+        onVideoEnd();
+      }
+      break;
+    case 'r':
+      e.preventDefault();
+      replayScene();
+      break;
     case ' ':
     case 'k':
       e.preventDefault();
@@ -269,7 +307,7 @@ const toggleFullscreen = () => {
 
 // --- Lifecycle Hooks ---
 
-// GESTION DE L'AUTOPLAY ROBUSTE VIA WATCH
+// ROBUST AUTOPLAY MANAGEMENT VIA WATCH
 watch(videoPlayer, (el) => {
   if (el) {
     startPlayback(el);
@@ -281,7 +319,7 @@ watch([() => props.id, () => route.query.from], ([newId, newFrom]) => {
   fetchSceneData(newId, newFrom);
 }, { immediate: true });
 
-// Masquer les barres de défilement en mode plein écran
+// Hide scrollbars in fullscreen mode
 watch([isVideoPlaying, showChoices], ([playing, showingChoices]) => {
   if (playing && !showingChoices) {
     document.body.style.overflow = 'hidden';

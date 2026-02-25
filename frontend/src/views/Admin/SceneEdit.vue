@@ -21,7 +21,7 @@
       </div>
     </Transition>
 
-    <!-- Formulaire de création simple -->
+    <!-- Simple creation form -->
     <form @submit.prevent="saveScene" v-if="!isEditing" class="simple-form">
       <div class="form-group">
         <label for="title">Title</label>
@@ -62,10 +62,10 @@
       <router-link to="/admin" class="button secondary">Cancel</router-link>
     </form>
 
-    <!-- Vue d'édition graphique en trois colonnes (Restored as requested) -->
+    <!-- Graphical editing view in three columns -->
     <div v-if="isEditing && relations" class="editor-layout">
 
-      <!-- Colonne 1: Scènes Parentes -->
+      <!-- Column 1: Parent Scenes -->
       <div class="side-panel">
         <h3>Accessible From (Parents)</h3>
         <ul class="relation-list">
@@ -74,7 +74,7 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete" aria-label="Remove link">&times;</button>
+            <button @click="removeParentLink(parent.choice_id)" class="button-delete" :aria-label="'Remove link from ' + parent.title">&times;</button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             No scenes lead here.
@@ -94,12 +94,14 @@
               <label for="parent-choice-text">Choice text leading here</label>
               <input type="text" id="parent-choice-text" v-model="newParentLink.choice_text" required>
             </div>
-            <button type="submit" class="button">Link this scene</button>
+            <button type="submit" class="button mini" :disabled="isAddingParentLink">
+              {{ isAddingParentLink ? 'Linking...' : 'Link this scene' }}
+            </button>
           </form>
         </div>
       </div>
 
-      <!-- Colonne 2: Scène Actuelle -->
+      <!-- Column 2: Current Scene -->
       <div class="center-panel">
         <h3>Current Scene</h3>
         <form @submit.prevent="saveScene" class="center-form">
@@ -151,15 +153,15 @@
         </form>
       </div>
 
-      <!-- Colonne 3: Scènes Enfants (Choix) -->
+      <!-- Column 3: Child Scenes (Choices) -->
       <div class="side-panel">
         <h3>Leads To (Choices)</h3>
         <ul class="relation-list">
-          <li v-for="child in relations.child_scenes" :key="child.id">
+          <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
               "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
             </router-link>
-             <button @click="removeChoice(child.choice_id)" class="button-delete" aria-label="Delete choice">&times;</button>
+             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title">&times;</button>
           </li>
         </ul>
         <div class="add-choice-form">
@@ -176,7 +178,9 @@
                   <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
                 </select>
               </div>
-              <button type="submit" class="button">Add Choice</button>
+              <button type="submit" class="button mini" :disabled="isAddingChoice">
+                {{ isAddingChoice ? 'Adding...' : 'Add Choice' }}
+              </button>
            </form>
         </div>
       </div>
@@ -207,6 +211,8 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const isAddingChoice = ref(false);
+const isAddingParentLink = ref(false);
 const isPlayingPreview = ref(false);
 const mergeSummary = ref(null);
 
@@ -221,7 +227,7 @@ const fetchSceneData = async () => {
   try {
     const response = await axios.get(`/api/admin/scenes/${props.id}/relations`);
     relations.value = response.data;
-    // On met à jour la scène actuelle avec les données reçues
+    // Update current scene with received data
     scene.value = response.data.current_scene;
 
   } catch (err) {
@@ -318,6 +324,7 @@ const saveScene = async () => {
 };
 
 const addChoice = async () => {
+  isAddingChoice.value = true;
   try {
     await axios.post(`/api/scenes/${props.id}/choices`, newChoice.value);
     // Re-fetch data to show the new choice
@@ -333,6 +340,8 @@ const addChoice = async () => {
     }
     let details = err.response ? ` (Status: ${err.response.status})` : (err.request ? ' (No response from server)' : '');
     alert(`Failed to add choice: ${msg}${details}`);
+  } finally {
+    isAddingChoice.value = false;
   }
 };
 
@@ -351,7 +360,7 @@ const removeChoice = async (choiceId) => {
 
 const addParentLink = async () => {
   if (!newParentLink.value.source_scene_id || !newParentLink.value.choice_text) {
-    alert('Veuillez sélectionner une scène d\'origine et saisir un texte pour le choix.');
+    alert('Please select a source scene and enter a choice text.');
     return;
   }
 
@@ -360,6 +369,7 @@ const addParentLink = async () => {
     choice_text: newParentLink.value.choice_text,
   };
 
+  isAddingParentLink.value = true;
   try {
     await axios.post(`/api/scenes/${newParentLink.value.source_scene_id}/choices`, choiceData);
     await fetchSceneData(); // Refresh the parent list
@@ -372,6 +382,8 @@ const addParentLink = async () => {
     }
     let details = err.response ? ` (Status: ${err.response.status})` : (err.request ? ' (No response from server)' : '');
     alert(`Failed to add parent link: ${msg}${details}`);
+  } finally {
+    isAddingParentLink.value = false;
   }
 };
 

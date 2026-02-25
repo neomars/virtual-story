@@ -107,10 +107,10 @@
 .relation-list li {
   margin-bottom: 1rem;
 }
-.relation-list li .relation-item {
+.relation-list li.relation-item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
 }
 .relation-list a {
   display: block;
@@ -164,6 +164,16 @@ input[type="text"], select {
 }
 .button.secondary {
   background-color: #555;
+}
+.button.mini {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  width: auto;
+  margin-top: 0.5rem;
+}
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .back-link {
   display: inline-block;
