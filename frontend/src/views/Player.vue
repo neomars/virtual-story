@@ -50,6 +50,9 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
+          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene">
+            Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
+          </button>
         </div>
       </div>
 
@@ -67,6 +70,17 @@
                   <span v-if="index < 9" class="shortcut-hint" aria-hidden="true">[{{ index + 1 }}]</span>
                   {{ choice.choice_text }}
                 </router-link>
+              </li>
+              <li v-if="sceneData.next_choices.length === 0">
+                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                  End of Story - Restart?
+                </router-link>
+              </li>
+              <li class="replay-item">
+                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene">
+                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                  Replay Scene
+                </a>
               </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
@@ -187,8 +201,19 @@ const startPlayback = async (el, withFullscreen = false) => {
   }
 };
 
+const replayScene = () => {
+  if (videoPlayer.value) {
+    videoPlayer.value.currentTime = 0;
+    showChoices.value = false;
+    videoPlayer.value.play();
+  }
+};
+
 const onVideoEnd = () => {
   showChoices.value = true;
+  if (videoPlayer.value) {
+    videoPlayer.value.pause();
+  }
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
@@ -204,6 +229,16 @@ const handleKeydown = (e) => {
   if (!videoPlayer.value || !isVideoPlaying.value) return;
 
   switch (e.key.toLowerCase()) {
+    case 's':
+      if (!showChoices.value) {
+        e.preventDefault();
+        onVideoEnd();
+      }
+      break;
+    case 'r':
+      e.preventDefault();
+      replayScene();
+      break;
     case ' ':
     case 'k':
       e.preventDefault();
@@ -414,11 +449,32 @@ onUnmounted(() => {
   background-color: rgba(66, 185, 131, 0.8);
 }
 
-.video-container { width: 100%; }
+.video-container {
+  width: 100%;
+  position: relative;
+}
 .video-container.full-page {
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
   z-index: 1000; background: #000;
+}
+.skip-button {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1001;
+  transition: background-color 0.2s;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+.skip-button:hover {
+  background-color: rgba(66, 185, 131, 0.8);
 }
 .full-page video { width: 100%; height: 100%; object-fit: contain; }
 video { width: 100%; height: auto; display: block; }
@@ -451,6 +507,12 @@ li {
   border-radius: 3px;
   margin-right: 0.5rem;
   font-weight: bold;
+}
+
+.replay-item {
+  border-top: 1px solid #444;
+  margin-top: 2rem;
+  padding-top: 1rem;
 }
 
 li a {

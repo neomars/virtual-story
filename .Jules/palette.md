@@ -23,3 +23,7 @@
 ## 2025-05-22 - Visual Feedback for Secondary Admin Actions
 **Learning:** In complex forms with multiple secondary actions (like linking scenes in a side panel), users benefit from immediate feedback that their click was registered. Using a ".mini" button variant with a loading state (e.g., "Adding...") prevents accidental multiple submissions and makes the interface feel more responsive.
 **Action:** Implement loading states and disabled visual styles for all secondary submission buttons in the admin interface.
+
+## 2025-05-24 - Narrative Continuity and Player Utility
+**Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
+**Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
