@@ -48,8 +48,8 @@
               @click="deleteUser(user.id)"
               class="button-delete"
               :disabled="user.id === auth.currentUser.value?.id"
-              :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user'"
-              :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user'"
+              :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
+              :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
             >&times;</button>
           </div>
         </li>
