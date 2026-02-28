@@ -1,7 +1,43 @@
 
 <template>
   <div>
-    <!-- Section des Paramètres (conservée) -->
+    <!-- Section du Graphe de l'Histoire (Now at top and renamed) -->
+    <div class="header-container">
+      <h2 class="page-title">Story</h2>
+      <div class="header-actions">
+        <router-link to="/admin/users" class="button secondary-btn">Users & Profile</router-link>
+        <router-link to="/admin/scenes/new" class="button">Add Root Scene</router-link>
+      </div>
+    </div>
+
+    <div v-if="loading">Loading story...</div>
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+      <p>Tip: If this is your first time or after an update, click the <strong>"Sync Database"</strong> button below to prepare the tables.</p>
+    </div>
+    <div v-else-if="storyGraph.length > 0" class="story-graph-container">
+      <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
+        <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
+          <div class="chapter-info">
+            <div v-if="rootScene.part_title" class="part-badge">
+              Chapter: {{ rootScene.part_title }}
+            </div>
+            <span class="root-title">{{ rootScene.title }}</span>
+          </div>
+          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }">▼</span>
+        </div>
+        <div v-if="expandedChapters[rootScene.id]" class="chapter-content">
+          <SceneNode :scene="rootScene" />
+        </div>
+      </div>
+    </div>
+    <div v-else class="empty-state">
+      <p>No scenes found. Start by creating a root scene!</p>
+    </div>
+
+    <hr class="separator" />
+
+    <!-- Section des Paramètres -->
     <div class="settings-section">
       <h2>Player Background</h2>
       <div class="upload-form">
@@ -80,42 +116,6 @@
           </div>
         </li>
       </ul>
-    </div>
-
-    <hr class="separator" />
-
-    <!-- Nouvelle Section du Graphe de l'Histoire -->
-    <div class="header-container">
-      <h2 class="page-title">Story Graph</h2>
-      <div class="header-actions">
-        <router-link to="/admin/users" class="button secondary-btn">Users & Profile</router-link>
-        <router-link to="/admin/scenes/new" class="button">Add Root Scene</router-link>
-      </div>
-    </div>
-
-    <div v-if="loading">Loading graph...</div>
-    <div v-else-if="error" class="error-state">
-      <p>{{ error }}</p>
-      <p>Tip: If this is your first time or after an update, click the <strong>"Sync Database"</strong> button above to prepare the tables.</p>
-    </div>
-    <div v-else-if="storyGraph.length > 0" class="story-graph-container">
-      <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
-        <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
-          <div class="chapter-info">
-            <div v-if="rootScene.part_title" class="part-badge">
-              Chapter: {{ rootScene.part_title }}
-            </div>
-            <span class="root-title">{{ rootScene.title }}</span>
-          </div>
-          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }">▼</span>
-        </div>
-        <div v-if="expandedChapters[rootScene.id]" class="chapter-content">
-          <SceneNode :scene="rootScene" />
-        </div>
-      </div>
-    </div>
-    <div v-else class="empty-state">
-      <p>No scenes found. Start by creating a root scene!</p>
     </div>
   </div>
 </template>
