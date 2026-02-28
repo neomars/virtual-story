@@ -58,7 +58,9 @@
         <label for="video">Video File</label>
         <input type="file" id="video" @change="handleFileUpload" required>
       </div>
-      <button type="submit" class="button">Create Scene</button>
+      <button type="submit" class="button" :disabled="isSaving">
+        {{ isSaving ? 'Saving...' : 'Create Scene' }}
+      </button>
       <router-link to="/admin" class="button secondary">Cancel</router-link>
     </form>
 
@@ -149,7 +151,9 @@
               </div>
             </div>
           </div>
-          <button type="submit" class="button">Save changes</button>
+          <button type="submit" class="button" :disabled="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save changes' }}
+          </button>
         </form>
       </div>
 
@@ -211,6 +215,7 @@ const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
+const isSaving = ref(false);
 const isAddingChoice = ref(false);
 const isAddingParentLink = ref(false);
 const isPlayingPreview = ref(false);
@@ -261,6 +266,7 @@ const saveScene = async () => {
   }
 
   try {
+    isSaving.value = true;
     successMessage.value = 'Processing...';
     mergeSummary.value = null;
 
@@ -320,6 +326,8 @@ const saveScene = async () => {
 
     alert(`Failed to save scene: ${msg}${details}`);
     successMessage.value = '';
+  } finally {
+    isSaving.value = false;
   }
 };
 

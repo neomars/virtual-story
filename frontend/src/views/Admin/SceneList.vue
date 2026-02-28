@@ -8,7 +8,9 @@
         <label for="background-upload" class="button">Choose Image</label>
         <input id="background-upload" type="file" @change="handleFileChange" accept="image/png, image/jpeg" class="sr-only" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
-        <button @click="uploadBackground" class="button" :disabled="!selectedFile">Upload</button>
+        <button @click="uploadBackground" class="button" :disabled="!selectedFile || isUploadingBackground">
+          {{ isUploadingBackground ? 'Uploading...' : 'Upload' }}
+        </button>
       </div>
       <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
         {{ uploadStatus }}
@@ -28,8 +30,10 @@
       <p class="instruction-text">Note: Use the "Sync" button if you encounter loading or creation errors.</p>
       <form @submit.prevent="createPart" class="upload-form multipart-form">
         <div class="form-row">
-          <input type="text" v-model="newPart.title" placeholder="Chapter title" required />
-          <select v-model="newPart.first_scene_id" required>
+          <label for="part-title" class="sr-only">Chapter title</label>
+          <input id="part-title" type="text" v-model="newPart.title" placeholder="Chapter title" required />
+          <label for="part-start-scene" class="sr-only">Starting scene</label>
+          <select id="part-start-scene" v-model="newPart.first_scene_id" required>
             <option disabled value="">Starting scene</option>
             <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
           </select>
@@ -38,7 +42,9 @@
           <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional)</label>
           <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
           <span v-if="partLoopFile" class="file-name">{{ partLoopFile.name }}</span>
-          <button type="submit" class="button">Add Chapter</button>
+          <button type="submit" class="button" :disabled="isCreatingPart">
+            {{ isCreatingPart ? 'Adding...' : 'Add Chapter' }}
+          </button>
         </div>
       </form>
       <ul class="parts-list" @dragover.prevent @dragenter.prevent>
@@ -59,7 +65,9 @@
             </select>
             <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video</label>
             <input :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
-            <button @click="updatePart(part.id)" class="button mini">Save</button>
+            <button @click="updatePart(part.id)" class="button mini" :disabled="isUpdatingPart">
+              {{ isUpdatingPart ? 'Saving...' : 'Save' }}
+            </button>
             <button @click="cancelEdit" class="button secondary-btn mini">Cancel</button>
           </div>
           <div v-else class="part-item-content">
@@ -69,7 +77,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete" aria-label="Delete chapter">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">&times;</button>
             </div>
           </div>
         </li>
@@ -133,6 +141,7 @@ const toggleChapter = (id) => {
 const selectedFile = ref(null);
 const uploadStatus = ref('');
 const isSuccess = ref(false);
+const isUploadingBackground = ref(false);
 
 // --- State for Parts ---
 const parts = ref([]);
@@ -141,12 +150,14 @@ const reorderStatus = ref('');
 const newPart = ref({ title: '', first_scene_id: '' });
 const partLoopFile = ref(null);
 const isSyncing = ref(false);
+const isCreatingPart = ref(false);
 const draggingIndex = ref(null);
 
 // State for editing parts
 const editingPartId = ref(null);
 const editPartData = ref({ title: '', first_scene_id: '' });
 const editPartFile = ref(null);
+const isUpdatingPart = ref(false);
 
 const syncDatabase = async () => {
   isSyncing.value = true;
@@ -193,6 +204,7 @@ const handleEditFileChange = (event) => {
 };
 
 const updatePart = async (id) => {
+  isUpdatingPart.value = true;
   try {
     const formData = new FormData();
     formData.append('title', editPartData.value.title);
@@ -213,10 +225,13 @@ const updatePart = async (id) => {
   } catch (err) {
     console.error(err);
     alert(`Update failed: ${err.response?.data?.message || err.message}`);
+  } finally {
+    isUpdatingPart.value = false;
   }
 };
 
 const createPart = async () => {
+  isCreatingPart.value = true;
   try {
     const formData = new FormData();
     formData.append('title', newPart.value.title);
@@ -239,6 +254,8 @@ const createPart = async () => {
   } catch (err) {
     console.error(err);
     alert(`Failed to create chapter: ${err.response?.data?.message || err.message}`);
+  } finally {
+    isCreatingPart.value = false;
   }
 };
 
@@ -301,6 +318,7 @@ const handleFileChange = (event) => {
 
 const uploadBackground = async () => {
   if (!selectedFile.value) return;
+  isUploadingBackground.value = true;
   const formData = new FormData();
   formData.append('background', selectedFile.value);
   try {
@@ -314,6 +332,8 @@ const uploadBackground = async () => {
   } catch (err) {
     uploadStatus.value = err.response?.data?.message || 'Upload failed.';
     isSuccess.value = false;
+  } finally {
+    isUploadingBackground.value = false;
   }
 };
 

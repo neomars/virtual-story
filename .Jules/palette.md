@@ -27,3 +27,7 @@
 ## 2025-05-24 - Narrative Continuity and Player Utility
 **Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
 **Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
+
+## 2025-05-26 - Accessible Labels for Placeholder-only Inputs
+**Learning:** Inputs that rely solely on placeholders are inaccessible once text is entered or when a screen reader navigates to them without context. Using an `sr-only` label provides the necessary accessible name without affecting the visual design.
+**Action:** Always provide a <label> with an id association for every form input, using the sr-only class if the label should be visually hidden.

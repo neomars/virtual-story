@@ -11,12 +11,12 @@
       <h2>Change my password</h2>
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
-          <label>Old password</label>
-          <input type="password" v-model="passChange.oldPassword" required />
+          <label for="old-password">Old password</label>
+          <input id="old-password" type="password" v-model="passChange.oldPassword" required />
         </div>
         <div class="form-group">
-          <label>New password</label>
-          <input type="password" v-model="passChange.newPassword" required />
+          <label for="new-password">New password</label>
+          <input id="new-password" type="password" v-model="passChange.newPassword" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
