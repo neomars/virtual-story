@@ -169,7 +169,7 @@
           </li>
         </ul>
         <div class="add-choice-form">
-           <h4>Add new choice</h4>
+           <h4>Add new choice (existing scene)</h4>
            <form @submit.prevent="addChoice">
               <div class="form-group">
                 <label for="choice-text">Choice text</label>
@@ -186,6 +186,27 @@
                 {{ isAddingChoice ? 'Adding...' : 'Add Choice' }}
               </button>
            </form>
+        </div>
+
+        <div class="add-choice-form">
+          <h4>Add new choice (new video)</h4>
+          <form @submit.prevent="addNewSceneAndChoice">
+            <div class="form-group">
+              <label for="new-scene-choice-text">Choice text</label>
+              <input type="text" id="new-scene-choice-text" v-model="quickAdd.choice_text" required>
+            </div>
+            <div class="form-group">
+              <label for="new-scene-title">New scene title</label>
+              <input type="text" id="new-scene-title" v-model="quickAdd.title" required>
+            </div>
+            <div class="form-group">
+              <label for="new-scene-video">Video File</label>
+              <input type="file" id="new-scene-video" @change="handleQuickAddFileUpload" required>
+            </div>
+            <button type="submit" class="button mini" :disabled="isAddingQuick">
+              {{ isAddingQuick ? 'Creating & Linking...' : 'Create & Link' }}
+            </button>
+          </form>
         </div>
       </div>
 
@@ -212,12 +233,14 @@ const videoFile = ref(null);
 const allScenes = ref([]);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
 const newParentLink = ref({ source_scene_id: '', choice_text: '' });
+const quickAdd = ref({ title: '', choice_text: '', video: null });
 const relations = ref(null);
 const parts = ref([]);
 const successMessage = ref('');
 const isSaving = ref(false);
 const isAddingChoice = ref(false);
 const isAddingParentLink = ref(false);
+const isAddingQuick = ref(false);
 const isPlayingPreview = ref(false);
 const mergeSummary = ref(null);
 
@@ -252,7 +275,23 @@ const fetchAllScenes = async () => {
 };
 
 const handleFileUpload = (event) => {
-  videoFile.value = event.target.files[0];
+  const file = event.target.files[0];
+  videoFile.value = file;
+  if (!isEditing.value && !scene.value.title && file) {
+    const filename = file.name;
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    scene.value.title = nameWithoutExt.replace(/_/g, ' ');
+  }
+};
+
+const handleQuickAddFileUpload = (event) => {
+  const file = event.target.files[0];
+  quickAdd.value.video = file;
+  if (!quickAdd.value.title && file) {
+    const filename = file.name;
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    quickAdd.value.title = nameWithoutExt.replace(/_/g, ' ');
+  }
 };
 
 const saveScene = async () => {
@@ -363,6 +402,46 @@ const removeChoice = async (choiceId) => {
   } catch (err) {
     console.error('Failed to delete choice:', err);
     alert('Failed to delete choice.');
+  }
+};
+
+const addNewSceneAndChoice = async () => {
+  if (!quickAdd.value.video || !quickAdd.value.title || !quickAdd.value.choice_text) {
+    alert('Please fill in all fields for the new scene.');
+    return;
+  }
+
+  isAddingQuick.value = true;
+  try {
+    // 1. Create the new scene
+    const formData = new FormData();
+    formData.append('title', quickAdd.value.title);
+    formData.append('part_id', scene.value.part_id || '');
+    formData.append('video', quickAdd.value.video);
+
+    const sceneRes = await axios.post('/api/scenes', formData);
+    const newSceneId = sceneRes.data.id;
+
+    // 2. Link it to the current scene
+    await axios.post(`/api/scenes/${props.id}/choices`, {
+      destination_scene_id: newSceneId,
+      choice_text: quickAdd.value.choice_text
+    });
+
+    // 3. Refresh and Reset
+    await fetchSceneData();
+    await fetchAllScenes();
+    quickAdd.value = { title: '', choice_text: '', video: null };
+    const fileInput = document.getElementById('new-scene-video');
+    if (fileInput) fileInput.value = '';
+
+    successMessage.value = 'New scene created and linked successfully!';
+    setTimeout(() => { successMessage.value = ''; }, 3000);
+  } catch (err) {
+    console.error('Failed to quick-add scene:', err);
+    alert('Failed to create and link new scene.');
+  } finally {
+    isAddingQuick.value = false;
   }
 };
 
