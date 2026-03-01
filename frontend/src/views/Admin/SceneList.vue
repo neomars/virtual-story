@@ -66,15 +66,17 @@
       <p class="instruction-text">Note: Use the "Sync" button if you encounter loading or creation errors.</p>
       <form @submit.prevent="createPart" class="upload-form multipart-form">
         <div class="form-row">
-          <input type="text" v-model="newPart.title" placeholder="Chapter title" required />
-          <select v-model="newPart.first_scene_id" required>
+          <label for="new-part-title" class="sr-only">Chapter title</label>
+          <input id="new-part-title" type="text" v-model="newPart.title" placeholder="Chapter title" :disabled="isCreatingPart" required />
+          <label for="new-part-scene" class="sr-only">Starting scene</label>
+          <select id="new-part-scene" v-model="newPart.first_scene_id" :disabled="isCreatingPart" required>
             <option disabled value="">Starting scene</option>
             <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
           </select>
         </div>
         <div class="form-row">
-          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional)</label>
-          <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
+          <label for="part-loop-upload" class="button secondary-btn" :class="{ 'disabled': isCreatingPart }">Loop Video (Optional)</label>
+          <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" :disabled="isCreatingPart" />
           <span v-if="partLoopFile" class="file-name">{{ partLoopFile.name }}</span>
           <button type="submit" class="button" :disabled="isCreatingPart">
             {{ isCreatingPart ? 'Adding...' : 'Add Chapter' }}
@@ -258,7 +260,9 @@ const createPart = async () => {
 };
 
 const deletePart = async (id) => {
-  if (confirm('Delete this chapter?')) {
+  const part = parts.value.find(p => p.id === id);
+  const partTitle = part ? part.title : 'this chapter';
+  if (confirm(`Delete chapter "${partTitle}"?`)) {
     try {
       await axios.delete(`/api/parts/${id}`);
       fetchParts();

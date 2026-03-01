@@ -27,3 +27,7 @@
 ## 2025-05-24 - Narrative Continuity and Player Utility
 **Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
 **Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
+
+## 2025-05-26 - Form Robustness and Deletion Safety
+**Learning:** In administrative interfaces, preventing double-submissions is critical. Disabling all form inputs (not just the submit button) during asynchronous operations provides a strong visual "lock" and prevents state corruption. Additionally, including the entity's name in `confirm()` dialogs provides a final safety check that significantly reduces accidental deletions.
+**Action:** Implement "submission lockouts" for entire forms and ensure all destructive confirmation dialogs are contextualized with the target's name or title.
