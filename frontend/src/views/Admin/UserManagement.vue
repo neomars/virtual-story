@@ -11,12 +11,12 @@
       <h2>Change my password</h2>
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
-          <label>Old password</label>
-          <input type="password" v-model="passChange.oldPassword" required />
+          <label for="old-password">Old password</label>
+          <input id="old-password" type="password" v-model="passChange.oldPassword" :disabled="isChangingPass" required />
         </div>
         <div class="form-group">
-          <label>New password</label>
-          <input type="password" v-model="passChange.newPassword" required />
+          <label for="new-password">New password</label>
+          <input id="new-password" type="password" v-model="passChange.newPassword" :disabled="isChangingPass" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -30,8 +30,10 @@
     <section class="admin-section">
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
-        <input type="text" v-model="newUser.username" placeholder="Username" required />
-        <input type="password" v-model="newUser.password" placeholder="Password" required />
+        <label for="new-username" class="sr-only">New username</label>
+        <input id="new-username" type="text" v-model="newUser.username" placeholder="Username" :disabled="isCreatingUser" required />
+        <label for="new-password-input" class="sr-only">New user password</label>
+        <input id="new-password-input" type="password" v-model="newUser.password" placeholder="Password" :disabled="isCreatingUser" required />
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
@@ -107,7 +109,9 @@ const createUser = async () => {
 };
 
 const deleteUser = async (id) => {
-  if (confirm('Delete this user?')) {
+  const user = users.value.find(u => u.id === id);
+  const username = user ? user.username : 'this user';
+  if (confirm(`Delete user "${username}"?`)) {
     try {
       await axios.delete(`/api/admin/users/${id}`);
       fetchUsers();

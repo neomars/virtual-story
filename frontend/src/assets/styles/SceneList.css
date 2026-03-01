@@ -17,7 +17,6 @@
   gap: 1rem;
 }
 .file-name { color: #ccc; font-style: italic; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
 .status-success { color: #42b983; margin-top: 1rem; }
 .status-error { color: #ef4444; margin-top: 1rem; }
 .separator { border: none; border-top: 1px solid #444; margin: 2rem 0; }
