@@ -50,7 +50,7 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
-          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene">
+          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
             Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
           </button>
         </div>
@@ -61,7 +61,7 @@
         <div class="panel-content">
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
-            <ul v-if="showChoices" key="choices">
+            <ul v-if="showChoices" key="choices" aria-live="polite">
               <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link
                   :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
@@ -72,12 +72,13 @@
                 </router-link>
               </li>
               <li v-if="sceneData.next_choices.length === 0">
-                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                <router-link to="/player/1" aria-label="End of story. Click or press [1] to restart from the beginning.">
+                  <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
               </li>
               <li class="replay-item">
-                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene">
+                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene (R shortcut)">
                   <span class="shortcut-hint" aria-hidden="true">[R]</span>
                   Replay Scene
                 </a>
@@ -275,12 +276,18 @@ const handleKeydown = (e) => {
     case '7':
     case '8':
     case '9':
-      if (showChoices.value && sceneData.value?.next_choices) {
-        const index = parseInt(e.key) - 1;
-        if (index < sceneData.value.next_choices.length) {
+      if (showChoices.value) {
+        if (sceneData.value?.next_choices && sceneData.value.next_choices.length > 0) {
+          const index = parseInt(e.key) - 1;
+          if (index < sceneData.value.next_choices.length) {
+            e.preventDefault();
+            const choice = sceneData.value.next_choices[index];
+            router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+          }
+        } else if (e.key === '1' && sceneData.value?.next_choices?.length === 0) {
+          // Restart story if at the end
           e.preventDefault();
-          const choice = sceneData.value.next_choices[index];
-          router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+          router.push('/player/1');
         }
       }
       break;

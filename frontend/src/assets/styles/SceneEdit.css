@@ -179,6 +179,19 @@ input[type="text"], select {
   display: inline-block;
   margin-top: 2rem;
   color: #42b983;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.back-link:hover,
+.back-link:focus-visible {
+  color: #52c993;
+  text-decoration: underline;
+}
+
+.back-link:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 .simple-form {
   max-width: 500px;
