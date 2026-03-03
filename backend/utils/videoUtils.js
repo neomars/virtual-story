@@ -54,14 +54,22 @@ const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnai
   }
 
   if (inputs.length > 1) {
-    console.log(`[FFMPEG] Concatenating ${inputs.length} videos using demuxer...`);
+    console.log(`[FFMPEG] Concatenating ${inputs.length} videos using filter_complex for better synchronization...`);
     const tempOutput = videoPath + '.concat.mp4';
-    const listFilePath = videoPath + '.list.txt';
 
-    const listContent = inputs.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
-    await fs.writeFile(listFilePath, listContent);
+    // Build the filter_complex command
+    // We scale everything to 720p 30fps to ensure compatibility
+    let filterComplex = '';
+    let inputArgs = '';
+    inputs.forEach((p, i) => {
+      inputArgs += `-i "${p}" `;
+      filterComplex += `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]; `;
+    });
 
-    const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" -f concat -safe 0 -i "${listFilePath}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "${tempOutput}"`;
+    const concatInputs = inputs.map((_, i) => `[v${i}][${i}:a]`).join('');
+    filterComplex += `${concatInputs}concat=n=${inputs.length}:v=1:a=1[v][a]`;
+
+    const concatCmd = `unset LD_LIBRARY_PATH; "${ffmpegPath}" ${inputArgs} -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "${tempOutput}"`;
 
     console.log(`[FFMPEG] Executing: ${concatCmd}`);
 
@@ -77,11 +85,12 @@ const processVideoAndThumbnail = async (videoPath, prependId, appendId, thumbnai
         });
       });
 
-      await fs.unlink(videoPath);
+      await fs.unlink(videoPath).catch(() => {});
       await fs.rename(tempOutput, videoPath);
       console.log('[FFMPEG] Concatenation successful.');
-    } finally {
-      await fs.unlink(listFilePath).catch(() => {});
+    } catch (err) {
+      await fs.unlink(tempOutput).catch(() => {});
+      throw err;
     }
   }
 
