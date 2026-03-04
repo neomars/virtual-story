@@ -27,3 +27,11 @@
 ## 2025-05-24 - Narrative Continuity and Player Utility
 **Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
 **Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
+
+## 2025-05-28 - Reinforcing Focus Visibility for Navigation
+**Learning:** While  is a common hover state for links, it is often insufficient for keyboard focus visibility in dark-themed applications. Explicit focus rings (using `outline` and `outline-offset`) provide a much stronger visual cue for users navigating via Tab, ensuring they never lose track of their focus position.
+**Action:** Always provide a high-contrast focus ring for navigation links (`back-link`), and avoid using `outline: none` unless replacing it with an equally robust visual indicator.
+
+## 2025-05-28 - Reinforcing Focus Visibility for Navigation
+**Learning:** While `text-decoration: underline` is a common hover state for links, it is often insufficient for keyboard focus visibility in dark-themed applications. Explicit focus rings (using `outline` and `outline-offset`) provide a much stronger visual cue for users navigating via Tab, ensuring they never lose track of their focus position.
+**Action:** Always provide a high-contrast focus ring for navigation links (`back-link`), and avoid using `outline: none` unless replacing it with an equally robust visual indicator.
