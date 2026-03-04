@@ -72,7 +72,7 @@
                 </router-link>
               </li>
               <li v-if="sceneData.next_choices.length === 0">
-                <router-link to="/player/1" aria-label="End of story. Click or press [1] to restart from the beginning.">
+                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
                   <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
@@ -285,7 +285,6 @@ const handleKeydown = (e) => {
             router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
           }
         } else if (e.key === '1' && sceneData.value?.next_choices?.length === 0) {
-          // Restart story if at the end
           e.preventDefault();
           router.push('/player/1');
         }

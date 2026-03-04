@@ -28,10 +28,10 @@
 **Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
 **Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
 
-## 2025-05-28 - Reinforcing Focus Visibility for Navigation
-**Learning:** While  is a common hover state for links, it is often insufficient for keyboard focus visibility in dark-themed applications. Explicit focus rings (using `outline` and `outline-offset`) provide a much stronger visual cue for users navigating via Tab, ensuring they never lose track of their focus position.
-**Action:** Always provide a high-contrast focus ring for navigation links (`back-link`), and avoid using `outline: none` unless replacing it with an equally robust visual indicator.
+## 2025-05-25 - Centralized Accessibility Utilities
+**Learning:** Common accessibility patterns, such as the `sr-only` class for visually hidden labels, should be centralized in a global stylesheet. This prevents duplication, ensures consistency in the implementation of the "visually hidden" pattern, and makes it easier to audit the app for accessibility baseline support.
+**Action:** Move global utility classes (like `sr-only`) to `App.css` and use them systematically for icon-only buttons or forms with placeholder-only visual designs.
 
-## 2025-05-28 - Reinforcing Focus Visibility for Navigation
-**Learning:** While `text-decoration: underline` is a common hover state for links, it is often insufficient for keyboard focus visibility in dark-themed applications. Explicit focus rings (using `outline` and `outline-offset`) provide a much stronger visual cue for users navigating via Tab, ensuring they never lose track of their focus position.
-**Action:** Always provide a high-contrast focus ring for navigation links (`back-link`), and avoid using `outline: none` unless replacing it with an equally robust visual indicator.
+## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
+**Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
+**Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.

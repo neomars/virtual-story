@@ -11,12 +11,12 @@
       <h2>Change my password</h2>
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
-          <label>Old password</label>
-          <input type="password" v-model="passChange.oldPassword" required />
+          <label for="old-password">Old password</label>
+          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
         </div>
         <div class="form-group">
-          <label>New password</label>
-          <input type="password" v-model="passChange.newPassword" required />
+          <label for="new-password">New password</label>
+          <input type="password" id="new-password" v-model="passChange.newPassword" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -30,8 +30,10 @@
     <section class="admin-section">
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
-        <input type="text" v-model="newUser.username" placeholder="Username" required />
-        <input type="password" v-model="newUser.password" placeholder="Password" required />
+        <label for="new-username" class="sr-only">Username</label>
+        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
+        <label for="new-password-field" class="sr-only">Password</label>
+        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
