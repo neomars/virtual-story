@@ -50,7 +50,7 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
-          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene">
+          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
             Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
           </button>
         </div>
@@ -61,7 +61,7 @@
         <div class="panel-content">
           <h3>Next Choices</h3>
           <Transition name="fade" mode="out-in">
-            <ul v-if="showChoices" key="choices">
+            <ul v-if="showChoices" key="choices" aria-live="polite">
               <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link
                   :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
@@ -78,7 +78,7 @@
                 </router-link>
               </li>
               <li class="replay-item">
-                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene">
+                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene (R shortcut)">
                   <span class="shortcut-hint" aria-hidden="true">[R]</span>
                   Replay Scene
                 </a>

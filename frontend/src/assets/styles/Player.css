@@ -131,8 +131,11 @@
   font-size: 0.9rem;
   font-weight: bold;
 }
-.skip-button:hover {
+.skip-button:hover,
+.skip-button:focus-visible {
   background-color: rgba(66, 185, 131, 0.8);
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .full-page video { width: 100%; height: 100%; object-fit: contain; }
 video { width: 100%; height: auto; display: block; }
