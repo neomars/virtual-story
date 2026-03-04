@@ -66,8 +66,10 @@
       <p class="instruction-text">Note: Use the "Sync" button if you encounter loading or creation errors.</p>
       <form @submit.prevent="createPart" class="upload-form multipart-form">
         <div class="form-row">
-          <input type="text" v-model="newPart.title" placeholder="Chapter title" required />
-          <select v-model="newPart.first_scene_id" required>
+          <label for="new-part-title" class="sr-only">Chapter title</label>
+          <input type="text" id="new-part-title" v-model="newPart.title" placeholder="Chapter title" required />
+          <label for="new-part-first-scene" class="sr-only">Starting scene</label>
+          <select id="new-part-first-scene" v-model="newPart.first_scene_id" required>
             <option disabled value="">Starting scene</option>
             <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
           </select>

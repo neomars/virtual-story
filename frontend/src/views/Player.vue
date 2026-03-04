@@ -73,6 +73,7 @@
               </li>
               <li v-if="sceneData.next_choices.length === 0">
                 <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                  <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
               </li>
@@ -275,12 +276,17 @@ const handleKeydown = (e) => {
     case '7':
     case '8':
     case '9':
-      if (showChoices.value && sceneData.value?.next_choices) {
-        const index = parseInt(e.key) - 1;
-        if (index < sceneData.value.next_choices.length) {
+      if (showChoices.value) {
+        if (sceneData.value?.next_choices && sceneData.value.next_choices.length > 0) {
+          const index = parseInt(e.key) - 1;
+          if (index < sceneData.value.next_choices.length) {
+            e.preventDefault();
+            const choice = sceneData.value.next_choices[index];
+            router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+          }
+        } else if (e.key === '1' && sceneData.value?.next_choices?.length === 0) {
           e.preventDefault();
-          const choice = sceneData.value.next_choices[index];
-          router.push({ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } });
+          router.push('/player/1');
         }
       }
       break;
