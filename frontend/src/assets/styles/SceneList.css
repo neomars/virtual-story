@@ -121,6 +121,15 @@
   font-style: italic;
   color: #888;
   margin-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.empty-state .button, .error-state .button {
+  width: auto;
+  font-style: normal;
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
 .parts-list li {

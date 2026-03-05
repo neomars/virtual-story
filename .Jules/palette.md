@@ -35,3 +35,11 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-28 - Actionable Recovery in Empty and Error States
+**Learning:** Error messages and empty states that only provide information without a direct path to resolution create friction. Providing primary action buttons (like "Sync Database" or "Add Root Scene") directly within these states allows users to resolve issues immediately without searching the UI.
+**Action:** Always include a primary "Call to Action" button in empty and error states to guide the user toward the next logical step.
+
+## 2025-05-28 - Reducing Screen Reader Noise from Decorative Symbols
+**Learning:** Decorative characters and symbols (like '×' for close, '↳' for sub-items, or arrows) are often announced literally by screen readers (e.g., "times", "right arrow"), which clutters the experience if an `aria-label` or visible text already describes the action.
+**Action:** Wrap all decorative symbols and icon-characters in `<span aria-hidden="true">` when they are purely visual or accompany an accessible label.
