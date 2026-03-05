@@ -163,9 +163,9 @@
         <ul class="relation-list">
           <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
-              "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
+              "{{ child.choice_text }}" <span aria-hidden="true">&rarr;</span> <strong>{{ child.title }}</strong>
             </router-link>
-             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title">&times;</button>
+             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title"><span aria-hidden="true">&times;</span></button>
           </li>
         </ul>
         <div class="add-choice-form">
@@ -211,7 +211,7 @@
       </div>
 
     </div>
-    <router-link to="/admin" class="back-link" v-if="isEditing">&larr; Back to list</router-link>
+    <router-link to="/admin" class="back-link" v-if="isEditing"><span aria-hidden="true">&larr;</span> Back to list</router-link>
   </div>
 </template>
 

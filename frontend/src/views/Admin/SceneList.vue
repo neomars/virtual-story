@@ -13,7 +13,10 @@
     <div v-if="loading">Loading story...</div>
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
-      <p>Tip: If this is your first time or after an update, click the <strong>"Sync Database"</strong> button below to prepare the tables.</p>
+      <p>Tip: If this is your first time or after an update, synchronize the database to prepare the tables.</p>
+      <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
+        {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
+      </button>
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
@@ -33,6 +36,7 @@
     </div>
     <div v-else class="empty-state">
       <p>No scenes found. Start by creating a root scene!</p>
+      <router-link to="/admin/scenes/new" class="button">Add Root Scene</router-link>
     </div>
 
     <hr class="separator" />
@@ -58,7 +62,7 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
-        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video">{{ reorderStatus }}</span></h2>
+        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video" role="status" aria-live="polite">{{ reorderStatus }}</span></h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
           {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
         </button>
@@ -113,7 +117,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title"><span aria-hidden="true">&times;</span></button>
             </div>
           </div>
         </li>
