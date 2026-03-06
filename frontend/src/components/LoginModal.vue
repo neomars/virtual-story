@@ -1,10 +1,12 @@
 
 <template>
   <div v-if="isOpen" class="modal-overlay" @click.self="close">
-    <div class="modal-content">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
-        <h2>Admin Login</h2>
-        <button class="close-btn" @click="close" aria-label="Close">&times;</button>
+        <h2 id="modal-title">Admin Login</h2>
+        <button class="close-btn" @click="close" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
@@ -16,6 +18,7 @@
             required
             placeholder="admin"
             :disabled="isLoading"
+            ref="usernameInput"
           >
         </div>
         <div class="form-group">
@@ -40,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -53,6 +56,7 @@ const username = ref('');
 const password = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
+const usernameInput = ref(null);
 
 const close = () => {
   if (isLoading.value) return;
@@ -78,6 +82,28 @@ const handleLogin = async () => {
     isLoading.value = false;
   }
 };
+
+const handleKeydown = (e) => {
+  if (e.key === 'Escape' && props.isOpen) {
+    close();
+  }
+};
+
+watch(() => props.isOpen, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      usernameInput.value?.focus();
+    });
+  }
+});
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <style scoped src="../assets/styles/LoginModal.css"></style>
