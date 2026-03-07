@@ -47,6 +47,12 @@
   color: #fff;
 }
 
+.close-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  color: #fff;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
@@ -77,6 +83,11 @@
   border-color: #42b983;
 }
 
+.form-group input:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
 .error-message {
   color: #ef4444;
   font-size: 0.85rem;
@@ -98,6 +109,12 @@
 }
 
 .submit-btn:hover:not(:disabled) {
+  background-color: #3aa876;
+}
+
+.submit-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
   background-color: #3aa876;
 }
 
