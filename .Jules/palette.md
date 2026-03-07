@@ -35,3 +35,7 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-27 - Accessible Modal Patterns
+**Learning:** Standard modal dialogs require specific ARIA attributes (`role="dialog"`, `aria-modal="true"`) and focus management to be usable for screen reader and keyboard users. Automatically focusing the first input and providing a global `Escape` key listener are essential for a smooth UX.
+**Action:** Always implement `role="dialog"`, `aria-modal="true"`, heading associations, auto-focus on open, and `Escape` key support for all modal components.
