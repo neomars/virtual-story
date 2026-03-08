@@ -72,9 +72,9 @@
   color: #fff;
 }
 
-.form-group input:focus {
-  outline: none;
-  border-color: #42b983;
+.form-group input:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 
 .error-message {
@@ -99,6 +99,11 @@
 
 .submit-btn:hover:not(:disabled) {
   background-color: #3aa876;
+}
+
+.submit-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
 }
 
 .submit-btn:disabled {
