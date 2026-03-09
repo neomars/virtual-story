@@ -35,3 +35,7 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-28 - Reducing Screen Reader Noise with aria-hidden
+**Learning:** Repetitive decorative symbols (like "↳", "→", "×", or "▼") used for visual structure or as icons can clutter the experience for screen reader users if they are announced literally. Wrapping these in `<span aria-hidden="true">` when they accompany descriptive text or ARIA labels ensures a cleaner, more focused auditory experience.
+**Action:** Always wrap decorative symbols and icons in `aria-hidden="true"` when they are redundant to visible text or accessible labels.

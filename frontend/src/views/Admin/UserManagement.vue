@@ -2,7 +2,7 @@
 <template>
   <div class="user-management">
     <div class="header-container">
-      <router-link to="/admin/scenes" class="back-link">&larr; Back to Graph</router-link>
+      <router-link to="/admin/scenes" class="back-link"><span aria-hidden="true">&larr;</span> Back to Graph</router-link>
       <h1>Users Management</h1>
     </div>
 
@@ -52,7 +52,7 @@
               :disabled="user.id === auth.currentUser.value?.id"
               :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
               :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
-            >&times;</button>
+            ><span aria-hidden="true">&times;</span></button>
           </div>
         </li>
       </ul>

@@ -17,16 +17,24 @@
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
-        <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
+        <div
+          class="chapter-header"
+          @click="toggleChapter(rootScene.id)"
+          role="button"
+          tabindex="0"
+          @keydown.enter="toggleChapter(rootScene.id)"
+          :aria-expanded="!!expandedChapters[rootScene.id]"
+          :aria-controls="'chapter-content-' + rootScene.id"
+        >
           <div class="chapter-info">
             <div v-if="rootScene.part_title" class="part-badge">
               Chapter: {{ rootScene.part_title }}
             </div>
             <span class="root-title">{{ rootScene.title }}</span>
           </div>
-          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }">▼</span>
+          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }" aria-hidden="true">▼</span>
         </div>
-        <div v-if="expandedChapters[rootScene.id]" class="chapter-content">
+        <div v-if="expandedChapters[rootScene.id]" :id="'chapter-content-' + rootScene.id" class="chapter-content">
           <SceneNode :scene="rootScene" />
         </div>
       </div>
@@ -58,7 +66,7 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
-        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video">{{ reorderStatus }}</span></h2>
+        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video" role="status" aria-live="polite">{{ reorderStatus }}</span></h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
           {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
         </button>
@@ -113,7 +121,7 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title"><span aria-hidden="true">&times;</span></button>
             </div>
           </div>
         </li>
