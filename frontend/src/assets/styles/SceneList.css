@@ -118,9 +118,29 @@
 }
 .empty-state, .error-state {
   text-align: center;
-  font-style: italic;
   color: #888;
-  margin-top: 3rem;
+  margin-top: 2rem;
+  background-color: #1e1e1e;
+  padding: 3rem 2rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.empty-state p, .error-state p {
+  margin: 0;
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.error-state {
+  border: 1px solid #ef444433;
+}
+
+.empty-state {
+  border: 1px solid #42b98333;
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
 .parts-list li {

@@ -52,7 +52,9 @@
               :disabled="user.id === auth.currentUser.value?.id"
               :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
               :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
-            >&times;</button>
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
           </div>
         </li>
       </ul>

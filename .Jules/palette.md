@@ -35,3 +35,15 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-28 - Actionable Empty and Error States
+**Learning:** Generic text-only empty or error states ("No scenes found", "Failed to load") are UX dead ends. Providing direct, prominent action buttons (e.g., "Add Root Scene" or "Sync Database") within these states significantly reduces friction and guides users toward a resolution.
+**Action:** Always include at least one primary call-to-action button in empty and error state components.
+
+## 2025-05-28 - Accessibility of Decorative Symbols
+**Learning:** Decorative or symbolic characters used for visual affordance (e.g., '▼' for dropdowns, '⠿' for drag handles, '×' for close/delete) should be explicitly hidden from screen readers using `aria-hidden="true"` when they accompany a descriptive `aria-label` or visible text. This prevents redundant or confusing announcements.
+**Action:** Wrap all icon-only button symbols and decorative indicators in `<span aria-hidden="true">`.
+
+## 2025-05-28 - Robust Accordion Accessibility
+**Learning:** For toggleable sections (accordions), using `v-show` instead of `v-if` for the content container ensures that the element target of `aria-controls` remains in the DOM even when collapsed. This allows screen readers to maintain the association and reliably report the state of the section.
+**Action:** Use `v-show` for the content of toggleable sections that use `aria-controls` to ensure the ID reference remains valid.
