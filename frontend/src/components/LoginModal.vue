@@ -4,31 +4,39 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Admin Login</h2>
-        <button class="close-btn" @click="close" aria-label="Close">&times;</button>
+        <button class="close-btn" @click="close" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form @submit.prevent="handleLogin" class="login-form" :aria-busy="isLoading">
         <div class="form-group">
-          <label for="username">Username</label>
+          <label for="username">
+            Username <span class="required" aria-hidden="true">*</span>
+          </label>
           <input
             type="text"
             id="username"
             v-model="username"
             required
+            aria-required="true"
             placeholder="admin"
             :disabled="isLoading"
           >
         </div>
         <div class="form-group">
-          <label for="password">Password</label>
+          <label for="password">
+            Password <span class="required" aria-hidden="true">*</span>
+          </label>
           <input
             type="password"
             id="password"
             v-model="password"
             required
+            aria-required="true"
             :disabled="isLoading"
           >
         </div>
-        <div v-if="errorMessage" class="error-message" role="alert">
+        <div v-if="errorMessage" class="error-message" role="alert" aria-live="polite">
           {{ errorMessage }}
         </div>
         <button type="submit" class="submit-btn" :disabled="isLoading">
