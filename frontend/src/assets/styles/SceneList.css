@@ -82,6 +82,11 @@
 .chapter-header:hover {
   background-color: #333;
 }
+.chapter-header:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+  background-color: #333;
+}
 .chapter-info {
   display: flex;
   align-items: center;

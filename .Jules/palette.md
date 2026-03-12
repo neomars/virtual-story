@@ -35,3 +35,7 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-26 - Performance vs. Constant DOM Presence for Accessibility
+**Learning:** When implementing ARIA accordions (`aria-controls`) for potentially large or recursive trees (like a story graph), using `v-if` for content visibility is preferred over `v-show` to maintain performance. `aria-expanded` on the toggle header is sufficient to communicate the state to assistive technologies, even if the target element is conditionally unmounted.
+**Action:** Prioritize `v-if` for large conditional sections even when using `aria-controls`, provided `aria-expanded` is correctly implemented on the trigger.
