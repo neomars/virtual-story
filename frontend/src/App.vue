@@ -1,6 +1,7 @@
 
 <template>
   <div id="app">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
       <div class="header-left">
         <router-link to="/" class="header-title">
@@ -20,10 +21,10 @@
       <nav>
         <router-link to="/player/1">Player</router-link>
         <router-link to="/admin/scenes" @click="handleAdminClick">Admin</router-link>
-        <a v-if="isAuthenticated" href="#" @click.prevent="handleLogout" class="logout-link">Logout ({{ currentUser?.username }})</a>
+        <button v-if="isAuthenticated" @click="handleLogout" class="logout-link">Logout ({{ currentUser?.username }})</button>
       </nav>
     </header>
-    <main>
+    <main id="main-content" tabindex="-1">
       <router-view/>
     </main>
     <LoginModal

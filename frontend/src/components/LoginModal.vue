@@ -10,6 +10,7 @@
         <div class="form-group">
           <label for="username">Username</label>
           <input
+            ref="usernameInput"
             type="text"
             id="username"
             v-model="username"
@@ -40,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -53,6 +54,7 @@ const username = ref('');
 const password = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
+const usernameInput = ref(null);
 
 const close = () => {
   if (isLoading.value) return;
@@ -61,6 +63,28 @@ const close = () => {
   password.value = '';
   emit('close');
 };
+
+const handleKeydown = (e) => {
+  if (props.isOpen && e.key === 'Escape') {
+    close();
+  }
+};
+
+watch(() => props.isOpen, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      usernameInput.value?.focus();
+    });
+  }
+});
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 const handleLogin = async () => {
   isLoading.value = true;
