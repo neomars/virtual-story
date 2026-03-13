@@ -17,16 +17,25 @@
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
-        <div class="chapter-header" @click="toggleChapter(rootScene.id)" role="button" tabindex="0" @keydown.enter="toggleChapter(rootScene.id)">
+        <div
+          class="chapter-header"
+          @click="toggleChapter(rootScene.id)"
+          role="button"
+          tabindex="0"
+          @keydown.enter="toggleChapter(rootScene.id)"
+          @keydown.space.prevent="toggleChapter(rootScene.id)"
+          :aria-expanded="!!expandedChapters[rootScene.id]"
+          :aria-controls="'chapter-content-' + rootScene.id"
+        >
           <div class="chapter-info">
             <div v-if="rootScene.part_title" class="part-badge">
               Chapter: {{ rootScene.part_title }}
             </div>
             <span class="root-title">{{ rootScene.title }}</span>
           </div>
-          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }">▼</span>
+          <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }" aria-hidden="true">▼</span>
         </div>
-        <div v-if="expandedChapters[rootScene.id]" class="chapter-content">
+        <div v-if="expandedChapters[rootScene.id]" :id="'chapter-content-' + rootScene.id" class="chapter-content">
           <SceneNode :scene="rootScene" />
         </div>
       </div>
@@ -93,10 +102,14 @@
           @drop="handleDrop(index)"
           :class="{ 'is-dragging': draggingIndex === index }"
         >
-          <div class="drag-handle" title="Drag to reorder" aria-label="Drag handle to reorder">⠿</div>
+          <div class="drag-handle" title="Drag to reorder" aria-label="Drag handle to reorder">
+            <span aria-hidden="true">⠿</span>
+          </div>
           <div v-if="editingPartId === part.id" class="edit-part-inline">
-            <input type="text" v-model="editPartData.title" placeholder="Title" />
-            <select v-model="editPartData.first_scene_id">
+            <label :for="'edit-part-title-' + part.id" class="sr-only">Title</label>
+            <input :id="'edit-part-title-' + part.id" type="text" v-model="editPartData.title" placeholder="Title" />
+            <label :for="'edit-part-scene-' + part.id" class="sr-only">Starting scene</label>
+            <select :id="'edit-part-scene-' + part.id" v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
             <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video</label>
@@ -109,11 +122,14 @@
           <div v-else class="part-item-content">
             <span>
               <strong>{{ part.title }}</strong> (Starting ID: {{ part.first_scene_id }})
-              <span v-if="part.loop_video_path" class="badge-video">📹 Loop</span>
+              <span v-if="part.loop_video_path" class="badge-video" aria-hidden="true">📹 Loop</span>
+              <span v-if="part.loop_video_path" class="sr-only">Has ambient loop video</span>
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">&times;</button>
+              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">
+                <span aria-hidden="true">&times;</span>
+              </button>
             </div>
           </div>
         </li>

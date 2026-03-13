@@ -35,3 +35,7 @@
 ## 2025-05-25 - Shortcut Consistency at Narrative Conclusion
 **Learning:** Narrative interfaces should maintain consistent keyboard patterns even at terminal states. If numeric keys are used for choices, the terminal "Restart" option should also respond to a numeric key (e.g., '1'), preventing a sudden break in the user's interaction model.
 **Action:** Map the first choice shortcut (usually '1') to the 'Restart' action when a narrative reaches its end and no other choices are available.
+
+## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
+**Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
+**Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
