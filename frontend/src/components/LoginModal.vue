@@ -6,7 +6,7 @@
         <h2>Admin Login</h2>
         <button class="close-btn" @click="close" aria-label="Close">&times;</button>
       </div>
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form @submit.prevent="handleLogin" class="login-form" :aria-busy="isLoading">
         <div class="form-group">
           <label for="username">Username</label>
           <input

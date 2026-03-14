@@ -67,7 +67,7 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
-        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video">{{ reorderStatus }}</span></h2>
+        <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video" role="status" aria-live="polite">{{ reorderStatus }}</span></h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
           {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
         </button>
