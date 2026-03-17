@@ -55,6 +55,7 @@ const password = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
 const usernameInput = ref(null);
+const lastFocusedElement = ref(null);
 
 const close = () => {
   if (isLoading.value) return;
@@ -72,8 +73,13 @@ const handleKeydown = (e) => {
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
+    lastFocusedElement.value = document.activeElement;
     nextTick(() => {
       usernameInput.value?.focus();
+    });
+  } else {
+    nextTick(() => {
+      lastFocusedElement.value?.focus();
     });
   }
 });

@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Focus Restoration and Visible Focus States
+**Learning:** Keyboard navigation is broken when focus is lost after closing a modal or when interactive elements lack clear visual indicators. Restoring focus to the triggering element and using `:focus-visible` for outlines ensures a smooth and accessible experience for non-pointer users without affecting mouse users.
+**Action:** Always implement focus restoration in modal components and provide standardized `:focus-visible` styles for all primary navigation and header elements.

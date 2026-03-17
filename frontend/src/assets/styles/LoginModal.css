@@ -47,6 +47,13 @@
   color: #fff;
 }
 
+.close-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  color: #fff;
+  border-radius: 2px;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
