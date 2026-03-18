@@ -82,6 +82,11 @@
 .chapter-header:hover {
   background-color: #333;
 }
+.chapter-header:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+  border-radius: 5px;
+}
 .chapter-info {
   display: flex;
   align-items: center;
@@ -121,6 +126,10 @@
   font-style: italic;
   color: #888;
   margin-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
 .parts-list { list-style: none; padding: 0; margin-top: 1rem; }
 .parts-list li {
