@@ -13,7 +13,10 @@
     <div v-if="loading">Loading story...</div>
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
-      <p>Tip: If this is your first time or after an update, click the <strong>"Sync Database"</strong> button below to prepare the tables.</p>
+      <p>Tip: If this is your first time or after an update, click the button below to prepare the tables.</p>
+      <button @click="syncDatabase" class="button" :disabled="isSyncing">
+        {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
+      </button>
     </div>
     <div v-else-if="storyGraph.length > 0" class="story-graph-container">
       <div v-for="rootScene in storyGraph" :key="rootScene.id" class="root-scene" :class="{ 'is-collapsed': !expandedChapters[rootScene.id] }">
@@ -42,6 +45,7 @@
     </div>
     <div v-else class="empty-state">
       <p>No scenes found. Start by creating a root scene!</p>
+      <router-link to="/admin/scenes/new" class="button">Add Root Scene</router-link>
     </div>
 
     <hr class="separator" />
