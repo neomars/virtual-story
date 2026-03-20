@@ -176,18 +176,27 @@ li {
   padding-top: 1rem;
 }
 
-li a {
+li a,
+.choice-button {
   display: block;
+  width: 100%;
   padding: 1rem;
   background-color: #2a2a2a;
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: background-color 0.2s, box-shadow 0.2s;
 }
 
 li a:hover,
-li a:focus-visible {
+li a:focus-visible,
+.choice-button:hover,
+.choice-button:focus-visible {
   background-color: #3a3a3a;
   outline: 2px solid transparent;
   box-shadow: 0 0 0 2px #42b983;
