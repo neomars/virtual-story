@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Avoid Redundant ARIA Labels on Text-Based Links
+**Learning:** Adding `aria-label` to elements that already have clear visible text (like "Users & Profile") can violate WCAG 2.5.3 (Label in Name) if the accessible name does not start with the visible text. This breaks the experience for speech-input users.
+**Action:** Do not add `aria-label` to links or buttons with clear visible text unless the label is needed for extra context and *starts* with the exact visible text.

@@ -54,7 +54,7 @@ const refreshStoryGraph = inject('refreshStoryGraph');
 const isDeleting = ref(false);
 
 const deleteScene = async () => {
-  if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"?\nThis will also delete all choices leading to this scene.`)) {
+  if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"? This action is permanent and will also delete all incoming choices leading to this scene, which might break the narrative flow.`)) {
     isDeleting.value = true;
     try {
       await axios.delete(`/api/scenes/${props.scene.id}`);
