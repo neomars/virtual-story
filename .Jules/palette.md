@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Semantic Actions and Keyboard Visibility
+**Learning:** Using anchor tags with click preventers for on-page actions is an anti-pattern that confuses screen readers and breaks standard keyboard expectations. Additionally, interactive elements without distinct focus states (like `focus-visible`) create a "lost focus" experience for keyboard-only users in complex administrative views.
+**Action:** Always implement on-page actions (like 'Replay' or 'Logout') as semantic `<button>` elements with reset styles, and ensure all interactive containers with `tabindex` have high-contrast `:focus-visible` outlines.
