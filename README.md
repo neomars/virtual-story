@@ -1,4 +1,4 @@
-# Virtual Story
+# Logiciel de Visualisation 3D / 3D Visualization Software
 
 Virtual Story is an interactive, "choose your own adventure" video application. It allows users to navigate through a branching narrative by making choices at the end of video segments, creating a personalized story experience. This project is inspired by platforms like LifeSelector.
 
