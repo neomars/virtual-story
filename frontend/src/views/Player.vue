@@ -78,10 +78,14 @@
                 </router-link>
               </li>
               <li class="replay-item">
-                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene (R shortcut)">
+                <button
+                  @click="replayScene"
+                  class="choice-button"
+                  aria-label="Replay current scene (R shortcut)"
+                >
                   <span class="shortcut-hint" aria-hidden="true">[R]</span>
                   Replay Scene
-                </a>
+                </button>
               </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
