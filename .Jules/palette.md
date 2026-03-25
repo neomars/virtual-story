@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Actionable Empty and Error States
+**Learning:** Empty and error states should not just inform the user of a problem or lack of content; they should provide an immediate path forward. Adding direct "Sync Database" or "Add Root Scene" buttons within these states reduces cognitive load and navigation friction.
+**Action:** Always include a primary call-to-action button or link in empty and error states to guide the user toward the next logical step.
