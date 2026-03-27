@@ -72,6 +72,11 @@
   border-radius: 4px;
 }
 
+.form-group input:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 0;
+}
+
 .button {
   background-color: #42b983;
   color: white;
@@ -84,6 +89,11 @@
 
 .button:disabled {
   opacity: 0.6;
+}
+
+.button:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 
 .separator {
@@ -105,6 +115,11 @@
   color: white;
   padding: 0.6rem;
   border-radius: 4px;
+}
+
+.add-user-form input:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 0;
 }
 
 .user-list {

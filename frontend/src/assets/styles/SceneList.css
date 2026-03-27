@@ -82,6 +82,10 @@
 .chapter-header:hover {
   background-color: #333;
 }
+.chapter-header:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+}
 .chapter-info {
   display: flex;
   align-items: center;
@@ -157,6 +161,10 @@
 .button-delete:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.button:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
 input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; flex: 1; }
