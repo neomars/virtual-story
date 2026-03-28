@@ -28,6 +28,14 @@
 **Learning:** In interactive video experiences, users often want to skip familiar content or replay a significant scene without navigating away. Providing explicit "Skip" and "Replay" utilities directly in the player interface, accompanied by keyboard shortcuts, significantly enhances narrative flow and accessibility.
 **Action:** Always provide "Skip" and "Replay" controls in the primary player UI, and ensure "Restart" options are presented when a narrative path reaches its conclusion.
 
+## 2025-05-26 - Semantic Buttons for Actions
+**Learning:** Actions that do not navigate to a new page, such as 'Replay Scene', should be implemented as `<button>` elements instead of anchors (`<a>`) to ensure correct semantic meaning and keyboard behavior for assistive technologies.
+**Action:** Use `<button>` for all non-navigation actions and ensure they share visual styles with related navigation links if necessary.
+
+## 2025-05-26 - ARIA Live Regions for Background Tasks
+**Learning:** Visual-only status indicators for background operations (like reordering or syncing) are invisible to screen reader users. Using `role="status"` and `aria-live="polite"` ensures these updates are announced without interrupting the user's flow.
+**Action:** Always wrap transient status messages in an ARIA live region to ensure accessibility parity for background task feedback.
+
 ## 2025-05-25 - Centralized Accessibility Utilities
 **Learning:** Common accessibility patterns, such as the `sr-only` class for visually hidden labels, should be centralized in a global stylesheet. This prevents duplication, ensures consistency in the implementation of the "visually hidden" pattern, and makes it easier to audit the app for accessibility baseline support.
 **Action:** Move global utility classes (like `sr-only`) to `App.css` and use them systematically for icon-only buttons or forms with placeholder-only visual designs.

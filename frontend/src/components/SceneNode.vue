@@ -3,7 +3,7 @@
   <div class="scene-node">
     <div class="scene-info">
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" <span aria-hidden="true">&rarr;</span>
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">

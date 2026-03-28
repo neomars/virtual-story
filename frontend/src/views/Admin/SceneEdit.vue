@@ -211,7 +211,7 @@
       </div>
 
     </div>
-    <router-link to="/admin" class="back-link" v-if="isEditing">&larr; Back to list</router-link>
+    <router-link to="/admin" class="back-link" v-if="isEditing"><span aria-hidden="true">&larr;</span> Back to list</router-link>
   </div>
 </template>
 
