@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Semantic Actions vs. Navigation
+**Learning:** Actions that perform a functional task without navigating (like "Replay Scene") should be implemented as `<button>` elements rather than anchors (`<a>`). This ensures correct semantic announcement and interaction for screen reader users.
+**Action:** Use `<button>` with a dedicated `.choice-button` class for in-player actions to maintain visual parity with choice links while providing proper accessibility.

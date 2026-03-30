@@ -72,16 +72,16 @@
                 </router-link>
               </li>
               <li v-if="sceneData.next_choices.length === 0">
-                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                <router-link to="/player/1" aria-label="End of story. Restart from the beginning? (1 shortcut)">
                   <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
               </li>
               <li class="replay-item">
-                <a @click.prevent="replayScene" href="#" aria-label="Replay current scene (R shortcut)">
+                <button @click="replayScene" class="choice-button" aria-label="Replay current scene (R shortcut)">
                   <span class="shortcut-hint" aria-hidden="true">[R]</span>
                   Replay Scene
-                </a>
+                </button>
               </li>
             </ul>
             <p v-else key="waiting">Watch the video to see choices.</p>
