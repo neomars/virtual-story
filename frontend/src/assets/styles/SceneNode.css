@@ -11,6 +11,44 @@
   border-radius: 5px;
   margin-top: 10px;
 }
+
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin-right: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #42b983;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: rgba(66, 185, 131, 0.1);
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+}
+
+.toggle-spacer {
+  width: 24px;
+  margin-right: 5px;
+}
+
+.arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 0.8rem;
+}
+
+.arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
 .choice-text {
   color: #aaa;
   margin-right: 10px;

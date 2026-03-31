@@ -2,8 +2,19 @@
 <template>
   <div class="scene-node">
     <div class="scene-info">
+      <button
+        v-if="scene.children && scene.children.length > 0"
+        @click="isExpanded = !isExpanded"
+        class="toggle-btn"
+        :aria-expanded="isExpanded"
+        :aria-label="(isExpanded ? 'Collapse ' : 'Expand ') + scene.title"
+      >
+        <span class="arrow" :class="{ 'is-collapsed': !isExpanded }" aria-hidden="true">▼</span>
+      </button>
+      <span v-else class="toggle-spacer"></span>
+
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" &rarr;
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">
@@ -27,7 +38,7 @@
         >View</router-link>
       </div>
     </div>
-    <div v-if="scene.children && scene.children.length > 0" class="children-container">
+    <div v-if="isExpanded && scene.children && scene.children.length > 0" class="children-container">
       <!-- Recursive call to the component for each child -->
       <SceneNode v-for="child in scene.children" :key="child.id" :scene="child" />
     </div>
@@ -36,6 +47,8 @@
 
 <script setup>
 import { ref, inject } from 'vue';
+
+const isExpanded = ref(true);
 import axios from 'axios';
 
 // Define the component name for recursive self-reference

@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Progressive Disclosure in Story Graphs
+**Learning:** As narrative graphs grow in complexity, a flat tree view becomes difficult to navigate. Implementing progressive disclosure (collapsible branches) allows users to manage visual clutter. Using a standardized -90-degree rotation for the collapsed state (▼ to ▶) and providing a visual spacer for leaf nodes ensures alignment and predictability.
+**Action:** Implement independent expand/collapse toggles for recursive tree components, using `aria-expanded` and contextual `aria-label` for accessibility.
