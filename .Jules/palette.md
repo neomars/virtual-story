@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Semantic Buttons for In-Page Actions
+**Learning:** Using anchor tags (`<a>`) with `href="#"` for actions that do not navigate to a new URL (like "Logout" or "Replay") is a common accessibility anti-pattern. Semantic `<button>` elements are preferred as they correctly communicate the nature of the interaction to assistive technologies and provide standard keyboard interaction without needing `event.preventDefault()`.
+**Action:** Use `<button>` elements for all triggers that perform in-page actions, and provide a CSS class (like `.choice-button`) to reset default button styles while maintaining visual consistency with surrounding links.
