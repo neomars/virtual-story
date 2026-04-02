@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Reusable Recursive Tree-View Pattern
+**Learning:** In recursive administrative components (like `SceneNode.vue`), managing the visibility of children via a toggle improves the scannability of large narrative graphs. Standardizing the toggle size and using a spacer for leaf nodes ensures that item titles remain horizontally aligned, creating a clean, predictable visual rhythm.
+**Action:** Implement expand/collapse toggles with consistent widths and spacer-based alignment for all hierarchical list components.

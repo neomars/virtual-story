@@ -11,6 +11,33 @@
   border-radius: 5px;
   margin-top: 10px;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #42b983;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 5px;
+  margin-right: 5px;
+  transition: transform 0.3s ease;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.toggle-btn.is-collapsed {
+  transform: rotate(-90deg);
+}
+.toggle-spacer {
+  width: 24px;
+  margin-right: 5px;
+}
 .choice-text {
   color: #aaa;
   margin-right: 10px;
@@ -37,6 +64,10 @@
 .button-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .delete {
   background-color: #ef4444;
