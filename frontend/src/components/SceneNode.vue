@@ -2,8 +2,20 @@
 <template>
   <div class="scene-node">
     <div class="scene-info">
+      <button
+        v-if="scene.children && scene.children.length > 0"
+        class="toggle-btn"
+        @click="toggleExpand"
+        :aria-expanded="isExpanded"
+        :aria-controls="'children-' + scene.id"
+        :aria-label="isExpanded ? 'Collapse scene: ' + scene.title : 'Expand scene: ' + scene.title"
+      >
+        <span class="arrow" :class="{ 'is-collapsed': !isExpanded }" aria-hidden="true">▼</span>
+      </button>
+      <div v-else class="toggle-spacer" aria-hidden="true"></div>
+
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" <span aria-hidden="true">&rarr;</span>
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">
@@ -27,7 +39,11 @@
         >View</router-link>
       </div>
     </div>
-    <div v-if="scene.children && scene.children.length > 0" class="children-container">
+    <div
+      v-if="scene.children && scene.children.length > 0 && isExpanded"
+      :id="'children-' + scene.id"
+      class="children-container"
+    >
       <!-- Recursive call to the component for each child -->
       <SceneNode v-for="child in scene.children" :key="child.id" :scene="child" />
     </div>
@@ -42,6 +58,12 @@ import axios from 'axios';
 defineOptions({
   name: 'SceneNode'
 });
+
+const isExpanded = ref(true);
+
+const toggleExpand = () => {
+  isExpanded.value = !isExpanded.value;
+};
 
 const props = defineProps({
   scene: {
