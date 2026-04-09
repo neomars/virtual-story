@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - DOM Persistence for ARIA Relationships
+**Learning:** When using `aria-controls` to link a toggle button to its content, using `v-if` to hide the content removes the target element from the DOM, which can break the relationship for some assistive technologies. Using `v-show` (CSS display: none) preserves the element in the DOM while visually hiding it, maintaining a valid ARIA reference.
+**Action:** Favor `v-show` over `v-if` for elements that are the targets of `aria-controls` attributes to ensure robust screen reader support.

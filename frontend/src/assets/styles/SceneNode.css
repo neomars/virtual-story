@@ -34,10 +34,8 @@
   color: white;
   font-size: 0.9em;
 }
-.button-small:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.button-small:disabled { opacity: 0.6; cursor: not-allowed; }
+.button-small:focus-visible { outline: 2px solid #42b983; outline-offset: -2px; }
 .delete {
   background-color: #ef4444;
   border: none;
@@ -58,6 +56,9 @@
 .view:hover {
   background-color: #52c993;
 }
-.children-container {
-  margin-top: 10px;
-}
+.children-container { margin-top: 10px; }
+.toggle-btn { background: none; border: none; cursor: pointer; padding: 0; margin-right: 8px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: #42b983; transition: transform 0.2s; }
+.toggle-btn:focus-visible { outline: 2px solid #42b983; outline-offset: -2px; border-radius: 4px; }
+.toggle-spacer { width: 24px; margin-right: 8px; }
+.arrow { font-size: 0.7rem; transition: transform 0.2s ease; }
+.arrow.is-collapsed { transform: rotate(-90deg); }
