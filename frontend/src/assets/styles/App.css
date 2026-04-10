@@ -53,6 +53,15 @@ header {
   color: #42b983;
 }
 
+.header-title:focus-visible,
+.part-link:focus-visible,
+nav a:focus-visible,
+.logout-link:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
 h1 {
   margin: 0;
 }
