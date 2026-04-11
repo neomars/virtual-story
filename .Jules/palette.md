@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Hierarchical Complexity Management in Admin UIs
+**Learning:** Administrative interfaces with deeply nested hierarchical data (like story graphs) can quickly become overwhelming. Providing per-node expansion toggles allows users to focus on specific branches, while maintaining state via local component refs ensures a predictable experience during recursive rendering.
+**Action:** Implement collapsible sections with accessible ARIA state for all hierarchical or tree-based navigation components.
