@@ -11,6 +11,31 @@
   border-radius: 5px;
   margin-top: 10px;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
+}
+.toggle-spacer {
+  width: 24px;
+}
+.arrow {
+  font-size: 0.7rem;
+  color: #42b983;
+  transition: transform 0.2s ease;
+}
+.arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
 .choice-text {
   color: #aaa;
   margin-right: 10px;
@@ -33,6 +58,12 @@
   border-radius: 5px;
   color: white;
   font-size: 0.9em;
+  border: none;
+  cursor: pointer;
+}
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .button-small:disabled {
   opacity: 0.6;
@@ -40,8 +71,6 @@
 }
 .delete {
   background-color: #ef4444;
-  border: none;
-  cursor: pointer;
 }
 .delete:hover {
   background-color: #dc2626;

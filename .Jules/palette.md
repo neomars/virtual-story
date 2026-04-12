@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Expandable Tree Navigation in Admin Panels
+**Learning:** Recursive tree structures in administrative interfaces can become overwhelming when fully expanded. Providing explicit expand/collapse toggles with clear visual indicators (rotating arrows) and maintaining alignment via spacers improves scannability and control for power users.
+**Action:** Implement reactive expansion states for hierarchical data views, ensuring keyboard accessibility via standardized focus-visible outlines and appropriate ARIA attributes.
