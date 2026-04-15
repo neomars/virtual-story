@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2026-04-15 - Recursive Tree Expansion Patterns
+**Learning:** For recursive tree structures (like narrative graphs), providing local expansion toggles significantly reduces visual clutter in complex hierarchies. Using `v-show` for child containers ensures the DOM elements remain discoverable for accessibility and automated testing (e.g., Playwright) even when visually hidden.
+**Action:** Implement reactive expansion states in recursive components and ensure toggle buttons have clear `aria-expanded` and `aria-controls` associations.
