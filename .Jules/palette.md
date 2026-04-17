@@ -39,3 +39,11 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Collapsible Tree Navigation for Large Graphs
+**Learning:** In administrative interfaces with deep hierarchical structures, providing a way to collapse and expand branches (scenes) is essential for focus and navigation. Using a persistent DOM state (v-show) ensures that keyboard and screen reader users can still find elements through search or sequential navigation even when collapsed.
+**Action:** Implement 'isExpanded' reactive state with ▼/▶ toggle buttons in recursive tree components, ensuring 'aria-expanded' and 'aria-controls' are properly set.
+
+## 2025-05-27 - Distinguishable Focus Indicators for Brand-Colored Icons
+**Learning:** Standardized focus rings that use the same color as the icon they surround (e.g., brand green) can be difficult to see if they overlap exactly. Adding a positive 'outline-offset' (e.g., 2px) creates a clear visual gap between the interactive element and its focus indicator.
+**Action:** Always use 'outline-offset: 2px' when applying brand-colored outlines to icons or buttons that share that same brand color.
