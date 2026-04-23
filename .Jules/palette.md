@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Consistency in Tree Navigation Patterns
+**Learning:** Reusable UX patterns, like expandable tree branches in recursive components, should maintain consistent visual cues (rotating arrow icons) and accessibility mappings (`aria-expanded` and `aria-controls`) to provide a predictable experience for users navigating complex hierarchies.
+**Action:** When implementing recursive tree views, use a standardized toggle button with `aria-controls` targeting the uniquely identified child container.

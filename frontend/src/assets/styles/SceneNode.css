@@ -33,10 +33,15 @@
   border-radius: 5px;
   color: white;
   font-size: 0.9em;
+  transition: opacity 0.2s, background-color 0.2s, outline 0.2s;
 }
 .button-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .delete {
   background-color: #ef4444;
@@ -60,4 +65,44 @@
 }
 .children-container {
   margin-top: 10px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
+.arrow {
+  font-size: 0.8rem;
+  color: #42b983;
+  transition: transform 0.3s ease;
+}
+
+.arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.toggle-spacer {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
 }
