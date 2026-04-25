@@ -39,3 +39,15 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Semantic Buttons for Choice Lists
+**Learning:** In narrative choice lists, non-navigational actions (like "Replay Scene") should use semantic `<button>` elements instead of `<a>` tags with `href="#"`. This ensures correct screen reader announcement and keyboard behavior.
+**Action:** Use buttons for actions that don't change the URL, and standardize their appearance with a shared CSS class (e.g., `.choice-button`).
+
+## 2025-05-28 - Hierarchical Tree Navigation and Alignment
+**Learning:** Large recursive story graphs benefit from expansion toggles. To maintain visual order, nodes without children should use a spacer of identical dimensions to the toggle button, ensuring titles remain vertically aligned across the tree.
+**Action:** Implement expansion toggles with `aria-expanded` and use a `.toggle-spacer` for leaf nodes to maintain visual hierarchy.
+
+## 2025-05-28 - Focus Indicator Offset for Brand Colors
+**Learning:** When applying a brand-colored focus outline (e.g., #42b983) to an interactive element that already uses that color for its icon or text, a positive `outline-offset` (e.g., 2px) is required to ensure the focus indicator is visually distinguishable from the element itself.
+**Action:** Use `outline-offset` to separate focus indicators from elements sharing the same color palette.
