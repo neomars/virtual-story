@@ -11,6 +11,36 @@
   border-radius: 5px;
   margin-top: 10px;
 }
+.toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #42b983;
+  padding: 0;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+.toggle-spacer {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+.arrow {
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+}
+.arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
 .choice-text {
   color: #aaa;
   margin-right: 10px;
