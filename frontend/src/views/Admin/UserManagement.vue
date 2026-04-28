@@ -2,7 +2,7 @@
 <template>
   <div class="user-management">
     <div class="header-container">
-      <router-link to="/admin/scenes" class="back-link">&larr; Back to Graph</router-link>
+      <router-link to="/admin/scenes" class="back-link"><span aria-hidden="true">&larr;</span> Back to Graph</router-link>
       <h1>Users Management</h1>
     </div>
 

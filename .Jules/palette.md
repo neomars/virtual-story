@@ -39,3 +39,11 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Progressive Disclosure in Recursive Trees
+**Learning:** In administrative interfaces with deeply nested recursive structures, showing the entire tree by default can overwhelm users. Implementing expansion/collapse toggles at each node level allows users to focus on specific branches while maintaining the overall context. Pairing these toggles with `aria-expanded` and `aria-controls` ensures the hierarchy is also understandable for screen reader users.
+**Action:** Use recursive components with built-in expansion states to manage complexity in hierarchical data visualizations.
+
+## 2025-05-28 - Decorative Symbol Sanitization
+**Learning:** Decorative ASCII-like symbols (e.g., '↳', '→', '×') are often used to provide visual context but can be disruptive for screen reader users if not properly hidden. Since these symbols are often read literally (e.g., "rightwards arrow" or "multiplication sign"), they should be wrapped in `aria-hidden="true"` when they are redundant to visible text or ARIA labels.
+**Action:** Systematically wrap non-informative or decorative symbols in `aria-hidden` to ensure a cleaner auditory experience for assistive technology users.
