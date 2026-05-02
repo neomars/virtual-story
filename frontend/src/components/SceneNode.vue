@@ -2,8 +2,20 @@
 <template>
   <div class="scene-node">
     <div class="scene-info">
+      <button
+        v-if="scene.children && scene.children.length > 0"
+        class="toggle-btn"
+        @click="isExpanded = !isExpanded"
+        :aria-expanded="isExpanded"
+        :aria-controls="'children-' + scene.id"
+        :aria-label="isExpanded ? 'Collapse ' + scene.title : 'Expand ' + scene.title"
+      >
+        <span class="arrow" :class="{ 'is-collapsed': !isExpanded }" aria-hidden="true">▼</span>
+      </button>
+      <div v-else class="toggle-spacer" aria-hidden="true"></div>
+
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" &rarr;
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">
@@ -27,7 +39,12 @@
         >View</router-link>
       </div>
     </div>
-    <div v-if="scene.children && scene.children.length > 0" class="children-container">
+    <div
+      v-if="scene.children && scene.children.length > 0"
+      v-show="isExpanded"
+      :id="'children-' + scene.id"
+      class="children-container"
+    >
       <!-- Recursive call to the component for each child -->
       <SceneNode v-for="child in scene.children" :key="child.id" :scene="child" />
     </div>
@@ -37,6 +54,8 @@
 <script setup>
 import { ref, inject } from 'vue';
 import axios from 'axios';
+
+const isExpanded = ref(true);
 
 // Define the component name for recursive self-reference
 defineOptions({
@@ -54,7 +73,7 @@ const refreshStoryGraph = inject('refreshStoryGraph');
 const isDeleting = ref(false);
 
 const deleteScene = async () => {
-  if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"?\nThis will also delete all choices leading to this scene.`)) {
+  if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"? This action is permanent and will also delete all incoming choices leading to this scene, which might break the narrative flow.`)) {
     isDeleting.value = true;
     try {
       await axios.delete(`/api/scenes/${props.scene.id}`);

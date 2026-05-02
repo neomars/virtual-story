@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Hierarchy Management in Recursive UI
+**Learning:** In recursive administrative graphs, users can quickly become overwhelmed by visual density. Implementing an expansion toggle for individual nodes, combined with `v-show` to maintain nested state and ARIA attributes for accessibility, allows for scalable navigation of complex hierarchies.
+**Action:** Use a standardized toggle pattern (rotating arrow + aria-expanded + aria-controls) for all recursive tree components to improve focus and manage cognitive load.
