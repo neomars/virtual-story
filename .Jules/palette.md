@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Standardized Focus Indicators and Tree Interaction
+**Learning:** In complex hierarchical interfaces like story graphs, consistent focus indicators and expandable branches are essential for keyboard and screen reader navigation. Using `v-show` instead of `v-if` for branch containers ensures that the DOM structure remains predictable for assistive technologies even when branches are collapsed.
+**Action:** Implement standardized `:focus-visible` styles with brand-aligned colors and positive offsets, and prefer `v-show` for recursive tree elements to maintain accessibility relationships.

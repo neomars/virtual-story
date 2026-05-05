@@ -35,7 +35,7 @@
           </div>
           <span class="arrow" :class="{ 'is-rotated': expandedChapters[rootScene.id] }" aria-hidden="true">▼</span>
         </div>
-        <div v-if="expandedChapters[rootScene.id]" :id="'chapter-content-' + rootScene.id" class="chapter-content">
+        <div v-show="expandedChapters[rootScene.id]" :id="'chapter-content-' + rootScene.id" class="chapter-content">
           <SceneNode :scene="rootScene" />
         </div>
       </div>

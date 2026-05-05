@@ -19,6 +19,36 @@
   font-weight: bold;
   color: #42b983;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+.toggle-btn .arrow {
+  color: #42b983;
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+}
+.toggle-btn.is-collapsed .arrow {
+  transform: rotate(-90deg);
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.toggle-spacer {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
 .scene-title {
   font-weight: bold;
   flex-grow: 1;
@@ -37,6 +67,10 @@
 .button-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .delete {
   background-color: #ef4444;

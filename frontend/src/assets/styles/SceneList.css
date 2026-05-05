@@ -59,6 +59,10 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+.button:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
 .story-graph-container {
   background-color: #1e1e1e;
   padding: 20px;
@@ -81,6 +85,10 @@
 }
 .chapter-header:hover {
   background-color: #333;
+}
+.chapter-header:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
 }
 .chapter-info {
   display: flex;
@@ -158,8 +166,16 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+.button-delete:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
 .instruction-text { font-size: 0.8rem; color: #aaa; margin-bottom: 1rem; }
 input[type="text"], select { background: #1e1e1e; color: white; border: 1px solid #444; padding: 0.5rem; border-radius: 4px; flex: 1; }
+input[type="text"]:focus-visible, select:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
 
 .multipart-form { flex-direction: column; align-items: stretch; }
 .form-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
