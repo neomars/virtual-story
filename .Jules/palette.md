@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Persistent ARIA Targets in Recursive Trees
+**Learning:** Using `v-show` (instead of `v-if`) for expandable branch containers in recursive tree components ensures that target elements remain in the DOM. This preserves the integrity of `aria-controls` relationships for screen readers even when the content is visually hidden, preventing "broken" accessibility links when branches are collapsed.
+**Action:** Use `v-show` for containers that are targets of `aria-controls` in disclosure or tree patterns to maintain a stable accessibility tree.
