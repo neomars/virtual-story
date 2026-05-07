@@ -2,8 +2,21 @@
 <template>
   <div class="scene-node">
     <div class="scene-info">
+      <div v-if="scene.children && scene.children.length > 0" class="toggle-container">
+        <button
+          @click="isExpanded = !isExpanded"
+          class="toggle-btn"
+          :aria-expanded="isExpanded"
+          :aria-controls="'children-' + scene.id"
+          :aria-label="isExpanded ? 'Collapse ' + scene.title : 'Expand ' + scene.title"
+        >
+          <span class="arrow" :class="{ 'is-collapsed': !isExpanded }" aria-hidden="true">▼</span>
+        </button>
+      </div>
+      <div v-else class="toggle-spacer"></div>
+
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" <span aria-hidden="true">&rarr;</span>
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">
@@ -27,7 +40,12 @@
         >View</router-link>
       </div>
     </div>
-    <div v-if="scene.children && scene.children.length > 0" class="children-container">
+    <div
+      v-show="isExpanded"
+      :id="'children-' + scene.id"
+      class="children-container"
+      v-if="scene.children && scene.children.length > 0"
+    >
       <!-- Recursive call to the component for each child -->
       <SceneNode v-for="child in scene.children" :key="child.id" :scene="child" />
     </div>
@@ -52,6 +70,7 @@ const props = defineProps({
 
 const refreshStoryGraph = inject('refreshStoryGraph');
 const isDeleting = ref(false);
+const isExpanded = ref(true);
 
 const deleteScene = async () => {
   if (confirm(`Are you sure you want to delete the scene "${props.scene.title}"?\nThis will also delete all choices leading to this scene.`)) {
