@@ -39,3 +39,11 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Progressive Disclosure in Recursive Trees
+**Learning:** For deep hierarchical interfaces like a narrative story graph, progressive disclosure is essential for cognitive load management. Providing a way to collapse branches allows users to focus on specific narrative paths without visual clutter, but the default state should remain expanded to ensure the full context is immediately available upon entry.
+**Action:** Implement expand/collapse toggles in recursive tree components, ensuring they use `aria-expanded` and `aria-controls` for accessibility.
+
+## 2025-05-27 - Layout Stability in Tree Navigations
+**Learning:** When adding optional interactive elements (like an expansion toggle) to a list or tree, layout stability is key for scannability. Using a spacer with fixed dimensions when the toggle is absent ensures that item titles remain perfectly aligned vertically, regardless of whether a node has children.
+**Action:** Use a `.toggle-spacer` with matching dimensions to the `.toggle-btn` to maintain title alignment in hierarchical lists.
