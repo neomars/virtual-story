@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Performance and UX Balance in Deep Hierarchies
+**Learning:** While persistent DOM elements (via `v-show`) are ideal for `aria-controls` targets, the `v-if` pattern is adopted for recursive story graph components to prevent browser performance issues caused by high DOM node counts in complex narratives.
+**Action:** Use `v-if` for conditional rendering of nested branches in deep hierarchical views, ensuring that accessibility relationships (like `aria-controls`) are managed gracefully.

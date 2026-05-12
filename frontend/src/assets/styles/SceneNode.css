@@ -19,6 +19,42 @@
   font-weight: bold;
   color: #42b983;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #42b983;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+.toggle-btn:hover {
+  background-color: rgba(66, 185, 131, 0.1);
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+.arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 0.8rem;
+}
+.arrow.is-collapsed {
+  transform: rotate(-90deg);
+}
+.toggle-spacer {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
 .scene-title {
   font-weight: bold;
   flex-grow: 1;
