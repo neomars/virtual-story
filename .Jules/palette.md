@@ -39,3 +39,11 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Distinguishable Focus States with Brand Colors
+**Learning:** When applying a brand-colored focus outline (e.g., #42b983) to an interactive element that already uses that color for its icon or text, a positive `outline-offset` (e.g., 2px) is required to ensure the focus indicator is visually distinguishable from the element itself.
+**Action:** Always use `outline-offset` when the focus outline color matches the element's primary color.
+
+## 2025-05-27 - Performance vs. Accessibility in Deep Narrative Trees
+**Learning:** While persistent DOM elements (via `v-show`) are ideal for `aria-controls` targets, the `v-if` pattern is often necessary for recursive story graph components to prevent browser performance degradation caused by extremely high DOM node counts in deep hierarchies.
+**Action:** Favor `v-if` for recursive tree components and ensure they initialize in an expanded state to maintain immediate visibility and accessibility.
