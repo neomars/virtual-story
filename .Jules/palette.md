@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Recursive Tree Expand/Collapse and Alignment
+**Learning:** In recursive administrative graphs, providing expand/collapse controls at every branch level is essential for managing cognitive load as the story complexity grows. To maintain a professional and clean aesthetic, leaf nodes (which have no toggle button) must use a "spacer" of identical dimensions to ensure that titles remain vertically aligned across the entire hierarchy, regardless of whether a node is expanded or terminal.
+**Action:** When implementing collapsible tree components, always pair the toggle button with an identically-sized spacer for leaf nodes to ensure vertical title alignment.
