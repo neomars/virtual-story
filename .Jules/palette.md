@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Recursive Tree Expansion Accessibility and Alignment
+**Learning:** In hierarchical narrative graphs, providing expand/collapse controls at each level is essential for managing visual complexity. To ensure these are accessible, the toggle button must use `aria-expanded` and a contextual `aria-label`. Furthermore, using a fixed-size spacer for leaf nodes ensures that titles remain vertically aligned, providing a consistent scan-line for the user and more stable targets for automated testing.
+**Action:** Implement `aria-expanded` and contextual `aria-label` for all disclosure widgets, and use explicit-dimension spacers to maintain visual alignment in hierarchical lists.

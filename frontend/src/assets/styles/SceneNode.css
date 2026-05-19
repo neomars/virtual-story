@@ -10,10 +10,10 @@
   background-color: #2a2a2a;
   border-radius: 5px;
   margin-top: 10px;
+  gap: 10px;
 }
 .choice-text {
   color: #aaa;
-  margin-right: 10px;
 }
 .icon {
   font-weight: bold;
@@ -38,6 +38,10 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
 .delete {
   background-color: #ef4444;
   border: none;
@@ -60,4 +64,33 @@
 }
 .children-container {
   margin-top: 10px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #42b983;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s;
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.toggle-btn.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.toggle-spacer {
+  width: 24px;
+  height: 24px;
 }
