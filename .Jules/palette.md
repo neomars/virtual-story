@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-27 - Hierarchical Navigation in Narrative Trees
+**Learning:** Managing deep recursive trees in an administrative interface can lead to cognitive overload. Implementing a local toggle to collapse branches allows users to focus on specific narrative paths. Using `v-if` for collapsed branches also helps maintain browser performance by reducing the total number of active DOM nodes in deeply nested structures.
+**Action:** In recursive components, use local state for branch visibility and ensure toggle buttons have clear, context-aware `aria-label` attributes and visible focus indicators.

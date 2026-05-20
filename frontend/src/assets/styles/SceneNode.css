@@ -15,6 +15,41 @@
   color: #aaa;
   margin-right: 10px;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #42b983;
+  padding: 0;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+.toggle-btn:hover {
+  background-color: rgba(66, 185, 131, 0.1);
+}
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+.toggle-spacer {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+}
+.arrow {
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+  transform: rotate(-90deg); /* Start collapsed pointing right */
+}
+.arrow.is-rotated {
+  transform: rotate(0deg); /* Point down when expanded */
+}
 .icon {
   font-weight: bold;
   color: #42b983;
@@ -37,6 +72,10 @@
 .button-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .delete {
   background-color: #ef4444;
