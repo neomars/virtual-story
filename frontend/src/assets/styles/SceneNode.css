@@ -11,6 +11,30 @@
   border-radius: 5px;
   margin-top: 10px;
 }
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  margin-right: 5px;
+  border-radius: 4px;
+}
+.toggle-spacer {
+  width: 26px; /* Match toggle-btn width */
+  margin-right: 5px;
+}
+.arrow {
+  color: #42b983;
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+}
+.arrow.is-rotated {
+  transform: rotate(-90deg);
+}
 .choice-text {
   color: #aaa;
   margin-right: 10px;
@@ -37,6 +61,11 @@
 .button-small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.toggle-btn:focus-visible,
+.button-small:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 .delete {
   background-color: #ef4444;
