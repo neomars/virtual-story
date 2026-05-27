@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Virtual Story Launcher
+# This script starts both the backend and frontend servers.
+
+# Function to kill child processes on exit
+cleanup() {
+    echo ""
+    echo "Stopping servers..."
+    # Kill all processes in the same process group as this script
+    # This ensures that backgrounded servers are also terminated
+    trap - SIGINT SIGTERM # avoid infinite loop
+    kill -TERM 0 2>/dev/null
+}
+
+# Trap SIGINT (Ctrl+C) and SIGTERM
+trap cleanup SIGINT SIGTERM
+
+echo "Starting Virtual Story..."
+
+# Start Backend
+# We run from within the backend directory for consistent environment loading
+echo "Starting Backend on http://localhost:3000..."
+(cd backend && exec node server.js) &
+
+# Start Frontend
+echo "Starting Frontend on http://localhost:5173..."
+# We call vite directly from node_modules to avoid pnpm/corepack issues
+(cd frontend && exec ./node_modules/.bin/vite) &
+
+echo "Both servers are starting."
+echo "- Backend: http://localhost:3000"
+echo "- Frontend: http://localhost:5173"
+echo "Press Ctrl+C to stop both."
+
+# Wait for background processes
+wait
