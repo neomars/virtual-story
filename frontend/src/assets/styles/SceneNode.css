@@ -10,6 +10,7 @@
   background-color: #2a2a2a;
   border-radius: 5px;
   margin-top: 10px;
+  gap: 10px;
 }
 .choice-text {
   color: #aaa;
@@ -60,4 +61,29 @@
 }
 .children-container {
   margin-top: 10px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 4px;
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
+.arrow {
+  font-size: 0.7rem;
+  color: #42b983;
+  transition: transform 0.2s ease;
+  transform: rotate(-90deg);
+}
+
+.arrow.is-rotated {
+  transform: rotate(0deg);
 }
