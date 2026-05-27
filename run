@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Virtual Story Launcher
+# This script starts both the backend and frontend servers.
+
+# Function to kill child processes on exit
+cleanup() {
+    echo ""
+    echo "Stopping servers..."
+    # Kill all processes in the same process group as this script
+    # This is a reliable way to clean up background processes in most shells
+    trap - SIGINT SIGTERM # avoid infinite loop
+    kill -TERM 0
+}
+
+# Trap SIGINT (Ctrl+C) and SIGTERM
+trap cleanup SIGINT SIGTERM
+
+echo "Starting Virtual Story..."
+
+# Start Backend
+echo "Starting Backend on http://localhost:3000..."
+node backend/server.js &
+
+# Start Frontend
+echo "Starting Frontend on http://localhost:5173..."
+(cd frontend && pnpm dev) &
+
+echo "Both servers are starting."
+echo "- Backend: http://localhost:3000"
+echo "- Frontend: http://localhost:5173"
+echo "Press Ctrl+C to stop both."
+
+# Wait for background processes
+wait
