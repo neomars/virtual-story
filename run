@@ -8,9 +8,9 @@ cleanup() {
     echo ""
     echo "Stopping servers..."
     # Kill all processes in the same process group as this script
-    # This is a reliable way to clean up background processes in most shells
+    # This ensures that backgrounded servers are also terminated
     trap - SIGINT SIGTERM # avoid infinite loop
-    kill -TERM 0
+    kill -TERM 0 2>/dev/null
 }
 
 # Trap SIGINT (Ctrl+C) and SIGTERM
@@ -19,12 +19,14 @@ trap cleanup SIGINT SIGTERM
 echo "Starting Virtual Story..."
 
 # Start Backend
+# We run from within the backend directory for consistent environment loading
 echo "Starting Backend on http://localhost:3000..."
-node backend/server.js &
+(cd backend && exec node server.js) &
 
 # Start Frontend
 echo "Starting Frontend on http://localhost:5173..."
-(cd frontend && pnpm dev) &
+# We call vite directly from node_modules to avoid pnpm/corepack issues
+(cd frontend && exec ./node_modules/.bin/vite) &
 
 echo "Both servers are starting."
 echo "- Backend: http://localhost:3000"
