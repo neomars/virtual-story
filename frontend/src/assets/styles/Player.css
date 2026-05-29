@@ -64,8 +64,8 @@
 }
 
 .thumbnail-container:focus-visible {
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 4px #42b983;
+  outline: 4px solid #42b983;
+  outline-offset: 4px;
 }
 
 .thumbnail-container img {
@@ -183,14 +183,32 @@ li a {
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s, outline 0.2s;
 }
 
 li a:hover,
-li a:focus-visible {
+li a:focus-visible,
+.replay-button:hover,
+.replay-button:focus-visible {
   background-color: #3a3a3a;
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 2px #42b983;
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
+.replay-button {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  background-color: #2a2a2a;
+  border-radius: 5px;
+  color: #42b983;
+  text-decoration: none;
+  border: none;
+  text-align: left;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, outline 0.2s;
 }
 
 .part-loop-container {
