@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2026-05-31 - Verifying :focus-visible in Automated Tests
+**Learning:** When verifying focus indicators in Playwright, using `locator.focus()` programmatically may not trigger the `:focus-visible` pseudo-class in all browsers, as it simulates a programmatic focus rather than user-initiated keyboard focus.
+**Action:** Use `page.keyboard.press('Tab')` in verification scripts to correctly simulate keyboard navigation and trigger `:focus-visible` styles for visual confirmation.
