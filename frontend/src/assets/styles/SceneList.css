@@ -79,8 +79,13 @@
   cursor: pointer;
   transition: background-color 0.2s;
 }
-.chapter-header:hover {
+.chapter-header:hover,
+.chapter-header:focus-visible {
   background-color: #333;
+}
+
+.chapter-header:focus-visible {
+  outline-offset: -2px; /* Pull outline inside to prevent clipping */
 }
 .chapter-info {
   display: flex;
