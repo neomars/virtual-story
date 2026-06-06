@@ -39,3 +39,7 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Standardized Focus Indicators and Visual Clarity
+**Learning:** Inconsistent focus indicators create an unpredictable experience for keyboard users. Consolidating focus styles into a global `:focus-visible` rule using brand colors ensures a unified identity and accessible baseline. For components with tight layouts or overflow constraints (like chapter headers), a negative `outline-offset` can prevent the indicator from being clipped while remaining clearly visible.
+**Action:** Implement a global `:focus-visible` rule in `App.css` and use transitions for smoother visual feedback. Adjust `outline-offset` contextually when standard positive offsets cause clipping.

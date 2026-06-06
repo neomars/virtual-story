@@ -83,6 +83,12 @@ main {
   overflow-y: auto; /* Allow content to scroll if needed */
 }
 
+/* Global standardized focus indicator for keyboard users */
+:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+}
+
 /* Accessibility utility */
 .skip-link {
   position: absolute;
