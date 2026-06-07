@@ -49,10 +49,13 @@
             <button
               @click="deleteUser(user.id)"
               class="button-delete"
-              :disabled="user.id === auth.currentUser.value?.id"
+              :disabled="user.id === auth.currentUser.value?.id || deletingUserId === user.id"
               :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
               :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
-            >&times;</button>
+            >
+              <template v-if="deletingUserId === user.id">...</template>
+              <span v-else aria-hidden="true">&times;</span>
+            </button>
           </div>
         </li>
       </ul>
@@ -72,6 +75,7 @@ const newUser = ref({ username: '', password: '' });
 
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
+const deletingUserId = ref(null);
 
 const fetchUsers = async () => {
   try {
@@ -110,11 +114,14 @@ const createUser = async () => {
 
 const deleteUser = async (id) => {
   if (confirm('Delete this user?')) {
+    deletingUserId.value = id;
     try {
       await axios.delete(`/api/admin/users/${id}`);
       fetchUsers();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Deletion failed.');
+    } finally {
+      deletingUserId.value = null;
     }
   }
 };

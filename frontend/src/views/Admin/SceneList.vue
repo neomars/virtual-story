@@ -127,8 +127,14 @@
             </span>
             <div class="part-actions">
               <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title">Edit</button>
-              <button @click="deletePart(part.id)" class="button-delete" :aria-label="'Delete chapter: ' + part.title">
-                <span aria-hidden="true">&times;</span>
+              <button
+                @click="deletePart(part.id)"
+                class="button-delete"
+                :disabled="deletingPartId === part.id"
+                :aria-label="'Delete chapter: ' + part.title"
+              >
+                <template v-if="deletingPartId === part.id">...</template>
+                <span v-else aria-hidden="true">&times;</span>
               </button>
             </div>
           </div>
@@ -168,6 +174,7 @@ const isSyncing = ref(false);
 const isUploadingBackground = ref(false);
 const isCreatingPart = ref(false);
 const isUpdatingPart = ref(false);
+const deletingPartId = ref(null);
 const draggingIndex = ref(null);
 
 // State for editing parts
@@ -277,12 +284,15 @@ const createPart = async () => {
 
 const deletePart = async (id) => {
   if (confirm('Delete this chapter?')) {
+    deletingPartId.value = id;
     try {
       await axios.delete(`/api/parts/${id}`);
       fetchParts();
     } catch (err) {
       console.error(err);
       alert(`Deletion failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      deletingPartId.value = null;
     }
   }
 };

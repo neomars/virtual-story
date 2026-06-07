@@ -72,7 +72,7 @@
                 </router-link>
               </li>
               <li v-if="sceneData.next_choices.length === 0">
-                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning. [1] shortcut">
                   <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
