@@ -12,7 +12,7 @@
         <span class="arrow" :class="{ 'is-rotated': isExpanded }" aria-hidden="true">▼</span>
       </button>
       <span v-if="scene.choice_text" class="choice-text">
-        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" &rarr;
+        <span class="icon" aria-hidden="true">↳</span> "{{ scene.choice_text }}" <span aria-hidden="true">&rarr;</span>
       </span>
       <strong class="scene-title">{{ scene.title }}</strong>
       <div class="actions">

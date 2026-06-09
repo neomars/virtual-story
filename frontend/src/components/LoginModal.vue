@@ -32,7 +32,7 @@
         <div v-if="errorMessage" class="error-message" role="alert">
           {{ errorMessage }}
         </div>
-        <p class="login-hint">Identifiants par défaut : <code>admin</code> / <code>admin</code></p>
+        <p class="login-hint">Default credentials: <code>admin</code> / <code>admin</code></p>
         <button type="submit" class="submit-btn" :disabled="isLoading">
           {{ isLoading ? 'Connecting...' : 'Login' }}
         </button>
