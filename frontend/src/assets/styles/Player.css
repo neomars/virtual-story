@@ -170,18 +170,26 @@ li {
   padding-top: 1rem;
 }
 
-li a {
+li a, .replay-button {
   display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
   padding: 1rem;
   background-color: #2a2a2a;
   border-radius: 5px;
   color: #42b983;
   text-decoration: none;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s, box-shadow 0.2s, outline 0.2s;
 }
 
 li a:hover,
-li a:focus-visible {
+li a:focus-visible,
+.replay-button:hover,
+.replay-button:focus-visible {
   background-color: #3a3a3a;
 }
 
