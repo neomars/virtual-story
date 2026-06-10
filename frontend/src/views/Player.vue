@@ -50,7 +50,7 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
-          <button v-if="!showChoices" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
+          <button v-if="!showChoices" ref="skipButton" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
             Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
           </button>
         </div>
@@ -60,8 +60,8 @@
       <div class="side-panel right">
         <div class="panel-content">
           <h3>Next Choices</h3>
-          <Transition name="fade" mode="out-in">
-            <ul v-if="showChoices" key="choices" aria-live="polite">
+          <Transition name="fade" mode="out-in" @after-enter="handleChoicesEntered">
+            <ul v-if="showChoices" key="choices" ref="choicesList" aria-live="polite" tabindex="-1">
               <li v-for="(choice, index) in sceneData.next_choices" :key="choice.id">
                 <router-link
                   :to="{ path: `/player/${choice.destination_scene_id}`, query: { from: props.id } }"
@@ -109,6 +109,8 @@ const error = ref(null);
 const isVideoPlaying = ref(false);
 const showChoices = ref(false);
 const videoPlayer = ref(null);
+const skipButton = ref(null);
+const choicesList = ref(null);
 const backgroundUrl = ref(null);
 const currentPartLoopVideo = ref(null);
 
@@ -200,6 +202,11 @@ const startPlayback = async (el, withFullscreen = false) => {
   if ((withFullscreen || !showChoices.value) && el.requestFullscreen) {
     el.requestFullscreen().catch(() => {});
   }
+
+  // Focus management: ensure keyboard users can immediately skip if they want
+  nextTick(() => {
+    skipButton.value?.focus();
+  });
 };
 
 const replayScene = () => {
@@ -218,6 +225,7 @@ const onVideoEnd = () => {
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
+
   // We don't set isVideoPlaying to false, so the (ended) video remains visible.
   // The user can then click a choice to navigate away.
 };
@@ -290,6 +298,16 @@ const handleKeydown = (e) => {
         }
       }
       break;
+  }
+};
+
+const handleChoicesEntered = () => {
+  // Focus management: move focus to choices once they have transitioned in
+  const firstInteractive = choicesList.value?.querySelector('a, button');
+  if (firstInteractive) {
+    firstInteractive.focus();
+  } else if (choicesList.value) {
+    choicesList.value.focus();
   }
 };
 
