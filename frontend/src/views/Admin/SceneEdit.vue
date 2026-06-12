@@ -76,8 +76,15 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete" :aria-label="'Remove link from ' + parent.title">
-              <span aria-hidden="true">&times;</span>
+            <button
+              @click="removeParentLink(parent.choice_id)"
+              class="button-delete"
+              :disabled="deletingParentLinkId === parent.choice_id"
+              :aria-label="'Remove link from ' + parent.title"
+              :title="'Remove link from ' + parent.title"
+            >
+              <span v-if="deletingParentLinkId === parent.choice_id" aria-hidden="true">...</span>
+              <span v-else aria-hidden="true">&times;</span>
             </button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
@@ -167,8 +174,15 @@
             <router-link :to="`/admin/scenes/${child.id}/edit`">
               "{{ child.choice_text }}" <span aria-hidden="true">&rarr;</span> <strong>{{ child.title }}</strong>
             </router-link>
-             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title">
-               <span aria-hidden="true">&times;</span>
+             <button
+               @click="removeChoice(child.choice_id)"
+               class="button-delete"
+               :disabled="deletingChoiceId === child.choice_id"
+               :aria-label="'Delete choice leading to ' + child.title"
+               :title="'Delete choice leading to ' + child.title"
+             >
+               <span v-if="deletingChoiceId === child.choice_id" aria-hidden="true">...</span>
+               <span v-else aria-hidden="true">&times;</span>
              </button>
           </li>
         </ul>
@@ -247,6 +261,8 @@ const isSaving = ref(false);
 const isAddingChoice = ref(false);
 const isAddingParentLink = ref(false);
 const isAddingQuick = ref(false);
+const deletingChoiceId = ref(null);
+const deletingParentLinkId = ref(null);
 const isPlayingPreview = ref(false);
 const mergeSummary = ref(null);
 
@@ -402,12 +418,15 @@ const removeChoice = async (choiceId) => {
   if (!confirm('Are you sure you want to delete this choice?')) {
     return;
   }
+  deletingChoiceId.value = choiceId;
   try {
     await axios.delete(`/api/choices/${choiceId}`);
     fetchSceneData();
   } catch (err) {
     console.error('Failed to delete choice:', err);
     alert('Failed to delete choice.');
+  } finally {
+    deletingChoiceId.value = null;
   }
 };
 
@@ -484,12 +503,15 @@ const removeParentLink = async (choiceId) => {
   if (!confirm('Are you sure you want to remove this origin link?')) {
     return;
   }
+  deletingParentLinkId.value = choiceId;
   try {
     await axios.delete(`/api/choices/${choiceId}`);
     await fetchSceneData(); // Refresh the parent list
   } catch (err) {
     console.error('Failed to remove parent link:', err);
     alert('Failed to remove parent link.');
+  } finally {
+    deletingParentLinkId.value = null;
   }
 };
 
