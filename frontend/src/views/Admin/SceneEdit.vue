@@ -55,8 +55,9 @@
       </fieldset>
 
       <div class="form-group">
-        <label for="video">Video File</label>
-        <input type="file" id="video" @change="handleFileUpload" required>
+        <label for="video" class="button secondary mini">Choose Video File</label>
+        <input type="file" id="video" @change="handleFileUpload" required class="sr-only">
+        <span v-if="videoFile" class="file-name">{{ videoFile.name }}</span>
       </div>
       <button type="submit" class="button" :disabled="isSaving">
         {{ isSaving ? 'Creating...' : 'Create Scene' }}
@@ -131,8 +132,9 @@
           <fieldset class="video-merging-section">
             <legend>Replace/Merge Video</legend>
             <div class="form-group">
-              <label for="video-edit">New Video File</label>
-              <input type="file" id="video-edit" @change="handleFileUpload">
+              <label for="video-edit" class="button secondary mini">Choose New Video File</label>
+              <input type="file" id="video-edit" @change="handleFileUpload" class="sr-only">
+              <span v-if="videoFile" class="file-name">{{ videoFile.name }}</span>
             </div>
             <div class="form-group">
               <label for="prepend-edit">Video BEFORE</label>
@@ -153,10 +155,20 @@
 
           <div v-if="scene.video_path" class="video-preview-container">
             <video v-if="isPlayingPreview" :src="scene.video_path" controls autoplay class="preview-video"></video>
-            <div v-else @click="isPlayingPreview = true" class="thumbnail-preview" title="Click to play preview">
+            <div
+              v-else
+              @click="isPlayingPreview = true"
+              @keydown.enter.prevent="isPlayingPreview = true"
+              @keydown.space.prevent="isPlayingPreview = true"
+              class="thumbnail-preview"
+              title="Click to play preview"
+              role="button"
+              tabindex="0"
+              aria-label="Play video preview"
+            >
               <img :src="scene.thumbnail_path" alt="Thumbnail">
               <div class="play-overlay">
-                <span class="play-icon">▶</span>
+                <span class="play-icon" aria-hidden="true">&#9658;</span>
               </div>
             </div>
           </div>
@@ -184,6 +196,9 @@
                <span v-if="deletingChoiceId === child.choice_id" aria-hidden="true">...</span>
                <span v-else aria-hidden="true">&times;</span>
              </button>
+          </li>
+          <li v-if="relations.child_scenes.length === 0" class="empty-state">
+            No choices lead from this scene.
           </li>
         </ul>
         <div class="add-choice-form">
@@ -218,8 +233,9 @@
               <input type="text" id="new-scene-title" v-model="quickAdd.title" required>
             </div>
             <div class="form-group">
-              <label for="new-scene-video">Video File</label>
-              <input type="file" id="new-scene-video" @change="handleQuickAddFileUpload" required>
+              <label for="new-scene-video" class="button secondary mini">Choose Video File</label>
+              <input type="file" id="new-scene-video" @change="handleQuickAddFileUpload" required class="sr-only">
+              <span v-if="quickAdd.video" class="file-name">{{ quickAdd.video.name }}</span>
             </div>
             <button type="submit" class="button mini" :disabled="isAddingQuick">
               {{ isAddingQuick ? 'Creating & Linking...' : 'Create & Link' }}
