@@ -4,7 +4,9 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Admin Login</h2>
-        <button class="close-btn" @click="close" aria-label="Close">&times;</button>
+        <button class="close-btn" @click="close" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
