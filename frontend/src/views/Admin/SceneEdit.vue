@@ -245,6 +245,9 @@
       </div>
 
     </div>
+    <router-link :to="`/player/${props.id}`" class="back-link preview-link" v-if="isEditing" target="_blank">
+      <span aria-hidden="true">&nearr;</span> View in player
+    </router-link>
     <router-link to="/admin" class="back-link" v-if="isEditing">
       <span aria-hidden="true">&larr;</span> Back to list
     </router-link>
@@ -305,8 +308,10 @@ const fetchSceneData = async () => {
 const fetchAllScenes = async () => {
   try {
     const response = await axios.get('/api/scenes');
-    // Exclude the current scene from the list of possible destinations
-    allScenes.value = response.data.filter(s => s.id !== (isEditing.value ? parseInt(props.id) : -1));
+    // Exclude the current scene from the list of possible destinations and sort by title
+    allScenes.value = response.data
+      .filter(s => s.id !== (isEditing.value ? parseInt(props.id) : -1))
+      .sort((a, b) => a.title.localeCompare(b.title));
   } catch (err) {
     console.error('Failed to load all scenes:', err);
   }

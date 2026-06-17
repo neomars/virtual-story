@@ -205,7 +205,7 @@ const fetchParts = async () => {
 
 const fetchAllScenes = async () => {
   const res = await axios.get('/api/scenes');
-  allScenes.value = res.data;
+  allScenes.value = res.data.sort((a, b) => a.title.localeCompare(b.title));
 };
 
 const handlePartFileChange = (event) => {
