@@ -18,6 +18,20 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
+router.get('/uploads', isAuthenticated, async (req, res) => {
+  try {
+    const files = await fs.readdir(videosDir);
+    const videoFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext);
+    });
+    res.send(videoFiles);
+  } catch (error) {
+    console.error('Failed to list uploads:', error);
+    res.status(500).send({ message: 'Failed to list uploaded videos.' });
+  }
+});
+
 router.get('/', isAuthenticated, async (req, res) => {
   try {
     const [rows] = await dbPool.query('SELECT * FROM scenes ORDER BY created_at DESC');
@@ -34,13 +48,29 @@ router.post('/', isAuthenticated, (req, res, next) => {
     next();
   });
 }, async (req, res) => {
-  if (!req.file) return res.status(400).send({ message: 'No video file was uploaded.' });
-  const { title, prepend_scene_id, append_scene_id } = req.body;
-  const videoFilename = req.file.filename;
+  const { title, prepend_scene_id, append_scene_id, existing_video_filename } = req.body;
+  let videoFilePath, videoFilename;
+
+  if (req.file) {
+    videoFilePath = req.file.path;
+    videoFilename = req.file.filename;
+  } else if (existing_video_filename) {
+    videoFilename = existing_video_filename;
+    videoFilePath = path.join(videosDir, videoFilename);
+    // Check if file exists
+    try {
+      await fs.access(videoFilePath);
+    } catch (e) {
+      return res.status(400).send({ message: 'Selected existing video file not found.' });
+    }
+  } else {
+    return res.status(400).send({ message: 'No video file was uploaded or selected.' });
+  }
+
   const thumbnailFilename = `thumb-${path.parse(videoFilename).name}.png`;
   const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
   try {
-    await processVideoAndThumbnail(req.file.path, prepend_scene_id, append_scene_id, thumbnailFullPath);
+    await processVideoAndThumbnail(videoFilePath, prepend_scene_id, append_scene_id, thumbnailFullPath);
     const videoUrl = `/videos/${videoFilename}`;
     const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
     let { part_id } = req.body;
@@ -65,7 +95,7 @@ router.post('/', isAuthenticated, (req, res, next) => {
     res.status(201).send({ id: newId, title, video_path: videoUrl, thumbnail_path: thumbnailUrl, concatenationSummary: summary });
   } catch (error) {
     console.error('[UPLOAD] Error processing upload:', error);
-    await fs.unlink(req.file.path).catch(() => {});
+    if (req.file) await fs.unlink(req.file.path).catch(() => {});
     await fs.unlink(thumbnailFullPath).catch(() => {});
     res.status(500).send({ message: 'Failed to process video: ' + error.message });
   }
@@ -89,17 +119,20 @@ router.put('/:id', isAuthenticated, (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    let { title, part_id, prepend_scene_id, append_scene_id } = req.body;
+    let { title, part_id, prepend_scene_id, append_scene_id, existing_video_filename } = req.body;
     if (!part_id || part_id === 'null' || part_id === 'undefined') part_id = null;
     let summary = null;
     const hasConcatRequest = (prepend_scene_id && prepend_scene_id !== 'null') || (append_scene_id && append_scene_id !== 'null');
-    if (req.file || hasConcatRequest) {
+    if (req.file || existing_video_filename || hasConcatRequest) {
       const [currRows] = await dbPool.query('SELECT video_path, thumbnail_path, title FROM scenes WHERE id = ?', [req.params.id]);
       if (currRows.length === 0) return res.status(404).send({ message: 'Scene not found.' });
       let workVideoPath, finalVideoFilename;
       if (req.file) {
         workVideoPath = req.file.path;
         finalVideoFilename = req.file.filename;
+      } else if (existing_video_filename) {
+        finalVideoFilename = existing_video_filename;
+        workVideoPath = path.join(videosDir, finalVideoFilename);
       } else {
         const ext = path.extname(currRows[0].video_path);
         finalVideoFilename = `video-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
