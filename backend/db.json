@@ -7,7 +7,14 @@
     }
   ],
   "parts": [],
-  "scenes": [],
+  "scenes": [
+    {
+      "title": "Scene 1",
+      "video_path": "v1",
+      "thumbnail_path": "t1",
+      "id": 1
+    }
+  ],
   "choices": [],
   "settings": [
     {

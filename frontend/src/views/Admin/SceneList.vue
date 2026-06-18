@@ -84,9 +84,19 @@
           </select>
         </div>
         <div class="form-row">
-          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional)</label>
-          <input id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
-          <span v-if="partLoopFile" class="file-name">{{ partLoopFile.name }}</span>
+          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt">Use existing</a>)</label>
+          <input v-if="!showExistingParts" id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
+          <span v-if="partLoopFile && !showExistingParts" class="file-name">{{ partLoopFile.name }}</span>
+
+          <div v-if="showExistingParts" class="existing-videos-grid compact">
+            <div v-for="file in existingPartFiles" :key="file"
+                 class="existing-video-card"
+                 :class="{ selected: newPart.existing_video_filename === file }"
+                 @click="newPart.existing_video_filename = file; partLoopFile = null">
+              <span class="card-title">{{ file }}</span>
+            </div>
+          </div>
+
           <button type="submit" class="button" :disabled="isCreatingPart">
             {{ isCreatingPart ? 'Adding...' : 'Add Chapter' }}
           </button>
@@ -112,8 +122,18 @@
             <select :id="'edit-part-scene-' + part.id" v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
-            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video</label>
-            <input :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
+            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video (or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt">Existing</a>)</label>
+            <input v-if="!showExistingParts" :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
+
+            <div v-if="showExistingParts" class="existing-videos-grid compact">
+              <div v-for="file in existingPartFiles" :key="file"
+                   class="existing-video-card"
+                   :class="{ selected: editPartData.existing_video_filename === file }"
+                   @click="editPartData.existing_video_filename = file; editPartFile = null">
+                <span class="card-title">{{ file }}</span>
+              </div>
+            </div>
+
             <button @click="updatePart(part.id)" class="button mini" :disabled="isUpdatingPart">
               {{ isUpdatingPart ? 'Saving...' : 'Save' }}
             </button>
@@ -169,8 +189,10 @@ const isSuccess = ref(false);
 const parts = ref([]);
 const allScenes = ref([]);
 const reorderStatus = ref('');
-const newPart = ref({ title: '', first_scene_id: '' });
+const newPart = ref({ title: '', first_scene_id: '', existing_video_filename: null });
 const partLoopFile = ref(null);
+const existingPartFiles = ref([]);
+const showExistingParts = ref(false);
 const isSyncing = ref(false);
 const isUploadingBackground = ref(false);
 const isCreatingPart = ref(false);
@@ -180,7 +202,7 @@ const draggingIndex = ref(null);
 
 // State for editing parts
 const editingPartId = ref(null);
-const editPartData = ref({ title: '', first_scene_id: '' });
+const editPartData = ref({ title: '', first_scene_id: '', existing_video_filename: null });
 const editPartFile = ref(null);
 
 const syncDatabase = async () => {
@@ -203,6 +225,15 @@ const fetchParts = async () => {
   parts.value = res.data;
 };
 
+const fetchExistingPartFiles = async () => {
+  try {
+    const res = await axios.get('/api/parts/uploads');
+    existingPartFiles.value = res.data;
+  } catch (err) {
+    console.error('Failed to fetch existing part files:', err);
+  }
+};
+
 const fetchAllScenes = async () => {
   const res = await axios.get('/api/scenes');
   allScenes.value = res.data.sort((a, b) => a.title.localeCompare(b.title));
@@ -210,11 +241,12 @@ const fetchAllScenes = async () => {
 
 const handlePartFileChange = (event) => {
   partLoopFile.value = event.target.files[0];
+  newPart.value.existing_video_filename = null;
 };
 
 const startEdit = (part) => {
   editingPartId.value = part.id;
-  editPartData.value = { title: part.title, first_scene_id: part.first_scene_id };
+  editPartData.value = { title: part.title, first_scene_id: part.first_scene_id, existing_video_filename: null };
   editPartFile.value = null;
 };
 
@@ -225,6 +257,7 @@ const cancelEdit = () => {
 
 const handleEditFileChange = (event) => {
   editPartFile.value = event.target.files[0];
+  editPartData.value.existing_video_filename = null;
 };
 
 const updatePart = async (id) => {
@@ -236,6 +269,8 @@ const updatePart = async (id) => {
     formData.append('order', 0); // Default order for now
     if (editPartFile.value) {
       formData.append('loop_video', editPartFile.value);
+    } else if (editPartData.value.existing_video_filename) {
+      formData.append('existing_video_filename', editPartData.value.existing_video_filename);
     }
 
     await axios.put(`/api/parts/${id}`, formData, {
@@ -262,6 +297,8 @@ const createPart = async () => {
     formData.append('first_scene_id', newPart.value.first_scene_id);
     if (partLoopFile.value) {
       formData.append('loop_video', partLoopFile.value);
+    } else if (newPart.value.existing_video_filename) {
+      formData.append('existing_video_filename', newPart.value.existing_video_filename);
     }
 
     await axios.post('/api/parts', formData, {
@@ -382,6 +419,7 @@ onMounted(() => {
   fetchStoryGraph();
   fetchParts();
   fetchAllScenes();
+  fetchExistingPartFiles();
 });
 </script>
 

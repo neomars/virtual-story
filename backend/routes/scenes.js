@@ -21,11 +21,26 @@ const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 router.get('/uploads', isAuthenticated, async (req, res) => {
   try {
     const files = await fs.readdir(videosDir);
-    const videoFiles = files.filter(file => {
+    const result = [];
+    for (const file of files) {
       const ext = path.extname(file).toLowerCase();
-      return ['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext);
-    });
-    res.send(videoFiles);
+      if (['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext)) {
+        const basename = path.parse(file).name;
+        const thumbnailName = `thumb-${basename}.png`;
+        const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
+        let hasThumbnail = false;
+        try {
+          await fs.access(thumbnailPath);
+          hasThumbnail = true;
+        } catch (e) {}
+
+        result.push({
+          video: file,
+          thumbnail: hasThumbnail ? `/thumbnails/${thumbnailName}` : null
+        });
+      }
+    }
+    res.send(result);
   } catch (error) {
     console.error('Failed to list uploads:', error);
     res.status(500).send({ message: 'Failed to list uploaded videos.' });

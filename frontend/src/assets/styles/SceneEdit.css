@@ -237,3 +237,52 @@ input[type="text"], select {
 .button-delete:hover {
   background-color: #dc2626;
 }
+
+.existing-videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background-color: #1e1e1e;
+  border-radius: 5px;
+  border: 1px solid #444;
+}
+
+.existing-video-card {
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: #333;
+  transition: border-color 0.2s, transform 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.existing-video-card:hover {
+  transform: translateY(-2px);
+  background-color: #3a3a3a;
+}
+
+.existing-video-card.selected {
+  border-color: #42b983;
+  background-color: #3a3a3a;
+}
+
+.card-thumb {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  background-color: #000;
+}
+
+.card-title {
+  font-size: 0.7rem;
+  padding: 0.3rem;
+  text-align: center;
+  word-break: break-all;
+  color: #ccc;
+}
