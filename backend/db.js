@@ -50,9 +50,10 @@ if (fs.existsSync(DB_FILE)) {
 }
 
 const pool = {
-    async query(sql, params) {
-        const trimmedSql = sql.trim();
-        const upperSql = trimmedSql.toUpperCase();
+    async query(sql, params = []) {
+        let trimmedSql = sql.trim();
+        let upperSql = trimmedSql.toUpperCase();
+        let processedParams = [...params];
 
         // Handle MySQL-specific SHOW COLUMNS
         if (upperSql.startsWith('SHOW COLUMNS')) {
@@ -65,7 +66,6 @@ const pool = {
         }
 
         // Handle ON DUPLICATE KEY UPDATE for settings specifically
-        // Improved to be slightly less brittle
         if (upperSql.includes('ON DUPLICATE KEY UPDATE') && upperSql.includes('SETTINGS')) {
              const key = params[0];
              const val = params[1];
@@ -79,13 +79,41 @@ const pool = {
              return [{}, []];
         }
 
+        // Preprocess SQL and params for Alasql compatibility
+        // 1. Handle "IN (?)" with array parameters (common in mysql2)
+        if (processedParams.some(p => Array.isArray(p))) {
+            let newParams = [];
+            let paramIdx = 0;
+            trimmedSql = trimmedSql.replace(/\?/g, (match) => {
+                const currentParam = processedParams[paramIdx++];
+                if (Array.isArray(currentParam)) {
+                    newParams.push(...currentParam);
+                    return currentParam.map(() => '?').join(', ');
+                } else {
+                    newParams.push(currentParam);
+                    return '?';
+                }
+            });
+            processedParams = newParams;
+            upperSql = trimmedSql.toUpperCase();
+        }
+
+        // 2. Cast string numbers to INT if they look like IDs and the param is a string
+        // Alasql is strict about types in WHERE clauses
+        processedParams = processedParams.map(p => {
+            if (typeof p === 'string' && /^\d+$/.test(p)) {
+                return parseInt(p, 10);
+            }
+            return p;
+        });
+
         try {
             // Ignore Runtime Migration/Constraint queries
             if (upperSql.includes('FOREIGN KEY') || upperSql.includes('CONSTRAINT')) {
                 return [[], []];
             }
 
-            const result = alasql(trimmedSql, params);
+            const result = alasql(trimmedSql, processedParams);
 
             // Save on writes
             if (trimmedSql.match(/^(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER)/i)) {
@@ -98,7 +126,6 @@ const pool = {
                 const tableName = tableNameMatch ? tableNameMatch[1].replace(/`/g, '') : null;
                 let insertId = 0;
                 if (tableName && alasql.tables[tableName] && alasql.tables[tableName].identities && alasql.tables[tableName].identities.id) {
-                    // In Alasql, identities.id.value is the NEXT value to be used.
                     insertId = alasql.tables[tableName].identities.id.value - (alasql.tables[tableName].identities.id.step || 1);
                 }
                 return [{ insertId }, []];
