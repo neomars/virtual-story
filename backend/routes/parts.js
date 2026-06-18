@@ -16,6 +16,21 @@ const partStorage = multer.diskStorage({
 
 const partUpload = multer({ storage: partStorage, fileFilter: videoFileFilter });
 
+router.get('/uploads', isAuthenticated, async (req, res) => {
+  try {
+    const fs = require('fs').promises;
+    const files = await fs.readdir(partsDir);
+    const videoFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext);
+    });
+    res.send(videoFiles);
+  } catch (error) {
+    console.error('Failed to list part uploads:', error);
+    res.status(500).send({ message: 'Failed to list uploaded videos for chapters.' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const [rows] = await dbPool.query('SELECT * FROM parts ORDER BY `order` ASC');
@@ -27,8 +42,14 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', isAuthenticated, partUpload.single('loop_video'), async (req, res) => {
-  const { title, first_scene_id, order } = req.body;
-  const loop_video_path = req.file ? `/parts/${req.file.filename}` : null;
+  const { title, first_scene_id, order, existing_video_filename } = req.body;
+  let loop_video_path = null;
+  if (req.file) {
+    loop_video_path = `/parts/${req.file.filename}`;
+  } else if (existing_video_filename) {
+    loop_video_path = `/parts/${existing_video_filename}`;
+  }
+
   try {
     const [result] = await dbPool.query(
       'INSERT INTO parts (title, first_scene_id, `order`, loop_video_path) VALUES (?, ?, ?, ?)',
@@ -42,10 +63,16 @@ router.post('/', isAuthenticated, partUpload.single('loop_video'), async (req, r
 });
 
 router.put('/:id', isAuthenticated, partUpload.single('loop_video'), async (req, res) => {
-  const { title, first_scene_id, order } = req.body;
+  const { title, first_scene_id, order, existing_video_filename } = req.body;
   try {
     if (req.file) {
       const loop_video_path = `/parts/${req.file.filename}`;
+      await dbPool.query(
+        'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ?, loop_video_path = ? WHERE id = ?',
+        [title, first_scene_id, order, loop_video_path, req.params.id]
+      );
+    } else if (existing_video_filename) {
+      const loop_video_path = `/parts/${existing_video_filename}`;
       await dbPool.query(
         'UPDATE parts SET title = ?, first_scene_id = ?, `order` = ?, loop_video_path = ? WHERE id = ?',
         [title, first_scene_id, order, loop_video_path, req.params.id]

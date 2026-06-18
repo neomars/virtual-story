@@ -55,8 +55,18 @@
       </fieldset>
 
       <div class="form-group">
-        <label for="video">Video File</label>
-        <input type="file" id="video" @change="handleFileUpload" required>
+        <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting">Use existing</a>)</label>
+        <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
+        <div v-else class="existing-videos-grid">
+          <div v-for="file in existingFiles" :key="file.video"
+               class="existing-video-card"
+               :class="{ selected: scene.existing_video_filename === file.video }"
+               @click="selectExistingVideo(file.video)">
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
+            <span class="card-title">{{ file.video }}</span>
+          </div>
+          <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
+        </div>
       </div>
       <button type="submit" class="button" :disabled="isSaving">
         {{ isSaving ? 'Creating...' : 'Create Scene' }}
@@ -122,8 +132,18 @@
           <fieldset class="video-merging-section">
             <legend>Replace/Merge Video</legend>
             <div class="form-group">
-              <label for="video-edit">New Video File</label>
-              <input type="file" id="video-edit" @change="handleFileUpload">
+              <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting">Use existing</a>)</label>
+              <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
+              <div v-else class="existing-videos-grid">
+                <div v-for="file in existingFiles" :key="file.video"
+                     class="existing-video-card"
+                     :class="{ selected: scene.existing_video_filename === file.video }"
+                     @click="selectExistingVideo(file.video)">
+                  <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
+                  <span class="card-title">{{ file.video }}</span>
+                </div>
+                <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
+              </div>
             </div>
             <div class="form-group">
               <label for="prepend-edit">Video BEFORE</label>
@@ -228,9 +248,11 @@ const route = useRoute();
 const router = useRouter();
 const isEditing = computed(() => !!props.id);
 
-const scene = ref({ title: '', part_id: null, prepend_scene_id: null, append_scene_id: null });
+const scene = ref({ title: '', part_id: null, prepend_scene_id: null, append_scene_id: null, existing_video_filename: null });
 const videoFile = ref(null);
 const allScenes = ref([]);
+const existingFiles = ref([]);
+const showExisting = ref(false);
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
 const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const quickAdd = ref({ title: '', choice_text: '', video: null });
@@ -247,6 +269,15 @@ const mergeSummary = ref(null);
 const fetchParts = async () => {
   const res = await axios.get('/api/parts');
   parts.value = res.data;
+};
+
+const fetchExistingFiles = async () => {
+  try {
+    const res = await axios.get('/api/scenes/uploads');
+    existingFiles.value = res.data;
+  } catch (err) {
+    console.error('Failed to fetch existing files:', err);
+  }
 };
 
 const fetchSceneData = async () => {
@@ -277,8 +308,18 @@ const fetchAllScenes = async () => {
 const handleFileUpload = (event) => {
   const file = event.target.files[0];
   videoFile.value = file;
+  scene.value.existing_video_filename = null;
   if (!isEditing.value && !scene.value.title && file) {
     const filename = file.name;
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    scene.value.title = nameWithoutExt.replace(/_/g, ' ');
+  }
+};
+
+const selectExistingVideo = (filename) => {
+  scene.value.existing_video_filename = filename;
+  videoFile.value = null;
+  if (!isEditing.value && !scene.value.title && filename) {
     const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
     scene.value.title = nameWithoutExt.replace(/_/g, ' ');
   }
@@ -302,6 +343,8 @@ const saveScene = async () => {
   formData.append('append_scene_id', scene.value.append_scene_id || '');
   if (videoFile.value) {
     formData.append('video', videoFile.value);
+  } else if (scene.value.existing_video_filename) {
+    formData.append('existing_video_filename', scene.value.existing_video_filename);
   }
 
   isSaving.value = true;
@@ -491,6 +534,7 @@ onMounted(() => {
   fetchSceneData();
   fetchAllScenes();
   fetchParts();
+  fetchExistingFiles();
 });
 
 // Re-fetch data when the route changes (e.g., navigating from one scene edit to another)
