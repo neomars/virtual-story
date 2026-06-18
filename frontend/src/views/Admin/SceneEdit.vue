@@ -86,7 +86,16 @@
               <strong>{{ parent.title }}</strong><br>
               <small>"{{ parent.choice_text }}"</small>
             </router-link>
-            <button @click="removeParentLink(parent.choice_id)" class="button-delete" :aria-label="'Remove link from ' + parent.title">&times;</button>
+            <button
+              @click="removeParentLink(parent.choice_id)"
+              class="button-delete"
+              :disabled="deletingParentLinkId === parent.choice_id"
+              :aria-label="'Remove link from ' + parent.title"
+              :title="'Remove link from ' + parent.title"
+            >
+              <span v-if="deletingParentLinkId === parent.choice_id" aria-hidden="true">...</span>
+              <span v-else aria-hidden="true">&times;</span>
+            </button>
           </li>
           <li v-if="relations.parent_scenes.length === 0" class="empty-state">
             No scenes lead here.
@@ -164,10 +173,20 @@
 
           <div v-if="scene.video_path" class="video-preview-container">
             <video v-if="isPlayingPreview" :src="scene.video_path" controls autoplay class="preview-video"></video>
-            <div v-else @click="isPlayingPreview = true" class="thumbnail-preview" title="Click to play preview">
+            <div
+              v-else
+              @click="isPlayingPreview = true"
+              @keydown.enter.prevent="isPlayingPreview = true"
+              @keydown.space.prevent="isPlayingPreview = true"
+              class="thumbnail-preview"
+              title="Click to play preview"
+              role="button"
+              tabindex="0"
+              aria-label="Play video preview"
+            >
               <img :src="scene.thumbnail_path" alt="Thumbnail">
               <div class="play-overlay">
-                <span class="play-icon">▶</span>
+                <span class="play-icon" aria-hidden="true">&#9658;</span>
               </div>
             </div>
           </div>
@@ -183,9 +202,21 @@
         <ul class="relation-list">
           <li v-for="child in relations.child_scenes" :key="child.id" class="relation-item">
             <router-link :to="`/admin/scenes/${child.id}/edit`">
-              "{{ child.choice_text }}" &rarr; <strong>{{ child.title }}</strong>
+              "{{ child.choice_text }}" <span aria-hidden="true">&rarr;</span> <strong>{{ child.title }}</strong>
             </router-link>
-             <button @click="removeChoice(child.choice_id)" class="button-delete" :aria-label="'Delete choice leading to ' + child.title">&times;</button>
+             <button
+               @click="removeChoice(child.choice_id)"
+               class="button-delete"
+               :disabled="deletingChoiceId === child.choice_id"
+               :aria-label="'Delete choice leading to ' + child.title"
+               :title="'Delete choice leading to ' + child.title"
+             >
+               <span v-if="deletingChoiceId === child.choice_id" aria-hidden="true">...</span>
+               <span v-else aria-hidden="true">&times;</span>
+             </button>
+          </li>
+          <li v-if="relations.child_scenes.length === 0" class="empty-state">
+            No choices lead from this scene.
           </li>
         </ul>
         <div class="add-choice-form">
@@ -220,8 +251,9 @@
               <input type="text" id="new-scene-title" v-model="quickAdd.title" required>
             </div>
             <div class="form-group">
-              <label for="new-scene-video">Video File</label>
-              <input type="file" id="new-scene-video" @change="handleQuickAddFileUpload" required>
+              <label for="new-scene-video" class="button secondary mini">Choose Video File</label>
+              <input type="file" id="new-scene-video" @change="handleQuickAddFileUpload" required class="sr-only">
+              <span v-if="quickAdd.video" class="file-name">{{ quickAdd.video.name }}</span>
             </div>
             <button type="submit" class="button mini" :disabled="isAddingQuick">
               {{ isAddingQuick ? 'Creating & Linking...' : 'Create & Link' }}
@@ -231,7 +263,12 @@
       </div>
 
     </div>
-    <router-link to="/admin" class="back-link" v-if="isEditing">&larr; Back to list</router-link>
+    <router-link :to="`/player/${props.id}`" class="back-link preview-link" v-if="isEditing" target="_blank">
+      <span aria-hidden="true">&nearr;</span> View in player
+    </router-link>
+    <router-link to="/admin" class="back-link" v-if="isEditing">
+      <span aria-hidden="true">&larr;</span> Back to list
+    </router-link>
   </div>
 </template>
 
@@ -263,6 +300,8 @@ const isSaving = ref(false);
 const isAddingChoice = ref(false);
 const isAddingParentLink = ref(false);
 const isAddingQuick = ref(false);
+const deletingChoiceId = ref(null);
+const deletingParentLinkId = ref(null);
 const isPlayingPreview = ref(false);
 const mergeSummary = ref(null);
 
@@ -298,8 +337,10 @@ const fetchSceneData = async () => {
 const fetchAllScenes = async () => {
   try {
     const response = await axios.get('/api/scenes');
-    // Exclude the current scene from the list of possible destinations
-    allScenes.value = response.data.filter(s => s.id !== (isEditing.value ? parseInt(props.id) : -1));
+    // Exclude the current scene from the list of possible destinations and sort by title
+    allScenes.value = response.data
+      .filter(s => s.id !== (isEditing.value ? parseInt(props.id) : -1))
+      .sort((a, b) => a.title.localeCompare(b.title));
   } catch (err) {
     console.error('Failed to load all scenes:', err);
   }
@@ -439,12 +480,15 @@ const removeChoice = async (choiceId) => {
   if (!confirm('Are you sure you want to delete this choice?')) {
     return;
   }
+  deletingChoiceId.value = choiceId;
   try {
     await axios.delete(`/api/choices/${choiceId}`);
     fetchSceneData();
   } catch (err) {
     console.error('Failed to delete choice:', err);
     alert('Failed to delete choice.');
+  } finally {
+    deletingChoiceId.value = null;
   }
 };
 
@@ -521,12 +565,15 @@ const removeParentLink = async (choiceId) => {
   if (!confirm('Are you sure you want to remove this origin link?')) {
     return;
   }
+  deletingParentLinkId.value = choiceId;
   try {
     await axios.delete(`/api/choices/${choiceId}`);
     await fetchSceneData(); // Refresh the parent list
   } catch (err) {
     console.error('Failed to remove parent link:', err);
     alert('Failed to remove parent link.');
+  } finally {
+    deletingParentLinkId.value = null;
   }
 };
 

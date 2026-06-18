@@ -82,6 +82,9 @@
 .chapter-header:hover {
   background-color: #333;
 }
+.chapter-header:focus-visible {
+  outline-offset: -2px; /* Prevent clipping by container */
+}
 .chapter-info {
   display: flex;
   align-items: center;
@@ -95,9 +98,10 @@
   font-size: 0.8rem;
   color: #42b983;
   transition: transform 0.3s ease;
+  transform: rotate(-90deg);
 }
 .arrow.is-rotated {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 .chapter-content {
   padding: 0 15px 15px 15px;
