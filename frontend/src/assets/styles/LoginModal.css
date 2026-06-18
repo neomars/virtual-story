@@ -73,7 +73,6 @@
 }
 
 .form-group input:focus {
-  outline: none;
   border-color: #42b983;
 }
 
