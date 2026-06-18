@@ -1,0 +1,18 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password_hash": "$2b$10$bFshWfiolzIVeKF/JhjkOOkFkYf5sfgfiuBJnQ35vZ9uugWmfZFsa",
+      "id": 1
+    }
+  ],
+  "parts": [],
+  "scenes": [],
+  "choices": [],
+  "settings": [
+    {
+      "setting_key": "player_background",
+      "setting_value": null
+    }
+  ]
+}
