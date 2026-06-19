@@ -55,16 +55,18 @@
       </fieldset>
 
       <div class="form-group">
-        <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting">Use existing</a>)</label>
+        <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
         <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
         <div v-else class="existing-videos-grid">
-          <div v-for="file in existingFiles" :key="file.video"
+          <button type="button" v-for="file in existingFiles" :key="file.video"
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
-               @click="selectExistingVideo(file.video)">
-            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
+               @click="selectExistingVideo(file.video)"
+               :aria-pressed="scene.existing_video_filename === file.video"
+               :aria-label="'Select video: ' + file.video">
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb" aria-hidden="true">
             <span class="card-title">{{ file.video }}</span>
-          </div>
+          </button>
           <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
         </div>
       </div>
@@ -141,16 +143,18 @@
           <fieldset class="video-merging-section">
             <legend>Replace/Merge Video</legend>
             <div class="form-group">
-              <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting">Use existing</a>)</label>
+            <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
               <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
               <div v-else class="existing-videos-grid">
-                <div v-for="file in existingFiles" :key="file.video"
+                <button type="button" v-for="file in existingFiles" :key="file.video"
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"
-                     @click="selectExistingVideo(file.video)">
-                  <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
+                     @click="selectExistingVideo(file.video)"
+                     :aria-pressed="scene.existing_video_filename === file.video"
+                     :aria-label="'Select video: ' + file.video">
+                  <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb" aria-hidden="true">
                   <span class="card-title">{{ file.video }}</span>
-                </div>
+                </button>
                 <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
               </div>
             </div>

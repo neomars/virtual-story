@@ -57,7 +57,7 @@
           {{ isUploadingBackground ? 'Uploading...' : 'Upload' }}
         </button>
       </div>
-      <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }">
+      <p v-if="uploadStatus" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }" role="status">
         {{ uploadStatus }}
       </p>
     </div>
@@ -84,17 +84,19 @@
           </select>
         </div>
         <div class="form-row">
-          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt">Use existing</a>)</label>
+          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Use existing</a>)</label>
           <input v-if="!showExistingParts" id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
           <span v-if="partLoopFile && !showExistingParts" class="file-name">{{ partLoopFile.name }}</span>
 
           <div v-if="showExistingParts" class="existing-videos-grid compact">
-            <div v-for="file in existingPartFiles" :key="file"
+            <button type="button" v-for="file in existingPartFiles" :key="file"
                  class="existing-video-card"
                  :class="{ selected: newPart.existing_video_filename === file }"
-                 @click="newPart.existing_video_filename = file; partLoopFile = null">
+                 @click="newPart.existing_video_filename = file; partLoopFile = null"
+                 :aria-pressed="newPart.existing_video_filename === file"
+                 :aria-label="'Select loop video: ' + file">
               <span class="card-title">{{ file }}</span>
-            </div>
+            </button>
           </div>
 
           <button type="submit" class="button" :disabled="isCreatingPart">
@@ -122,16 +124,18 @@
             <select :id="'edit-part-scene-' + part.id" v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
-            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video (or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt">Existing</a>)</label>
+            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video (or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Existing</a>)</label>
             <input v-if="!showExistingParts" :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
 
             <div v-if="showExistingParts" class="existing-videos-grid compact">
-              <div v-for="file in existingPartFiles" :key="file"
+              <button type="button" v-for="file in existingPartFiles" :key="file"
                    class="existing-video-card"
                    :class="{ selected: editPartData.existing_video_filename === file }"
-                   @click="editPartData.existing_video_filename = file; editPartFile = null">
+                   @click="editPartData.existing_video_filename = file; editPartFile = null"
+                   :aria-pressed="editPartData.existing_video_filename === file"
+                   :aria-label="'Select loop video: ' + file">
                 <span class="card-title">{{ file }}</span>
-              </div>
+              </button>
             </div>
 
             <button @click="updatePart(part.id)" class="button mini" :disabled="isUpdatingPart">
