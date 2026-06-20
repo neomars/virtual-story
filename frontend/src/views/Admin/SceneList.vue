@@ -94,7 +94,7 @@
                  class="existing-video-card"
                  :class="{ selected: newPart.existing_video_filename === file }"
                  :aria-pressed="newPart.existing_video_filename === file"
-                 :aria-label="'Select loop video: ' + file"
+                 :aria-label="'Select existing loop video: ' + file"
                  @click="newPart.existing_video_filename = file; partLoopFile = null">
               <span class="card-title">{{ file }}</span>
             </button>
@@ -134,7 +134,7 @@
                    class="existing-video-card"
                    :class="{ selected: editPartData.existing_video_filename === file }"
                    :aria-pressed="editPartData.existing_video_filename === file"
-                   :aria-label="'Select loop video: ' + file"
+                   :aria-label="'Select existing loop video: ' + file"
                    @click="editPartData.existing_video_filename = file; editPartFile = null">
                 <span class="card-title">{{ file }}</span>
               </button>

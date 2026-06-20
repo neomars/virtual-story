@@ -63,7 +63,7 @@
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
                :aria-pressed="scene.existing_video_filename === file.video"
-               :aria-label="'Select video: ' + file.video"
+               :aria-label="'Select existing video: ' + file.video"
                @click="selectExistingVideo(file.video)">
             <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
             <span class="card-title">{{ file.video }}</span>
@@ -152,7 +152,7 @@
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"
                      :aria-pressed="scene.existing_video_filename === file.video"
-                     :aria-label="'Select video: ' + file.video"
+                     :aria-label="'Select existing video: ' + file.video"
                      @click="selectExistingVideo(file.video)">
                   <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb">
                   <span class="card-title">{{ file.video }}</span>
