@@ -39,3 +39,11 @@
 ## 2025-05-26 - Keyboard-Driven Modal and Disclosure Interaction
 **Learning:** For interactive overlays like modals or expanding chapter lists, keyboard support is as critical as visual state. Adding `Escape` key support for modals and `Space` key support for disclosures ensures that the application remains navigable for users relying on non-pointer inputs.
 **Action:** Always complement `click` and `Enter` listeners with `Escape` (for modals) and `Space` (for toggles) to ensure robust accessibility.
+
+## 2025-05-28 - Semantic Buttons for Selection Cards
+**Learning:** Using `div` elements for selection cards makes them inaccessible to keyboard users. Converting them to `button` elements provides native focusability and role support, but requires explicit CSS resets (padding, font, color, text-align) to override browser defaults and maintain the intended card layout.
+**Action:** Use semantic `<button type="button">` for all interactive card-like selection elements and include a standardized CSS reset class or ruleset.
+
+## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
+**Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
+**Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
