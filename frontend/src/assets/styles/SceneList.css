@@ -202,6 +202,11 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
   transition: border-color 0.2s, transform 0.2s;
   display: flex;
   flex-direction: column;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: inherit;
 }
 
 .existing-video-card:hover {
