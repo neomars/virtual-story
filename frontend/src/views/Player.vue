@@ -51,7 +51,7 @@
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
           <button v-if="!showChoices" ref="skipButton" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
-            Skip Scene <span class="shortcut-hint" aria-hidden="true">[S]</span>
+            <span class="shortcut-hint" aria-hidden="true">[S]</span> Skip Scene
           </button>
         </div>
       </div>
@@ -72,7 +72,7 @@
                 </router-link>
               </li>
               <li v-if="sceneData.next_choices.length === 0">
-                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning.">
+                <router-link to="/player/1" aria-label="End of story. Click to restart from the beginning (1 shortcut).">
                   <span class="shortcut-hint" aria-hidden="true">[1]</span>
                   End of Story - Restart?
                 </router-link>
