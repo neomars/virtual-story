@@ -1,9 +1,16 @@
 
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click.self="close">
+  <div
+    v-if="isOpen"
+    class="modal-overlay"
+    @click.self="close"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-title"
+  >
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Admin Login</h2>
+        <h2 id="modal-title">Admin Login</h2>
         <button class="close-btn" @click="close" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -17,6 +24,7 @@
             id="username"
             v-model="username"
             required
+            aria-required="true"
             placeholder="admin"
             :disabled="isLoading"
           >
@@ -28,13 +36,14 @@
             id="password"
             v-model="password"
             required
+            aria-required="true"
             :disabled="isLoading"
           >
         </div>
         <div v-if="errorMessage" class="error-message" role="alert">
           {{ errorMessage }}
         </div>
-        <p class="login-hint">Identifiants par défaut : <code>admin</code> / <code>admin</code></p>
+        <p class="login-hint">Default credentials: <code>admin</code> / <code>admin</code></p>
         <button type="submit" class="submit-btn" :disabled="isLoading">
           {{ isLoading ? 'Connecting...' : 'Login' }}
         </button>
@@ -58,6 +67,7 @@ const password = ref('');
 const isLoading = ref(false);
 const errorMessage = ref('');
 const usernameInput = ref(null);
+const lastActiveElement = ref(null);
 
 const close = () => {
   if (isLoading.value) return;
@@ -75,9 +85,14 @@ const handleKeydown = (e) => {
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
+    lastActiveElement.value = document.activeElement;
     nextTick(() => {
       usernameInput.value?.focus();
     });
+  } else {
+    if (lastActiveElement.value) {
+      lastActiveElement.value.focus();
+    }
   }
 });
 
