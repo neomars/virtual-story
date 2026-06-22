@@ -49,11 +49,11 @@
           </div>
           <div class="user-actions">
             <button
-              @click="deleteUser(user.id)"
+              @click="deleteUser(user)"
               class="button-delete"
               :disabled="user.id === auth.currentUser.value?.id || deletingUserId === user.id"
-              :title="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
-              :aria-label="user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username"
+              :title="deletingUserId === user.id ? 'Deleting...' : (user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username)"
+              :aria-label="deletingUserId === user.id ? 'Deleting user: ' + user.username : (user.id === auth.currentUser.value?.id ? 'You cannot delete yourself' : 'Delete user: ' + user.username)"
               >
                 <span v-if="deletingUserId === user.id" aria-hidden="true">...</span>
                 <span v-else aria-hidden="true">&times;</span>
@@ -114,11 +114,11 @@ const createUser = async () => {
   }
 };
 
-const deleteUser = async (id) => {
-  if (confirm('Delete this user?')) {
-    deletingUserId.value = id;
+const deleteUser = async (user) => {
+  if (confirm(`Delete user "${user.username}"?`)) {
+    deletingUserId.value = user.id;
     try {
-      await axios.delete(`/api/admin/users/${id}`);
+      await axios.delete(`/api/admin/users/${user.id}`);
       fetchUsers();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Deletion failed.');
