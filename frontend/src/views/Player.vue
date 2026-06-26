@@ -78,8 +78,8 @@
                 </router-link>
               </li>
               <li class="replay-item">
-                <button @click="replayScene" class="replay-button" aria-label="Replay current scene (R shortcut)">
-                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                <button @click="replayScene" class="replay-button" aria-label="Replay current scene (R or 0 shortcut)">
+                  <span class="shortcut-hint" aria-hidden="true">[R/0]</span>
                   Replay Scene
                 </button>
               </li>
@@ -245,6 +245,7 @@ const handleKeydown = (e) => {
       }
       break;
     case 'r':
+    case '0':
       e.preventDefault();
       replayScene();
       break;
@@ -274,6 +275,22 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
+      break;
+    case 'arrowup':
+      e.preventDefault();
+      videoPlayer.value.volume = Math.min(1, videoPlayer.value.volume + 0.1);
+      break;
+    case 'arrowdown':
+      e.preventDefault();
+      videoPlayer.value.volume = Math.max(0, videoPlayer.value.volume - 0.1);
+      break;
+    case '[':
+      e.preventDefault();
+      videoPlayer.value.playbackRate = Math.max(0.25, videoPlayer.value.playbackRate - 0.25);
+      break;
+    case ']':
+      e.preventDefault();
+      videoPlayer.value.playbackRate = Math.min(4, videoPlayer.value.playbackRate + 0.25);
       break;
     case '1':
     case '2':
