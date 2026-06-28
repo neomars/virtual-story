@@ -216,7 +216,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, provide } from 'vue';
+import { ref, onMounted, provide, computed } from 'vue';
 import axios from 'axios';
 import SceneNode from '../../components/SceneNode.vue';
 
