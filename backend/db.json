@@ -9,13 +9,38 @@
   "parts": [],
   "scenes": [
     {
-      "title": "Scene 1",
-      "video_path": "v1",
-      "thumbnail_path": "t1",
-      "id": 1
+      "title": "Introduction",
+      "video_path": "/uploads/video1.mp4",
+      "thumbnail_path": "/uploads/thumb1.png",
+      "id": 2
+    },
+    {
+      "title": "The Left Path",
+      "video_path": "/uploads/video2.mp4",
+      "thumbnail_path": "/uploads/thumb2.png",
+      "id": 3
+    },
+    {
+      "title": "The Right Path",
+      "video_path": "/uploads/video3.mp4",
+      "thumbnail_path": "/uploads/thumb3.png",
+      "id": 4
     }
   ],
-  "choices": [],
+  "choices": [
+    {
+      "source_scene_id": 1,
+      "destination_scene_id": 2,
+      "choice_text": "Go Left",
+      "id": 1
+    },
+    {
+      "source_scene_id": 1,
+      "destination_scene_id": 3,
+      "choice_text": "Go Right",
+      "id": 2
+    }
+  ],
   "settings": [
     {
       "setting_key": "player_background",
