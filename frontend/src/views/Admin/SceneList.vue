@@ -67,6 +67,52 @@
     <!-- Section de Gestion des Parties -->
     <div class="settings-section">
       <div class="section-header">
+        <h2>Bulk Import Videos</h2>
+        <button @click="fetchUnusedVideos" class="button secondary-btn mini" :disabled="isLoadingUnused">
+          {{ isLoadingUnused ? 'Loading...' : 'Refresh available videos' }}
+        </button>
+      </div>
+      <p class="instruction-text">Import multiple videos at once. Titles will be generated from filenames and thumbnails will be created automatically.</p>
+
+      <div v-if="unusedVideos.length > 0" class="bulk-import-container">
+        <div class="bulk-controls">
+          <label>
+            <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll"> Select All
+          </label>
+          <div class="import-options">
+            <label for="bulk-part">Assign to chapter:</label>
+            <select id="bulk-part" v-model="bulkImportData.part_id">
+              <option :value="null">None</option>
+              <option v-for="p in parts" :key="p.id" :value="p.id">{{ p.title }}</option>
+            </select>
+          </div>
+          <button @click="bulkImport" class="button" :disabled="selectedUnusedVideos.length === 0 || isBulkImporting">
+            {{ isBulkImporting ? 'Importing...' : 'Import Selected (' + selectedUnusedVideos.length + ')' }}
+          </button>
+        </div>
+
+        <div class="unused-videos-grid">
+          <div v-for="file in unusedVideos" :key="file.video"
+               class="video-selection-card"
+               :class="{ selected: selectedUnusedVideos.includes(file.video) }"
+               @click="toggleVideoSelection(file.video)">
+            <input type="checkbox" :checked="selectedUnusedVideos.includes(file.video)" @click.stop="toggleVideoSelection(file.video)">
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb">
+            <span class="selection-title" :title="file.video">{{ file.video }}</span>
+          </div>
+        </div>
+      </div>
+      <div v-else class="empty-state-compact">
+        No new videos found in uploads folder.
+      </div>
+      <p v-if="bulkImportStatus" class="status-success" role="status">{{ bulkImportStatus }}</p>
+    </div>
+
+    <hr class="separator" />
+
+    <!-- Section de Gestion des Parties -->
+    <div class="settings-section">
+      <div class="section-header">
         <h2>Chapters Management (Parts) <span v-if="reorderStatus" class="badge-video">{{ reorderStatus }}</span></h2>
         <button @click="syncDatabase" class="button sync-button" :disabled="isSyncing">
           {{ isSyncing ? 'Syncing...' : 'Sync Database' }}
@@ -199,6 +245,71 @@ const existingPartFiles = ref([]);
 const showExistingParts = ref(false);
 const isSyncing = ref(false);
 const isUploadingBackground = ref(false);
+const unusedVideos = ref([]);
+const selectedUnusedVideos = ref([]);
+const isLoadingUnused = ref(false);
+const isBulkImporting = ref(false);
+const bulkImportStatus = ref('');
+const bulkImportData = ref({ part_id: null });
+
+const isAllSelected = computed(() => {
+  return unusedVideos.value.length > 0 && selectedUnusedVideos.value.length === unusedVideos.value.length;
+});
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedUnusedVideos.value = [];
+  } else {
+    selectedUnusedVideos.value = unusedVideos.value.map(v => v.video);
+  }
+};
+
+const toggleVideoSelection = (filename) => {
+  const index = selectedUnusedVideos.value.indexOf(filename);
+  if (index > -1) {
+    selectedUnusedVideos.value.splice(index, 1);
+  } else {
+    selectedUnusedVideos.value.push(filename);
+  }
+};
+
+const fetchUnusedVideos = async () => {
+  isLoadingUnused.value = true;
+  try {
+    const res = await axios.get('/api/scenes/uploads');
+    unusedVideos.value = res.data;
+    // Clear selection of videos that are no longer available
+    selectedUnusedVideos.value = selectedUnusedVideos.value.filter(v =>
+      unusedVideos.value.some(uv => uv.video === v)
+    );
+  } catch (err) {
+    console.error('Failed to fetch unused videos:', err);
+  } finally {
+    isLoadingUnused.value = false;
+  }
+};
+
+const bulkImport = async () => {
+  if (selectedUnusedVideos.value.length === 0) return;
+  isBulkImporting.value = true;
+  bulkImportStatus.value = '';
+  try {
+    const res = await axios.post('/api/scenes/bulk-import', {
+      filenames: selectedUnusedVideos.value,
+      part_id: bulkImportData.value.part_id
+    });
+    bulkImportStatus.value = res.data.message;
+    selectedUnusedVideos.value = [];
+    fetchUnusedVideos();
+    fetchStoryGraph();
+    fetchAllScenes();
+  } catch (err) {
+    console.error('Bulk import error:', err);
+    alert('Bulk import failed: ' + (err.response?.data?.message || err.message));
+  } finally {
+    isBulkImporting.value = false;
+  }
+};
 const isCreatingPart = ref(false);
 const isUpdatingPart = ref(false);
 const deletingPartId = ref(null);
@@ -424,6 +535,7 @@ onMounted(() => {
   fetchParts();
   fetchAllScenes();
   fetchExistingPartFiles();
+  fetchUnusedVideos();
 });
 </script>
 
