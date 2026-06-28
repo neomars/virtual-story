@@ -18,13 +18,50 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
+const libraryStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, videosDir),
+  filename: (req, file, cb) => {
+    // Preserve original filename for library uploads
+    cb(null, file.originalname);
+  }
+});
+
+const libraryUpload = multer({ storage: libraryStorage, fileFilter: videoFileFilter });
+
+router.post('/upload-library', isAuthenticated, libraryUpload.single('video'), async (req, res) => {
+  if (!req.file) return res.status(400).send({ message: 'No video file provided.' });
+
+  try {
+    const basename = path.parse(req.file.filename).name;
+    const thumbnailName = `thumb-${basename}.png`;
+    const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
+
+    // Generate thumbnail immediately
+    await processVideoAndThumbnail(req.file.path, null, null, thumbnailPath);
+
+    res.status(201).send({
+      message: 'Video uploaded to library successfully.',
+      filename: req.file.filename,
+      thumbnail: `/thumbnails/${thumbnailName}`
+    });
+  } catch (error) {
+    console.error('[LIBRARY-UPLOAD] Error:', error);
+    res.status(500).send({ message: 'Failed to process library upload: ' + error.message });
+  }
+});
+
 router.get('/uploads', isAuthenticated, async (req, res) => {
   try {
+    const [scenes] = await dbPool.query('SELECT video_path FROM scenes');
+    const usedVideos = scenes.map(s => path.basename(s.video_path));
+
     const files = await fs.readdir(videosDir);
     const result = [];
     for (const file of files) {
       const ext = path.extname(file).toLowerCase();
       if (['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext)) {
+        if (usedVideos.includes(file)) continue;
+
         const basename = path.parse(file).name;
         const thumbnailName = `thumb-${basename}.png`;
         const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
@@ -32,7 +69,9 @@ router.get('/uploads', isAuthenticated, async (req, res) => {
         try {
           await fs.access(thumbnailPath);
           hasThumbnail = true;
-        } catch (e) {}
+        } catch (e) {
+          // Metadata only - no sync generation here
+        }
 
         result.push({
           video: file,
@@ -55,6 +94,51 @@ router.get('/', isAuthenticated, async (req, res) => {
     console.error('Database error:', dbError);
     res.status(500).send({ message: 'Failed to retrieve scenes.' });
   }
+});
+
+router.post('/bulk-import', isAuthenticated, async (req, res) => {
+  const { filenames, part_id } = req.body;
+  if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+    return res.status(400).send({ message: 'No filenames provided for bulk import.' });
+  }
+
+  const results = [];
+  const errors = [];
+
+  for (const videoFilename of filenames) {
+    try {
+      const videoFilePath = path.join(videosDir, videoFilename);
+      await fs.access(videoFilePath);
+
+      const basename = path.parse(videoFilename).name;
+      const title = basename.replace(/_/g, ' ').replace(/-/g, ' ');
+      const thumbnailFilename = `thumb-${basename}.png`;
+      const thumbnailFullPath = path.join(thumbnailsDir, thumbnailFilename);
+
+      // Process video (generate thumbnail if missing)
+      await processVideoAndThumbnail(videoFilePath, null, null, thumbnailFullPath);
+
+      const videoUrl = `/videos/${videoFilename}`;
+      const thumbnailUrl = `/thumbnails/${thumbnailFilename}`;
+      const actualPartId = (!part_id || part_id === 'null' || part_id === 'undefined') ? null : part_id;
+
+      const [result] = await dbPool.query(
+        'INSERT INTO scenes (title, video_path, thumbnail_path, part_id) VALUES (?, ?, ?, ?)',
+        [title, videoUrl, thumbnailUrl, actualPartId]
+      );
+
+      results.push({ id: result.insertId, title });
+    } catch (error) {
+      console.error(`[BULK-IMPORT] Error processing ${videoFilename}:`, error);
+      errors.push({ filename: videoFilename, message: error.message });
+    }
+  }
+
+  res.status(207).send({
+    message: `Bulk import completed with ${results.length} successes and ${errors.length} errors.`,
+    results,
+    errors
+  });
 });
 
 router.post('/', isAuthenticated, (req, res, next) => {

@@ -157,6 +157,37 @@ router.get('/scenes/:id/relations', isAuthenticated, async (req, res) => {
   }
 });
 
+router.post('/generate-thumbnails', isAuthenticated, async (req, res) => {
+  try {
+    const { videosDir, thumbnailsDir } = require('../utils/config');
+    const { processVideoAndThumbnail } = require('../utils/videoUtils');
+    const fs = require('fs').promises;
+    const path = require('path');
+
+    const files = await fs.readdir(videosDir);
+    let count = 0;
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase();
+      if (['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(ext)) {
+        const basename = path.parse(file).name;
+        const thumbnailPath = path.join(thumbnailsDir, `thumb-${basename}.png`);
+        try {
+          await fs.access(thumbnailPath);
+        } catch (e) {
+          // Thumbnail missing, generate it
+          const videoPath = path.join(videosDir, file);
+          await processVideoAndThumbnail(videoPath, null, null, thumbnailPath);
+          count++;
+        }
+      }
+    }
+    res.send({ message: `${count} thumbnails generated.` });
+  } catch (error) {
+    console.error('Failed to generate thumbnails:', error);
+    res.status(500).send({ message: 'Failed to generate thumbnails.' });
+  }
+});
+
 router.get('/story-graph', isAuthenticated, async (req, res) => {
   try {
     const [scenes] = await dbPool.query('SELECT s.*, p.title AS part_title FROM scenes s LEFT JOIN parts p ON s.part_id = p.id');

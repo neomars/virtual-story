@@ -8,7 +8,7 @@
     </p>
     <p>
       Or, you can manage the story content in the
-      <router-link to="/admin">admin panel</router-link>.
+      <router-link to="/admin/scenes">admin panel</router-link>.
     </p>
   </div>
 </template>
