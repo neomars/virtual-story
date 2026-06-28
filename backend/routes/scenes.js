@@ -18,6 +18,38 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage, fileFilter: videoFileFilter });
 
+const libraryStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, videosDir),
+  filename: (req, file, cb) => {
+    // Preserve original filename for library uploads
+    cb(null, file.originalname);
+  }
+});
+
+const libraryUpload = multer({ storage: libraryStorage, fileFilter: videoFileFilter });
+
+router.post('/upload-library', isAuthenticated, libraryUpload.single('video'), async (req, res) => {
+  if (!req.file) return res.status(400).send({ message: 'No video file provided.' });
+
+  try {
+    const basename = path.parse(req.file.filename).name;
+    const thumbnailName = `thumb-${basename}.png`;
+    const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
+
+    // Generate thumbnail immediately
+    await processVideoAndThumbnail(req.file.path, null, null, thumbnailPath);
+
+    res.status(201).send({
+      message: 'Video uploaded to library successfully.',
+      filename: req.file.filename,
+      thumbnail: `/thumbnails/${thumbnailName}`
+    });
+  } catch (error) {
+    console.error('[LIBRARY-UPLOAD] Error:', error);
+    res.status(500).send({ message: 'Failed to process library upload: ' + error.message });
+  }
+});
+
 router.get('/uploads', isAuthenticated, async (req, res) => {
   try {
     const [scenes] = await dbPool.query('SELECT video_path FROM scenes');
@@ -37,7 +69,9 @@ router.get('/uploads', isAuthenticated, async (req, res) => {
         try {
           await fs.access(thumbnailPath);
           hasThumbnail = true;
-        } catch (e) {}
+        } catch (e) {
+          // Metadata only - no sync generation here
+        }
 
         result.push({
           video: file,

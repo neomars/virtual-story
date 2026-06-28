@@ -68,9 +68,18 @@
     <div class="settings-section">
       <div class="section-header">
         <h2>Bulk Import Videos</h2>
-        <button @click="fetchUnusedVideos" class="button secondary-btn mini" :disabled="isLoadingUnused">
-          {{ isLoadingUnused ? 'Loading...' : 'Refresh available videos' }}
-        </button>
+        <div class="header-actions">
+          <label for="library-upload" class="button secondary-btn mini" :class="{ disabled: isUploadingToLibrary }">
+            {{ isUploadingToLibrary ? 'Uploading...' : 'Upload to Library' }}
+          </label>
+          <input id="library-upload" type="file" @change="uploadToLibrary" accept="video/mp4" class="sr-only" :disabled="isUploadingToLibrary" />
+          <button @click="generateMissingThumbnails" class="button secondary-btn mini" :disabled="isGeneratingThumbs">
+            {{ isGeneratingThumbStatus || 'Gen. Thumbnails' }}
+          </button>
+          <button @click="fetchUnusedVideos" class="button secondary-btn mini" :disabled="isLoadingUnused">
+            {{ isLoadingUnused ? 'Loading...' : 'Refresh' }}
+          </button>
+        </div>
       </div>
       <p class="instruction-text">Import multiple videos at once. Titles will be generated from filenames and thumbnails will be created automatically.</p>
 
@@ -249,6 +258,9 @@ const unusedVideos = ref([]);
 const selectedUnusedVideos = ref([]);
 const isLoadingUnused = ref(false);
 const isBulkImporting = ref(false);
+const isUploadingToLibrary = ref(false);
+const isGeneratingThumbs = ref(false);
+const isGeneratingThumbStatus = ref('');
 const bulkImportStatus = ref('');
 const bulkImportData = ref({ part_id: null });
 
@@ -286,6 +298,48 @@ const fetchUnusedVideos = async () => {
     console.error('Failed to fetch unused videos:', err);
   } finally {
     isLoadingUnused.value = false;
+  }
+};
+
+const uploadToLibrary = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  isUploadingToLibrary.value = true;
+  bulkImportStatus.value = 'Uploading video to library...';
+
+  const formData = new FormData();
+  formData.append('video', file);
+
+  try {
+    await axios.post('/api/scenes/upload-library', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    bulkImportStatus.value = 'Video uploaded successfully!';
+    fetchUnusedVideos();
+  } catch (err) {
+    console.error('Library upload error:', err);
+    alert('Failed to upload to library: ' + (err.response?.data?.message || err.message));
+    bulkImportStatus.value = '';
+  } finally {
+    isUploadingToLibrary.value = false;
+    event.target.value = ''; // Reset file input
+  }
+};
+
+const generateMissingThumbnails = async () => {
+  isGeneratingThumbs.value = true;
+  isGeneratingThumbStatus.value = 'Generating...';
+  try {
+    const res = await axios.post('/api/admin/generate-thumbnails');
+    alert(res.data.message);
+    fetchUnusedVideos();
+  } catch (err) {
+    console.error('Thumbnail generation error:', err);
+    alert('Failed to generate thumbnails.');
+  } finally {
+    isGeneratingThumbs.value = false;
+    isGeneratingThumbStatus.value = '';
   }
 };
 
