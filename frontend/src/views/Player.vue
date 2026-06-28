@@ -282,7 +282,7 @@ const handleKeydown = (e) => {
     case ']':
       e.preventDefault();
       if (videoPlayer.value) {
-        videoPlayer.value.playbackRate = Math.min(2, videoPlayer.value.playbackRate + 0.25);
+        videoPlayer.value.playbackRate = Math.min(4, videoPlayer.value.playbackRate + 0.25);
       }
       break;
     case ' ':
@@ -311,22 +311,6 @@ const handleKeydown = (e) => {
     case 'l':
       e.preventDefault();
       videoPlayer.value.currentTime = Math.min(videoPlayer.value.duration, videoPlayer.value.currentTime + 10);
-      break;
-    case 'arrowup':
-      e.preventDefault();
-      videoPlayer.value.volume = Math.min(1, videoPlayer.value.volume + 0.1);
-      break;
-    case 'arrowdown':
-      e.preventDefault();
-      videoPlayer.value.volume = Math.max(0, videoPlayer.value.volume - 0.1);
-      break;
-    case '[':
-      e.preventDefault();
-      videoPlayer.value.playbackRate = Math.max(0.25, videoPlayer.value.playbackRate - 0.25);
-      break;
-    case ']':
-      e.preventDefault();
-      videoPlayer.value.playbackRate = Math.min(4, videoPlayer.value.playbackRate + 0.25);
       break;
     case '1':
     case '2':
