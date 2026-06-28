@@ -50,7 +50,14 @@
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
-          <button v-if="!showChoices" ref="skipButton" @click="onVideoEnd" class="skip-button" aria-label="Skip scene (S shortcut)">
+          <button
+            v-if="!showChoices"
+            ref="skipButton"
+            @click="onVideoEnd"
+            class="skip-button"
+            aria-label="Skip scene (S shortcut)"
+            title="Skip scene (S shortcut)"
+          >
             <span class="shortcut-hint" aria-hidden="true">[S]</span> Skip Scene
           </button>
         </div>
@@ -78,8 +85,13 @@
                 </router-link>
               </li>
               <li class="replay-item">
-                <button @click="replayScene" class="replay-button" aria-label="Replay current scene (R shortcut)">
-                  <span class="shortcut-hint" aria-hidden="true">[R]</span>
+                <button
+                  @click="replayScene"
+                  class="replay-button"
+                  aria-label="Replay current scene (R or 0 shortcut)"
+                  title="Replay current scene (R or 0 shortcut)"
+                >
+                  <span class="shortcut-hint" aria-hidden="true">[R/0]</span>
                   Replay Scene
                 </button>
               </li>
@@ -245,8 +257,33 @@ const handleKeydown = (e) => {
       }
       break;
     case 'r':
+    case '0':
       e.preventDefault();
       replayScene();
+      break;
+    case 'arrowup':
+      e.preventDefault();
+      if (videoPlayer.value) {
+        videoPlayer.value.volume = Math.min(1, videoPlayer.value.volume + 0.1);
+      }
+      break;
+    case 'arrowdown':
+      e.preventDefault();
+      if (videoPlayer.value) {
+        videoPlayer.value.volume = Math.max(0, videoPlayer.value.volume - 0.1);
+      }
+      break;
+    case '[':
+      e.preventDefault();
+      if (videoPlayer.value) {
+        videoPlayer.value.playbackRate = Math.max(0.25, videoPlayer.value.playbackRate - 0.25);
+      }
+      break;
+    case ']':
+      e.preventDefault();
+      if (videoPlayer.value) {
+        videoPlayer.value.playbackRate = Math.min(2, videoPlayer.value.playbackRate + 0.25);
+      }
       break;
     case ' ':
     case 'k':
