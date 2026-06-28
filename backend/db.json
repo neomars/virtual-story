@@ -9,36 +9,42 @@
   "parts": [],
   "scenes": [
     {
+      "id": 1,
       "title": "Introduction",
-      "video_path": "/uploads/video1.mp4",
-      "thumbnail_path": "/uploads/thumb1.png",
-      "id": 2
+      "video_path": "/videos/video1.mp4",
+      "thumbnail_path": "/thumbnails/thumb1.png",
+      "part_id": null,
+      "created_at": "2026-06-28T21:00:00.000Z"
     },
     {
+      "id": 2,
       "title": "The Left Path",
-      "video_path": "/uploads/video2.mp4",
-      "thumbnail_path": "/uploads/thumb2.png",
-      "id": 3
+      "video_path": "/videos/video2.mp4",
+      "thumbnail_path": "/thumbnails/thumb2.png",
+      "part_id": null,
+      "created_at": "2026-06-28T21:01:00.000Z"
     },
     {
+      "id": 3,
       "title": "The Right Path",
-      "video_path": "/uploads/video3.mp4",
-      "thumbnail_path": "/uploads/thumb3.png",
-      "id": 4
+      "video_path": "/videos/video3.mp4",
+      "thumbnail_path": "/thumbnails/thumb3.png",
+      "part_id": null,
+      "created_at": "2026-06-28T21:02:00.000Z"
     }
   ],
   "choices": [
     {
+      "id": 1,
       "source_scene_id": 1,
       "destination_scene_id": 2,
-      "choice_text": "Go Left",
-      "id": 1
+      "choice_text": "Go Left"
     },
     {
+      "id": 2,
       "source_scene_id": 1,
       "destination_scene_id": 3,
-      "choice_text": "Go Right",
-      "id": 2
+      "choice_text": "Go Right"
     }
   ],
   "settings": [

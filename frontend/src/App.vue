@@ -19,7 +19,7 @@
         </div>
       </div>
       <nav>
-        <router-link to="/player/1">Player</router-link>
+        <router-link :to="parts.length > 0 ? `/player/${parts[0].first_scene_id}` : '/player/1'">Player</router-link>
         <router-link to="/admin/scenes" @click="handleAdminClick">Admin</router-link>
         <button v-if="isAuthenticated" @click="handleLogout" class="logout-link">Logout ({{ currentUser?.username }})</button>
       </nav>
