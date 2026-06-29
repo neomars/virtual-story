@@ -58,7 +58,8 @@
         <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
         <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
         <div v-else class="existing-videos-grid">
-          <button type="button" v-for="file in existingFiles" :key="file.video"
+          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+          <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
                @click="selectExistingVideo(file.video)"
@@ -146,7 +147,8 @@
             <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
               <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
               <div v-else class="existing-videos-grid">
-                <button type="button" v-for="file in existingFiles" :key="file.video"
+                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+                <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"
                      @click="selectExistingVideo(file.video)"
@@ -277,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -294,6 +296,17 @@ const videoFile = ref(null);
 const allScenes = ref([]);
 const existingFiles = ref([]);
 const showExisting = ref(false);
+const videoSearch = ref('');
+const videoSearchInput = ref(null);
+
+const filteredExistingFiles = computed(() => {
+  if (!videoSearch.value) return existingFiles.value;
+  const search = videoSearch.value.toLowerCase();
+  return existingFiles.value.filter(file =>
+    file.video.toLowerCase().includes(search)
+  );
+});
+
 const newChoice = ref({ choice_text: '', destination_scene_id: '' });
 const newParentLink = ref({ source_scene_id: '', choice_text: '' });
 const quickAdd = ref({ title: '', choice_text: '', video: null });
@@ -593,6 +606,15 @@ watch(() => props.id, () => {
     isPlayingPreview.value = false;
     fetchSceneData();
     fetchAllScenes();
+});
+
+watch(showExisting, (newVal) => {
+  if (newVal) {
+    videoSearch.value = '';
+    nextTick(() => {
+      videoSearchInput.value?.focus();
+    });
+  }
 });
 
 </script>
