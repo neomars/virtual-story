@@ -70,9 +70,9 @@
         <h2>Bulk Import Videos</h2>
         <div class="header-actions">
           <label for="library-upload" class="button secondary-btn mini" :class="{ disabled: isUploadingToLibrary }">
-            {{ isUploadingToLibrary ? 'Uploading...' : 'Upload to Library' }}
+            {{ isUploadingToLibrary ? 'Uploading...' : 'Upload to Library (Multiple)' }}
           </label>
-          <input id="library-upload" type="file" @change="uploadToLibrary" accept="video/mp4" class="sr-only" :disabled="isUploadingToLibrary" />
+          <input id="library-upload" type="file" @change="uploadToLibrary" accept="video/mp4" class="sr-only" :disabled="isUploadingToLibrary" multiple />
           <button @click="generateMissingThumbnails" class="button secondary-btn mini" :disabled="isGeneratingThumbs">
             {{ isGeneratingThumbStatus || 'Gen. Thumbnails' }}
           </button>
@@ -302,20 +302,22 @@ const fetchUnusedVideos = async () => {
 };
 
 const uploadToLibrary = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
 
   isUploadingToLibrary.value = true;
-  bulkImportStatus.value = 'Uploading video to library...';
+  bulkImportStatus.value = `Uploading ${files.length} video(s) to library...`;
 
   const formData = new FormData();
-  formData.append('video', file);
+  for (let i = 0; i < files.length; i++) {
+    formData.append('videos', files[i]);
+  }
 
   try {
-    await axios.post('/api/scenes/upload-library', formData, {
+    const res = await axios.post('/api/scenes/upload-library', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    bulkImportStatus.value = 'Video uploaded successfully!';
+    bulkImportStatus.value = res.data.message;
     fetchUnusedVideos();
   } catch (err) {
     console.error('Library upload error:', err);

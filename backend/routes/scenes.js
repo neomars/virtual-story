@@ -28,26 +28,36 @@ const libraryStorage = multer.diskStorage({
 
 const libraryUpload = multer({ storage: libraryStorage, fileFilter: videoFileFilter });
 
-router.post('/upload-library', isAuthenticated, libraryUpload.single('video'), async (req, res) => {
-  if (!req.file) return res.status(400).send({ message: 'No video file provided.' });
+router.post('/upload-library', isAuthenticated, libraryUpload.array('videos'), async (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).send({ message: 'No video files provided.' });
 
-  try {
-    const basename = path.parse(req.file.filename).name;
-    const thumbnailName = `thumb-${basename}.png`;
-    const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
+  const results = [];
+  const errors = [];
 
-    // Generate thumbnail immediately
-    await processVideoAndThumbnail(req.file.path, null, null, thumbnailPath);
+  for (const file of req.files) {
+    try {
+      const basename = path.parse(file.filename).name;
+      const thumbnailName = `thumb-${basename}.png`;
+      const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
 
-    res.status(201).send({
-      message: 'Video uploaded to library successfully.',
-      filename: req.file.filename,
-      thumbnail: `/thumbnails/${thumbnailName}`
-    });
-  } catch (error) {
-    console.error('[LIBRARY-UPLOAD] Error:', error);
-    res.status(500).send({ message: 'Failed to process library upload: ' + error.message });
+      // Generate thumbnail immediately
+      await processVideoAndThumbnail(file.path, null, null, thumbnailPath);
+
+      results.push({
+        filename: file.filename,
+        thumbnail: `/thumbnails/${thumbnailName}`
+      });
+    } catch (error) {
+      console.error(`[LIBRARY-UPLOAD] Error processing ${file.filename}:`, error);
+      errors.push({ filename: file.filename, message: error.message });
+    }
   }
+
+  res.status(207).send({
+    message: `Library upload completed with ${results.length} successes and ${errors.length} errors.`,
+    results,
+    errors
+  });
 });
 
 router.get('/uploads', isAuthenticated, async (req, res) => {
