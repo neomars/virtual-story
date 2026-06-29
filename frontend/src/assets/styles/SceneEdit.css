@@ -238,6 +238,22 @@ input[type="text"], select {
   background-color: #dc2626;
 }
 
+.media-search-input {
+  grid-column: 1 / -1;
+  margin-bottom: 0.5rem;
+  padding: 0.6rem;
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: white;
+  width: 100%;
+}
+
+.media-search-input:focus {
+  outline: none;
+  border-color: #42b983;
+}
+
 .existing-videos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
