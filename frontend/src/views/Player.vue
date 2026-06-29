@@ -282,7 +282,7 @@ const handleKeydown = (e) => {
     case ']':
       e.preventDefault();
       if (videoPlayer.value) {
-        videoPlayer.value.playbackRate = Math.min(2, videoPlayer.value.playbackRate + 0.25);
+        videoPlayer.value.playbackRate = Math.min(4, videoPlayer.value.playbackRate + 0.25);
       }
       break;
     case ' ':
