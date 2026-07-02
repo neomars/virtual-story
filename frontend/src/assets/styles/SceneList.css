@@ -292,6 +292,11 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
   background-color: #333;
 }
 
+.video-selection-card:focus-within {
+  outline: 2px solid #42b983;
+  outline-offset: 4px;
+}
+
 .video-selection-card input[type="checkbox"] {
   position: absolute;
   top: 5px;

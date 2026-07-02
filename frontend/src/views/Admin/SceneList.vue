@@ -101,14 +101,16 @@
         </div>
 
         <div class="unused-videos-grid">
-          <div v-for="file in unusedVideos" :key="file.video"
+          <label v-for="file in unusedVideos" :key="file.video"
                class="video-selection-card"
-               :class="{ selected: selectedUnusedVideos.includes(file.video) }"
-               @click="toggleVideoSelection(file.video)">
-            <input type="checkbox" :checked="selectedUnusedVideos.includes(file.video)" @click.stop="toggleVideoSelection(file.video)">
-            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb">
+               :class="{ selected: selectedUnusedVideos.includes(file.video) }">
+            <input type="checkbox"
+                   :checked="selectedUnusedVideos.includes(file.video)"
+                   @change="toggleVideoSelection(file.video)"
+                   :aria-label="'Select video: ' + file.video">
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="" aria-hidden="true" class="selection-thumb">
             <span class="selection-title" :title="file.video">{{ file.video }}</span>
-          </div>
+          </label>
         </div>
       </div>
       <div v-else class="empty-state-compact">
@@ -318,6 +320,7 @@ const uploadToLibrary = async (event) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     bulkImportStatus.value = res.data.message;
+    setTimeout(() => { bulkImportStatus.value = ''; }, 5000);
     fetchUnusedVideos();
   } catch (err) {
     console.error('Library upload error:', err);
@@ -355,6 +358,7 @@ const bulkImport = async () => {
       part_id: bulkImportData.value.part_id
     });
     bulkImportStatus.value = res.data.message;
+    setTimeout(() => { bulkImportStatus.value = ''; }, 5000);
     selectedUnusedVideos.value = [];
     fetchUnusedVideos();
     fetchStoryGraph();
