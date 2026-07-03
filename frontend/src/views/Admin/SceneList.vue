@@ -101,14 +101,18 @@
         </div>
 
         <div class="unused-videos-grid">
-          <div v-for="file in unusedVideos" :key="file.video"
+          <label v-for="file in unusedVideos" :key="file.video"
                class="video-selection-card"
-               :class="{ selected: selectedUnusedVideos.includes(file.video) }"
-               @click="toggleVideoSelection(file.video)">
-            <input type="checkbox" :checked="selectedUnusedVideos.includes(file.video)" @click.stop="toggleVideoSelection(file.video)">
-            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb">
+               :class="{ selected: selectedUnusedVideos.includes(file.video) }">
+            <input
+              type="checkbox"
+              v-model="selectedUnusedVideos"
+              :value="file.video"
+              :aria-label="'Select video: ' + file.video"
+            >
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" :alt="'Thumbnail for ' + file.video" class="selection-thumb">
             <span class="selection-title" :title="file.video">{{ file.video }}</span>
-          </div>
+          </label>
         </div>
       </div>
       <div v-else class="empty-state-compact">
@@ -273,15 +277,6 @@ const toggleSelectAll = () => {
     selectedUnusedVideos.value = [];
   } else {
     selectedUnusedVideos.value = unusedVideos.value.map(v => v.video);
-  }
-};
-
-const toggleVideoSelection = (filename) => {
-  const index = selectedUnusedVideos.value.indexOf(filename);
-  if (index > -1) {
-    selectedUnusedVideos.value.splice(index, 1);
-  } else {
-    selectedUnusedVideos.value.push(filename);
   }
 };
 

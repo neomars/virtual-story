@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-29 - Semantic Selection Grids for Bulk Operations
+**Learning:** Using non-semantic `div` elements for selection cards in administrative grids prevents keyboard interaction and hides the interactive state from assistive technologies. Converting these containers to `<label>` elements that wrap a checkbox provides a large, native hit target and simplifies state management via `v-model`.
+**Action:** Always use `<label>` wrappers for selection cards in grids and complement them with `:focus-within` CSS rules to ensure the entire card provides a visible focus indicator.
