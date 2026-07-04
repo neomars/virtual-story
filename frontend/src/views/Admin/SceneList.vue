@@ -101,14 +101,13 @@
         </div>
 
         <div class="unused-videos-grid">
-          <div v-for="file in unusedVideos" :key="file.video"
+          <label v-for="file in unusedVideos" :key="file.video"
                class="video-selection-card"
-               :class="{ selected: selectedUnusedVideos.includes(file.video) }"
-               @click="toggleVideoSelection(file.video)">
-            <input type="checkbox" :checked="selectedUnusedVideos.includes(file.video)" @click.stop="toggleVideoSelection(file.video)">
-            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb">
+               :class="{ selected: selectedUnusedVideos.includes(file.video) }">
+            <input type="checkbox" :value="file.video" v-model="selectedUnusedVideos" :aria-label="'Select ' + file.video">
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb" aria-hidden="true">
             <span class="selection-title" :title="file.video">{{ file.video }}</span>
-          </div>
+          </label>
         </div>
       </div>
       <div v-else class="empty-state-compact">
@@ -276,15 +275,6 @@ const toggleSelectAll = () => {
   }
 };
 
-const toggleVideoSelection = (filename) => {
-  const index = selectedUnusedVideos.value.indexOf(filename);
-  if (index > -1) {
-    selectedUnusedVideos.value.splice(index, 1);
-  } else {
-    selectedUnusedVideos.value.push(filename);
-  }
-};
-
 const fetchUnusedVideos = async () => {
   isLoadingUnused.value = true;
   try {
@@ -318,6 +308,7 @@ const uploadToLibrary = async (event) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     bulkImportStatus.value = res.data.message;
+    setTimeout(() => { bulkImportStatus.value = ''; }, 5000);
     fetchUnusedVideos();
   } catch (err) {
     console.error('Library upload error:', err);
@@ -334,7 +325,8 @@ const generateMissingThumbnails = async () => {
   isGeneratingThumbStatus.value = 'Generating...';
   try {
     const res = await axios.post('/api/admin/generate-thumbnails');
-    alert(res.data.message);
+    bulkImportStatus.value = res.data.message;
+    setTimeout(() => { bulkImportStatus.value = ''; }, 5000);
     fetchUnusedVideos();
   } catch (err) {
     console.error('Thumbnail generation error:', err);
@@ -355,6 +347,7 @@ const bulkImport = async () => {
       part_id: bulkImportData.value.part_id
     });
     bulkImportStatus.value = res.data.message;
+    setTimeout(() => { bulkImportStatus.value = ''; }, 5000);
     selectedUnusedVideos.value = [];
     fetchUnusedVideos();
     fetchStoryGraph();
@@ -561,6 +554,7 @@ const uploadBackground = async () => {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     uploadStatus.value = response.data.message;
+    setTimeout(() => { uploadStatus.value = ''; }, 5000);
     isSuccess.value = true;
     selectedFile.value = null;
     document.querySelector('#background-upload').value = '';
