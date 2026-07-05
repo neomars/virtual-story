@@ -8,6 +8,10 @@
       <h1>Users Management</h1>
     </div>
 
+    <p v-if="statusMessage" :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }" role="status" class="status-msg">
+      {{ statusMessage }}
+    </p>
+
     <!-- Password Change Section -->
     <section class="admin-section">
       <h2>Change my password</h2>
@@ -66,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 import axios from 'axios';
 
 const auth = inject('auth');
@@ -78,6 +82,18 @@ const newUser = ref({ username: '', password: '' });
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
 const deletingUserId = ref(null);
+const statusMessage = ref('');
+const isSuccess = ref(false);
+let statusTimeout = null;
+
+const showStatus = (msg, success = true) => {
+  statusMessage.value = msg;
+  isSuccess.value = success;
+  if (statusTimeout) clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => {
+    statusMessage.value = '';
+  }, 5000);
+};
 
 const fetchUsers = async () => {
   try {
@@ -92,10 +108,10 @@ const changePassword = async () => {
   isChangingPass.value = true;
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Password changed successfully!');
+    showStatus('Password changed successfully!');
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to change password.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to change password.', false);
   } finally {
     isChangingPass.value = false;
   }
@@ -107,8 +123,9 @@ const createUser = async () => {
     await axios.post('/api/admin/users', newUser.value);
     newUser.value = { username: '', password: '' };
     fetchUsers();
+    showStatus('User created successfully!');
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to create user.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to create user.', false);
   } finally {
     isCreatingUser.value = false;
   }
@@ -120,8 +137,9 @@ const deleteUser = async (user) => {
     try {
       await axios.delete(`/api/admin/users/${user.id}`);
       fetchUsers();
+      showStatus(`User "${user.username}" deleted.`);
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Deletion failed.');
+      showStatus(err.response?.data?.message || err.message || 'Deletion failed.', false);
     } finally {
       deletingUserId.value = null;
     }
@@ -129,6 +147,9 @@ const deleteUser = async (user) => {
 };
 
 onMounted(fetchUsers);
+onUnmounted(() => {
+  if (statusTimeout) clearTimeout(statusTimeout);
+});
 </script>
 
 <style scoped src="../../assets/styles/UserManagement.css"></style>

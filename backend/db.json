@@ -4,6 +4,21 @@
       "username": "admin",
       "password_hash": "$2b$10$d7uWctrV5/z.v.TPuunSY..PSax8ehs03TDrz0TC/Fj7oanR3v4Au",
       "id": 1
+    },
+    {
+      "username": "ayotwjyj",
+      "password_hash": "$2b$10$vkAa8FduTe1v1z3vdKSH8.Bd09/kudBF9QbUsyYHsMLWPl2jFxzxS",
+      "id": 2
+    },
+    {
+      "username": "ayotwjyj",
+      "password_hash": "$2b$10$p2kTe7wnxSs7R.w6KAa/nOsiCTs9DPfMXwNoavh4PY0rPt9aZGIYK",
+      "id": 3
+    },
+    {
+      "username": "wzmxnrum",
+      "password_hash": "$2b$10$/HBy2ZJu./X.RgaUlTpDs.nmFFFBRpQnVsbT/siHU11BfjD7ES43m",
+      "id": 4
     }
   ],
   "parts": [],
