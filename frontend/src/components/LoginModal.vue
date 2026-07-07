@@ -27,6 +27,7 @@
             aria-required="true"
             placeholder="admin"
             :disabled="isLoading"
+            autocomplete="username"
           >
         </div>
         <div class="form-group">
@@ -38,6 +39,7 @@
             required
             aria-required="true"
             :disabled="isLoading"
+            autocomplete="current-password"
           >
         </div>
         <div v-if="errorMessage" class="error-message" role="alert">
