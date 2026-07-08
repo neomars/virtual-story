@@ -8,6 +8,7 @@
         class="toggle-btn"
         :aria-expanded="isExpanded"
         :aria-label="(isExpanded ? 'Collapse ' : 'Expand ') + scene.title"
+        :title="(isExpanded ? 'Collapse ' : 'Expand ') + scene.title"
       >
         <span class="arrow" :class="{ 'is-rotated': isExpanded }" aria-hidden="true">▼</span>
       </button>
@@ -21,6 +22,7 @@
           class="button-small delete"
           :disabled="isDeleting"
           :aria-label="'Delete scene: ' + scene.title"
+          :title="'Delete scene: ' + scene.title"
         >
           {{ isDeleting ? 'Deleting...' : 'Delete' }}
         </button>
@@ -28,11 +30,13 @@
           :to="`/admin/scenes/${scene.id}/edit`"
           class="button-small edit"
           :aria-label="'Edit scene: ' + scene.title"
+          :title="'Edit scene: ' + scene.title"
         >Edit</router-link>
         <router-link
           :to="`/player/${scene.id}`"
           class="button-small view"
           :aria-label="'View scene in player: ' + scene.title"
+          :title="'View scene in player: ' + scene.title"
         >View</router-link>
       </div>
     </div>

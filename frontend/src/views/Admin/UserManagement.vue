@@ -3,7 +3,7 @@
   <div class="user-management">
     <div class="header-container">
       <router-link to="/admin/scenes" class="back-link">
-        <span aria-hidden="true">&larr;</span> Back to Graph
+        <span aria-hidden="true">&larr;</span> Back to Story
       </router-link>
       <h1>Users Management</h1>
     </div>
