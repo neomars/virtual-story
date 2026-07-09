@@ -1,0 +1,17 @@
+Starting Virtual Story...
+Starting Backend on http://localhost:3000...
+Starting Frontend on http://localhost:5173...
+Both servers are starting.
+- Backend: http://localhost:3000
+- Frontend: http://localhost:5173
+Press Ctrl+C to stop both.
+Server is running on http://localhost:3000 and listening on all interfaces.
+Port 5173 is in use, trying another one...
+
+  VITE v7.3.1  ready in 706 ms
+
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: use --host to expose
+  ➜  Vue DevTools: Open http://localhost:5174/__devtools__/ as a separate window
+  ➜  Vue DevTools: Press Alt(⌥)+Shif11:33:43 AM [vite] (client) hmr update /src/views/Admin/UserManagement.vue
+11:34:48 AM [vite] (client) hmr update /src/views/Admin/UserManagement.vue
