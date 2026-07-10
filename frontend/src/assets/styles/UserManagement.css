@@ -138,9 +138,48 @@
   cursor: pointer;
   padding: 0.2rem 0.5rem;
   font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.button-delete:hover:not(:disabled) {
+  background-color: #dc2626;
 }
 
 .button-delete:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* Status Messages */
+.status-success, .status-error {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  margin: 0;
+  border: 1px solid transparent;
+}
+
+.status-success {
+  background-color: rgba(66, 185, 131, 0.15);
+  color: #52c993; /* Lighter green for better contrast on dark */
+  border-color: rgba(66, 185, 131, 0.3);
+  font-weight: 500;
+}
+
+.status-error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ff5f5f; /* Lighter red for better contrast on dark */
+  border-color: rgba(239, 68, 68, 0.3);
+  font-weight: 500;
+}
+
+/* Transition de fondu (fade) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
