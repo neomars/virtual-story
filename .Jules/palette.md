@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-06-05 - Color Contrast for Transient Status Messages
+**Learning:** When implementing status feedback on dark backgrounds, using tinted variants of brand colors (e.g., #52c993) often fails WCAG AA contrast requirements. Solid, high-contrast brand colors (e.g., #42b983 for success and #ef4444 for error) are required to ensure legibility and accessibility.
+**Action:** Always verify color contrast against the theme's background color when introducing new status indicators.

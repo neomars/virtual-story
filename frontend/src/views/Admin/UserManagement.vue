@@ -6,6 +6,11 @@
         <span aria-hidden="true">&larr;</span> Back to Graph
       </router-link>
       <h1>Users Management</h1>
+      <Transition name="fade">
+        <div v-if="statusMessage" :class="['status-msg', isSuccess ? 'status-success' : 'status-error']" role="status">
+          {{ statusMessage }}
+        </div>
+      </Transition>
     </div>
 
     <!-- Password Change Section -->
@@ -14,31 +19,24 @@
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
           <label for="old-password">Old password</label>
-          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
+          <input type="password" id="old-password" v-model="passChange.oldPassword" required autocomplete="current-password" />
         </div>
         <div class="form-group">
           <label for="new-password">New password</label>
-          <input type="password" id="new-password" v-model="passChange.newPassword" required />
+          <input type="password" id="new-password" v-model="passChange.newPassword" required autocomplete="new-password" />
         </div>
-        <button type="submit" class="button" :disabled="isChangingPass">
-          {{ isChangingPass ? 'Changing...' : 'Update password' }}
-        </button>
+        <button type="submit" class="button" :disabled="isChangingPass">{{ isChangingPass ? 'Changing...' : 'Update password' }}</button>
       </form>
     </section>
-
     <hr class="separator" />
-
-    <!-- User List & Add User Section -->
     <section class="admin-section">
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
         <label for="new-username" class="sr-only">Username</label>
-        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
+        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required autocomplete="username" />
         <label for="new-password-field" class="sr-only">Password</label>
-        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
-        <button type="submit" class="button" :disabled="isCreatingUser">
-          {{ isCreatingUser ? 'Adding...' : 'Add' }}
-        </button>
+        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required autocomplete="new-password" />
+        <button type="submit" class="button" :disabled="isCreatingUser">{{ isCreatingUser ? 'Adding...' : 'Add' }}</button>
       </form>
 
       <ul class="user-list">
@@ -66,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 import axios from 'axios';
 
 const auth = inject('auth');
@@ -78,6 +76,19 @@ const newUser = ref({ username: '', password: '' });
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
 const deletingUserId = ref(null);
+
+const statusMessage = ref('');
+const isSuccess = ref(true);
+let statusTimeout = null;
+
+const showStatus = (msg, success = true) => {
+  statusMessage.value = msg;
+  isSuccess.value = success;
+  if (statusTimeout) clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => {
+    statusMessage.value = '';
+  }, 5000);
+};
 
 const fetchUsers = async () => {
   try {
@@ -92,10 +103,10 @@ const changePassword = async () => {
   isChangingPass.value = true;
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Password changed successfully!');
+    showStatus('Password changed successfully!');
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to change password.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to change password.', false);
   } finally {
     isChangingPass.value = false;
   }
@@ -106,9 +117,10 @@ const createUser = async () => {
   try {
     await axios.post('/api/admin/users', newUser.value);
     newUser.value = { username: '', password: '' };
+    showStatus('User created successfully!');
     fetchUsers();
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to create user.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to create user.', false);
   } finally {
     isCreatingUser.value = false;
   }
@@ -119,9 +131,10 @@ const deleteUser = async (user) => {
     deletingUserId.value = user.id;
     try {
       await axios.delete(`/api/admin/users/${user.id}`);
+      showStatus(`User "${user.username}" deleted.`);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Deletion failed.');
+      showStatus(err.response?.data?.message || err.message || 'Deletion failed.', false);
     } finally {
       deletingUserId.value = null;
     }
@@ -129,6 +142,9 @@ const deleteUser = async (user) => {
 };
 
 onMounted(fetchUsers);
+onUnmounted(() => {
+  if (statusTimeout) clearTimeout(statusTimeout);
+});
 </script>
 
 <style scoped src="../../assets/styles/UserManagement.css"></style>
