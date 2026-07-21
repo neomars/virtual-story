@@ -144,3 +144,34 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* Status message styles */
+.status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  background-color: #1e1e1e;
+  border: 2px solid #ef4444;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.status-message.success {
+  border-color: #42b983;
+  color: #ffffff;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}

@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-30 - Color Contrast of Brand Status Messages on Dark Backgrounds
+**Learning:** Applying a dark theme brand color (e.g. `#42b983` or `#ef4444`) to text on a dark background can result in insufficient contrast (below WCAG AA 4.5:1 ratio). Using pure white (`#ffffff`) text for critical status feedback inside a container with a thick, high-contrast, brand-colored border ensures maximum readability and complete accessibility.
+**Action:** Always use high-contrast white text coupled with a colored border for toast/status messages in dark theme interfaces.
