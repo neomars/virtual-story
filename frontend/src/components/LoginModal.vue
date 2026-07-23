@@ -26,6 +26,7 @@
             required
             aria-required="true"
             placeholder="admin"
+            autocomplete="username"
             :disabled="isLoading"
           >
         </div>
@@ -37,6 +38,7 @@
             v-model="password"
             required
             aria-required="true"
+            autocomplete="current-password"
             :disabled="isLoading"
           >
         </div>
