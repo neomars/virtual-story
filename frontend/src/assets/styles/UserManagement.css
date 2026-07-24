@@ -144,3 +144,37 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+.status-message {
+  position: relative;
+  background-color: #1e1e1e;
+  padding: 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+  text-align: left;
+  transition: all 0.5s ease;
+}
+
+.status-success {
+  border: 1px solid #42b983;
+  color: #42b983;
+}
+
+.status-error {
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}

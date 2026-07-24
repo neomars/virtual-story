@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-07-24 - Non-Intrusive Transient Banners in Administrative Forms
+**Learning:** Browser-native dialogs like `alert()` block execution, interrupt user focus, and present poor accessibility. Replacing them with localized status banners using standard `role="status"` and `<Transition>` animations keeps the administrative flow smooth while remaining accessible to screen readers.
+**Action:** Replace all intrusive browser `alert()` notifications with transient, high-contrast, non-disruptive status messages in user management and other admin forms.

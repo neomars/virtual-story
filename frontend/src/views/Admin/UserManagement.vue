@@ -6,6 +6,16 @@
         <span aria-hidden="true">&larr;</span> Back to Graph
       </router-link>
       <h1>Users Management</h1>
+      <Transition name="fade">
+        <div
+          v-if="statusMessage"
+          class="status-message"
+          :class="{ 'status-success': isSuccess, 'status-error': !isSuccess }"
+          role="status"
+        >
+          {{ statusMessage }}
+        </div>
+      </Transition>
     </div>
 
     <!-- Password Change Section -->
@@ -66,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 import axios from 'axios';
 
 const auth = inject('auth');
@@ -78,6 +88,27 @@ const newUser = ref({ username: '', password: '' });
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
 const deletingUserId = ref(null);
+
+const statusMessage = ref('');
+const isSuccess = ref(true);
+let statusTimeout = null;
+
+const showStatus = (msg, success = true) => {
+  if (statusTimeout) {
+    clearTimeout(statusTimeout);
+  }
+  statusMessage.value = msg;
+  isSuccess.value = success;
+  statusTimeout = setTimeout(() => {
+    statusMessage.value = '';
+  }, 5000);
+};
+
+onUnmounted(() => {
+  if (statusTimeout) {
+    clearTimeout(statusTimeout);
+  }
+});
 
 const fetchUsers = async () => {
   try {
@@ -92,10 +123,10 @@ const changePassword = async () => {
   isChangingPass.value = true;
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Password changed successfully!');
+    showStatus('Password changed successfully!', true);
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to change password.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to change password.', false);
   } finally {
     isChangingPass.value = false;
   }
@@ -106,9 +137,10 @@ const createUser = async () => {
   try {
     await axios.post('/api/admin/users', newUser.value);
     newUser.value = { username: '', password: '' };
+    showStatus('User created successfully!', true);
     fetchUsers();
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to create user.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to create user.', false);
   } finally {
     isCreatingUser.value = false;
   }
@@ -119,9 +151,10 @@ const deleteUser = async (user) => {
     deletingUserId.value = user.id;
     try {
       await axios.delete(`/api/admin/users/${user.id}`);
+      showStatus(`User "${user.username}" deleted successfully!`, true);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Deletion failed.');
+      showStatus(err.response?.data?.message || err.message || 'Deletion failed.', false);
     } finally {
       deletingUserId.value = null;
     }

@@ -4,6 +4,16 @@
       "username": "admin",
       "password_hash": "$2b$10$d7uWctrV5/z.v.TPuunSY..PSax8ehs03TDrz0TC/Fj7oanR3v4Au",
       "id": 1
+    },
+    {
+      "username": "testuser",
+      "password_hash": "$2b$10$g2LmVd2fJ2jIAaeRhFgmqeFkogkM39ty/liqEGYNCSiwcq7d3u6gK",
+      "id": 3
+    },
+    {
+      "username": "testuser",
+      "password_hash": "$2b$10$OZMxjr2oylkva0XyH7Ix8efBSctekz28chgP63cRyZ2PppPmoEYzK",
+      "id": 4
     }
   ],
   "parts": [],
