@@ -118,3 +118,34 @@
   border-radius: 3px;
   color: #42b983;
 }
+
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding-right: 3rem; /* Leave room for toggle button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: #42b983;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: #3aa876;
+}
