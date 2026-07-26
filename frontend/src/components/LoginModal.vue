@@ -27,18 +27,31 @@
             aria-required="true"
             placeholder="admin"
             :disabled="isLoading"
+            autocomplete="username"
           >
         </div>
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
-            required
-            aria-required="true"
-            :disabled="isLoading"
-          >
+          <div class="password-wrapper">
+            <input
+              :type="showPassword ? 'text' : 'password'"
+              id="password"
+              v-model="password"
+              required
+              aria-required="true"
+              :disabled="isLoading"
+              autocomplete="current-password"
+            >
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              :title="showPassword ? 'Hide password' : 'Show password'"
+            >
+              {{ showPassword ? '🙈' : '👁️' }}
+            </button>
+          </div>
         </div>
         <div v-if="errorMessage" class="error-message" role="alert">
           {{ errorMessage }}
@@ -64,6 +77,7 @@ const emit = defineEmits(['close', 'login-success']);
 
 const username = ref('');
 const password = ref('');
+const showPassword = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const usernameInput = ref(null);
@@ -74,6 +88,7 @@ const close = () => {
   errorMessage.value = '';
   username.value = '';
   password.value = '';
+  showPassword.value = false;
   emit('close');
 };
 
