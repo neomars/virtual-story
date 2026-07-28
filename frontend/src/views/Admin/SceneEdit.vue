@@ -55,10 +55,10 @@
       </fieldset>
 
       <div class="form-group">
-        <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
+        <label :for="showExisting ? 'video-search-simple' : 'video'">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
         <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
         <div v-else class="existing-videos-grid">
-          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+          <input id="video-search-simple" type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search previously uploaded videos">
           <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
@@ -144,10 +144,10 @@
           <fieldset class="video-merging-section">
             <legend>Replace/Merge Video</legend>
             <div class="form-group">
-            <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
+            <label :for="showExisting ? 'video-search-edit' : 'video-edit'">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
               <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
               <div v-else class="existing-videos-grid">
-                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+                <input id="video-search-edit" type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search previously uploaded videos">
                 <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"

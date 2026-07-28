@@ -139,7 +139,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label for="part-loop-upload" class="button secondary-btn">Loop Video (Optional or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Use existing</a>)</label>
+          <label :for="showExistingParts ? null : 'part-loop-upload'" class="button secondary-btn">Loop Video (Optional or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Use existing</a>)</label>
           <input v-if="!showExistingParts" id="part-loop-upload" type="file" @change="handlePartFileChange" accept="video/mp4" class="sr-only" />
           <span v-if="partLoopFile && !showExistingParts" class="file-name">{{ partLoopFile.name }}</span>
 
@@ -179,7 +179,7 @@
             <select :id="'edit-part-scene-' + part.id" v-model="editPartData.first_scene_id">
               <option v-for="s in allScenes" :key="s.id" :value="s.id">{{ s.title }}</option>
             </select>
-            <label :for="'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video (or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Existing</a>)</label>
+            <label :for="showExistingParts ? null : 'edit-loop-' + part.id" class="button secondary-btn mini">Loop Video (or <a href="#" @click.prevent="showExistingParts = !showExistingParts" class="link-alt" @click.stop>Existing</a>)</label>
             <input v-if="!showExistingParts" :id="'edit-loop-' + part.id" type="file" @change="handleEditFileChange" accept="video/mp4" class="sr-only" />
 
             <div v-if="showExistingParts" class="existing-videos-grid compact">

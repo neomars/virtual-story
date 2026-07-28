@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-30 - Conditional Labels for Toggleable Inputs
+**Learning:** In Vue applications where inputs are conditionally mounted (using `v-if` / `v-else`) to switch between modes like file uploading and database asset selection, static `<label for="...">` attributes become broken and inaccessible when their targeted input is unmounted.
+**Action:** Always conditionally bind the label's `for` attribute (e.g., `:for="showExisting ? 'search-input-id' : 'upload-input-id'"`) to dynamically align the label with the active input element or clear it (using `null`) when no single focusable control exists.
