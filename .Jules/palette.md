@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-29 - Accessible and Safe Password Toggle Positioning
+**Learning:** Adding a show/hide password helper requires placing a toggle button inside the input container. To prevent accidental form submissions on click, the toggle button must be explicitly declared as `type="button"`. Additionally, to guarantee accessibility, the button must use dynamic `aria-label` and `title` attributes that update based on visibility state, and the input itself must have sufficient right padding to prevent password characters from overlapping the toggle text.
+**Action:** Always wrap password fields in a relative wrapper, style with adequate inline-end padding, use `type="button"` on the toggle element, and bind dynamic ARIA labels for accessible states.
