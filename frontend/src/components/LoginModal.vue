@@ -31,14 +31,12 @@
         </div>
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
-            required
-            aria-required="true"
-            :disabled="isLoading"
-          >
+          <div class="password-wrapper">
+            <input :type="showPassword ? 'text' : 'password'" id="password" v-model="password" required aria-required="true" :disabled="isLoading">
+            <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Hide password' : 'Show password'" :title="showPassword ? 'Hide password' : 'Show password'">
+              <span aria-hidden="true">{{ showPassword ? '👁️' : '🙈' }}</span>
+            </button>
+          </div>
         </div>
         <div v-if="errorMessage" class="error-message" role="alert">
           {{ errorMessage }}
@@ -68,12 +66,14 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const usernameInput = ref(null);
 const lastActiveElement = ref(null);
+const showPassword = ref(false);
 
 const close = () => {
   if (isLoading.value) return;
   errorMessage.value = '';
   username.value = '';
   password.value = '';
+  showPassword.value = false;
   emit('close');
 };
 
