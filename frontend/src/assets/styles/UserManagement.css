@@ -144,3 +144,26 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+.status-banner {
+  background-color: #1e1e1e;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid #ef4444;
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.status-banner.success {
+  border-color: #42b983;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
