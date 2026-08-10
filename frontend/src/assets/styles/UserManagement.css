@@ -144,3 +144,34 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+.status-banner {
+  padding: 1rem;
+  border-radius: 4px;
+  background-color: #1e1e1e;
+  border: 1px solid #ef4444;
+  color: #ff8f8f;
+  font-weight: bold;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.status-banner.success {
+  border-color: #42b983;
+  color: #85e3b2;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
