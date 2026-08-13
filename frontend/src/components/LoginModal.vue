@@ -23,6 +23,7 @@
             type="text"
             id="username"
             v-model="username"
+            autocomplete="username"
             required
             aria-required="true"
             placeholder="admin"
@@ -35,6 +36,7 @@
             type="password"
             id="password"
             v-model="password"
+            autocomplete="current-password"
             required
             aria-required="true"
             :disabled="isLoading"

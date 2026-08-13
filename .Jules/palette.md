@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2026-06-29 - High-Contrast Status Messages & Password Autocomplete
+**Learning:** Replaced intrusive native browser `alert()` popups with high-contrast, transient status banners on dark theme admin views, and added standard `autocomplete` attributes (`current-password`, `new-password`, `username`) to ensure a seamless and accessible authentication/user settings management experience.
+**Action:** Always favor high-contrast inline feedback status messages over intrusive alerts, and explicitly decorate credential form controls with precise `autocomplete` identifiers to support screen readers and password managers.
