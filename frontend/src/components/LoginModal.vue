@@ -31,14 +31,26 @@
         </div>
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
-            required
-            aria-required="true"
-            :disabled="isLoading"
-          >
+          <div class="password-wrapper">
+            <input
+              :type="isPasswordVisible ? 'text' : 'password'"
+              id="password"
+              v-model="password"
+              required
+              aria-required="true"
+              :disabled="isLoading"
+            >
+            <button
+              type="button"
+              class="password-toggle"
+              @click="togglePasswordVisibility"
+              :aria-label="isPasswordVisible ? 'Hide password' : 'Show password'"
+              :title="isPasswordVisible ? 'Hide password' : 'Show password'"
+            >
+              <span v-if="isPasswordVisible" aria-hidden="true">👁️</span>
+              <span v-else aria-hidden="true">🙈</span>
+            </button>
+          </div>
         </div>
         <div v-if="errorMessage" class="error-message" role="alert">
           {{ errorMessage }}
@@ -68,12 +80,18 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const usernameInput = ref(null);
 const lastActiveElement = ref(null);
+const isPasswordVisible = ref(false);
+
+const togglePasswordVisibility = () => {
+  isPasswordVisible.value = !isPasswordVisible.value;
+};
 
 const close = () => {
   if (isLoading.value) return;
   errorMessage.value = '';
   username.value = '';
   password.value = '';
+  isPasswordVisible.value = false;
   emit('close');
 };
 
