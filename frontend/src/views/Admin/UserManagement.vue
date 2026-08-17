@@ -14,11 +14,11 @@
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
           <label for="old-password">Old password</label>
-          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
+          <input type="password" id="old-password" v-model="passChange.oldPassword" required autocomplete="current-password" />
         </div>
         <div class="form-group">
           <label for="new-password">New password</label>
-          <input type="password" id="new-password" v-model="passChange.newPassword" required />
+          <input type="password" id="new-password" v-model="passChange.newPassword" required autocomplete="new-password" />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -33,9 +33,9 @@
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
         <label for="new-username" class="sr-only">Username</label>
-        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
+        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required autocomplete="username" />
         <label for="new-password-field" class="sr-only">Password</label>
-        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
+        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required autocomplete="new-password" />
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
