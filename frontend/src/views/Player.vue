@@ -41,12 +41,16 @@
           @keydown.space.prevent="playVideo"
           role="button"
           tabindex="0"
-          :aria-label="`Play video: ${sceneData.current_scene.title}`"
+          :aria-label="`Play video: ${sceneData.current_scene.title} (Space or Enter to play)`"
+          :title="`Play video: ${sceneData.current_scene.title} (Space or Enter to play)`"
           class="thumbnail-container"
         >
           <img :src="sceneData.current_scene.thumbnail_path" :alt="`Thumbnail for ${sceneData.current_scene.title}`">
           <div class="play-icon" aria-hidden="true">&#9658;</div>
-          <h2>{{ sceneData.current_scene.title }}</h2>
+          <h2>
+            <span class="shortcut-hint" aria-hidden="true">[Space/Enter]</span>
+            {{ sceneData.current_scene.title }}
+          </h2>
         </div>
         <div v-if="isVideoPlaying" class="video-container" :class="{ 'full-page': !showChoices }">
           <video ref="videoPlayer" :src="sceneData.current_scene.video_path" controls autoplay playsinline @ended="onVideoEnd"></video>
