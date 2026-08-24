@@ -281,6 +281,11 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
   align-items: center;
   gap: 5px;
   position: relative;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: inherit;
+  width: 100%;
 }
 
 .video-selection-card:hover {

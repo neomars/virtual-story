@@ -10,6 +10,12 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "ffmpeg-static"
+    ]
+  },
   "dependencies": {
     "alasql": "^4.17.3",
     "bcrypt": "^6.0.0",
