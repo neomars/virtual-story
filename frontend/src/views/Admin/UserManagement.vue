@@ -6,6 +6,9 @@
         <span aria-hidden="true">&larr;</span> Back to Graph
       </router-link>
       <h1>Users Management</h1>
+      <Transition name="fade">
+        <p v-if="statusMessage" class="status-banner" :class="{ success: isSuccess, error: !isSuccess }" :role="isSuccess ? 'status' : 'alert'" aria-live="polite">{{ statusMessage }}</p>
+      </Transition>
     </div>
 
     <!-- Password Change Section -->
@@ -14,11 +17,11 @@
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
           <label for="old-password">Old password</label>
-          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
+          <input type="password" id="old-password" v-model="passChange.oldPassword" autocomplete="current-password" required />
         </div>
         <div class="form-group">
           <label for="new-password">New password</label>
-          <input type="password" id="new-password" v-model="passChange.newPassword" required />
+          <input type="password" id="new-password" v-model="passChange.newPassword" autocomplete="new-password" required />
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -33,9 +36,9 @@
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
         <label for="new-username" class="sr-only">Username</label>
-        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
+        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" autocomplete="username" required />
         <label for="new-password-field" class="sr-only">Password</label>
-        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
+        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" autocomplete="new-password" required />
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
@@ -66,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 import axios from 'axios';
 
 const auth = inject('auth');
@@ -74,10 +77,22 @@ const auth = inject('auth');
 const users = ref([]);
 const passChange = ref({ oldPassword: '', newPassword: '' });
 const newUser = ref({ username: '', password: '' });
+const statusMessage = ref('');
+const isSuccess = ref(true);
+let statusTimer = null;
 
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
 const deletingUserId = ref(null);
+
+const showStatus = (msg, success = true) => {
+  if (statusTimer) clearTimeout(statusTimer);
+  statusMessage.value = msg;
+  isSuccess.value = success;
+  statusTimer = setTimeout(() => { statusMessage.value = ''; }, 5000);
+};
+
+onUnmounted(() => { if (statusTimer) clearTimeout(statusTimer); });
 
 const fetchUsers = async () => {
   try {
@@ -92,10 +107,10 @@ const changePassword = async () => {
   isChangingPass.value = true;
   try {
     await axios.post('/api/admin/change-password', passChange.value);
-    alert('Password changed successfully!');
+    showStatus('Password changed successfully!');
     passChange.value = { oldPassword: '', newPassword: '' };
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to change password.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to change password.', false);
   } finally {
     isChangingPass.value = false;
   }
@@ -105,10 +120,11 @@ const createUser = async () => {
   isCreatingUser.value = true;
   try {
     await axios.post('/api/admin/users', newUser.value);
+    showStatus(`User "${newUser.value.username}" created successfully!`);
     newUser.value = { username: '', password: '' };
     fetchUsers();
   } catch (err) {
-    alert(err.response?.data?.message || err.message || 'Failed to create user.');
+    showStatus(err.response?.data?.message || err.message || 'Failed to create user.', false);
   } finally {
     isCreatingUser.value = false;
   }
@@ -119,9 +135,10 @@ const deleteUser = async (user) => {
     deletingUserId.value = user.id;
     try {
       await axios.delete(`/api/admin/users/${user.id}`);
+      showStatus(`User "${user.username}" deleted successfully!`);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Deletion failed.');
+      showStatus(err.response?.data?.message || err.message || 'Deletion failed.', false);
     } finally {
       deletingUserId.value = null;
     }
