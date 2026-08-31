@@ -70,7 +70,13 @@
   color: white;
   padding: 0.6rem;
   border-radius: 4px;
+  width: 100%;
 }
+
+.password-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
+.password-wrapper input { padding-right: 2.2rem; }
+.password-toggle { position: absolute; right: 0.4rem; background: transparent; border: none; cursor: pointer; padding: 0.2rem; font-size: 0.9rem; line-height: 1; }
+.password-toggle:focus-visible { outline: 2px solid #42b983; border-radius: 3px; }
 
 .button {
   background-color: #42b983;
@@ -98,14 +104,8 @@
   margin-bottom: 1.5rem;
 }
 
-.add-user-form input {
-  flex: 1;
-  background-color: #1e1e1e;
-  border: 1px solid #444;
-  color: white;
-  padding: 0.6rem;
-  border-radius: 4px;
-}
+.add-user-form input { background-color: #1e1e1e; border: 1px solid #444; color: white; padding: 0.6rem; border-radius: 4px; }
+.add-user-form > input, .add-user-form .password-wrapper { flex: 1; }
 
 .user-list {
   list-style: none;

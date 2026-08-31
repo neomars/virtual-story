@@ -14,11 +14,17 @@
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
           <label for="old-password">Old password</label>
-          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
+          <div class="password-wrapper">
+            <input :type="showOldPassword ? 'text' : 'password'" id="old-password" v-model="passChange.oldPassword" required />
+            <button type="button" class="password-toggle" @click="showOldPassword = !showOldPassword" :aria-label="showOldPassword ? 'Hide old password' : 'Show old password'" :title="showOldPassword ? 'Hide old password' : 'Show old password'"><span aria-hidden="true">{{ showOldPassword ? '🙈' : '👁️' }}</span></button>
+          </div>
         </div>
         <div class="form-group">
           <label for="new-password">New password</label>
-          <input type="password" id="new-password" v-model="passChange.newPassword" required />
+          <div class="password-wrapper">
+            <input :type="showNewPassword ? 'text' : 'password'" id="new-password" v-model="passChange.newPassword" required />
+            <button type="button" class="password-toggle" @click="showNewPassword = !showNewPassword" :aria-label="showNewPassword ? 'Hide new password' : 'Show new password'" :title="showNewPassword ? 'Hide new password' : 'Show new password'"><span aria-hidden="true">{{ showNewPassword ? '🙈' : '👁️' }}</span></button>
+          </div>
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -35,7 +41,10 @@
         <label for="new-username" class="sr-only">Username</label>
         <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
         <label for="new-password-field" class="sr-only">Password</label>
-        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
+        <div class="password-wrapper">
+          <input :type="showAddPassword ? 'text' : 'password'" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
+          <button type="button" class="password-toggle" @click="showAddPassword = !showAddPassword" :aria-label="showAddPassword ? 'Hide password' : 'Show password'" :title="showAddPassword ? 'Hide password' : 'Show password'"><span aria-hidden="true">{{ showAddPassword ? '🙈' : '👁️' }}</span></button>
+        </div>
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
@@ -78,6 +87,7 @@ const newUser = ref({ username: '', password: '' });
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
 const deletingUserId = ref(null);
+const showOldPassword = ref(false), showNewPassword = ref(false), showAddPassword = ref(false);
 
 const fetchUsers = async () => {
   try {
