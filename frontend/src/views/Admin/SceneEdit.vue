@@ -58,13 +58,14 @@
         <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
         <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
         <div v-else class="existing-videos-grid">
-          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search existing videos" title="Search existing videos">
           <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
                @click="selectExistingVideo(file.video)"
                :aria-pressed="scene.existing_video_filename === file.video"
-               :aria-label="'Select video: ' + file.video">
+               :aria-label="'Select video: ' + file.video"
+               :title="'Select video: ' + file.video">
             <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb" aria-hidden="true">
             <span class="card-title">{{ file.video }}</span>
           </button>
@@ -147,13 +148,14 @@
             <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
               <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
               <div v-else class="existing-videos-grid">
-                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search existing videos" title="Search existing videos">
                 <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"
                      @click="selectExistingVideo(file.video)"
                      :aria-pressed="scene.existing_video_filename === file.video"
-                     :aria-label="'Select video: ' + file.video">
+                     :aria-label="'Select video: ' + file.video"
+                     :title="'Select video: ' + file.video">
                   <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="card-thumb" aria-hidden="true">
                   <span class="card-title">{{ file.video }}</span>
                 </button>
