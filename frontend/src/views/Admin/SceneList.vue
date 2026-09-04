@@ -205,7 +205,7 @@
               <span v-if="part.loop_video_path" class="sr-only">Has ambient loop video</span>
             </span>
             <div class="part-actions">
-              <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title">Edit</button>
+              <button @click="startEdit(part)" class="button mini" :aria-label="'Edit chapter: ' + part.title" :title="'Edit chapter: ' + part.title">Edit</button>
               <button
                 @click="deletePart(part.id)"
                 class="button-delete"
