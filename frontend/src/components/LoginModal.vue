@@ -11,7 +11,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modal-title">Admin Login</h2>
-        <button class="close-btn" @click="close" aria-label="Close">
+        <button class="close-btn" @click="close" aria-label="Close" title="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -26,6 +26,7 @@
             required
             aria-required="true"
             placeholder="admin"
+            autocomplete="username"
             :disabled="isLoading"
           >
         </div>
@@ -37,6 +38,7 @@
             v-model="password"
             required
             aria-required="true"
+            autocomplete="current-password"
             :disabled="isLoading"
           >
         </div>
