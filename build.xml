@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="virtual-story" default="build-all" basedir=".">
+    <property name="frontend.dir" location="frontend"/>
+    <property name="backend.dir" location="backend"/>
+    <property name="dist.dir" location="dist"/>
+
+    <!-- Clean targets -->
+    <target name="clean">
+        <echo message="Cleaning distribution directories..."/>
+        <delete dir="${dist.dir}"/>
+        <delete dir="${frontend.dir}/dist"/>
+    </target>
+
+    <!-- Install Dependencies -->
+    <target name="install-frontend">
+        <echo message="Installing frontend dependencies..."/>
+        <exec executable="pnpm" dir="${frontend.dir}" failonerror="true">
+            <arg value="install"/>
+        </exec>
+    </target>
+
+    <target name="install-backend">
+        <echo message="Installing backend dependencies..."/>
+        <exec executable="pnpm" dir="${backend.dir}" failonerror="true">
+            <arg value="install"/>
+        </exec>
+    </target>
+
+    <target name="install-root">
+        <echo message="Installing root dependencies for Electron..."/>
+        <exec executable="pnpm" failonerror="true">
+            <arg value="install"/>
+        </exec>
+    </target>
+
+    <target name="install-all" depends="install-root, install-frontend, install-backend"/>
+
+    <!-- Build Frontend -->
+    <target name="build-frontend" depends="install-frontend">
+        <echo message="Building frontend (Vue/Vite)..."/>
+        <exec executable="pnpm" dir="${frontend.dir}" failonerror="true">
+            <arg value="run"/>
+            <arg value="build"/>
+        </exec>
+    </target>
+
+    <!-- Build Desktop Apps -->
+    <target name="build-linux" depends="clean, install-all, build-frontend">
+        <echo message="Building Electron app for Linux (AppImage)..."/>
+        <exec executable="pnpm" failonerror="true">
+            <arg value="run"/>
+            <arg value="build:linux"/>
+        </exec>
+    </target>
+
+    <target name="build-windows" depends="clean, install-all, build-frontend">
+        <echo message="Building Electron app for Windows (NSIS)..."/>
+        <exec executable="pnpm" failonerror="true">
+            <arg value="run"/>
+            <arg value="build:win"/>
+        </exec>
+    </target>
+
+    <target name="build-all" depends="build-linux, build-windows">
+        <echo message="All builds completed successfully!"/>
+    </target>
+</project>
