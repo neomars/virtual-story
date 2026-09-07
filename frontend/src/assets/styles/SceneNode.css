@@ -34,6 +34,7 @@
   border-radius: 5px;
   color: white;
   font-size: 0.9em;
+  transition: background-color 0.2s ease;
 }
 .button-small:disabled {
   opacity: 0.6;
