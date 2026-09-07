@@ -25,8 +25,7 @@ echo "Starting Backend on http://localhost:3000..."
 
 # Start Frontend
 echo "Starting Frontend on http://localhost:5173..."
-# We call vite directly from node_modules to avoid pnpm/corepack issues
-(cd frontend && exec ./node_modules/.bin/vite) &
+(cd frontend && exec pnpm dev) &
 
 echo "Both servers are starting."
 echo "- Backend: http://localhost:3000"
