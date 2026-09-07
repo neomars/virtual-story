@@ -79,8 +79,12 @@ app.use('/api/player', playerRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/choices', choiceRoutes);
 
-app.get('/', (req, res) => {
-  res.send('Backend server is running!');
+// Serve frontend static files
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDistPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
 // Global error handler
