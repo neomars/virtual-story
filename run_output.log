@@ -1,0 +1,24 @@
+Starting Virtual Story...
+Starting Backend on http://localhost:3000...
+Starting Frontend on http://localhost:5173...
+Both servers are starting.
+- Backend: http://localhost:3000
+- Frontend: http://localhost:5173
+Press Ctrl+C to stop both.
+Server is running on http://localhost:3000 and listening on all interfaces.
+
+  VITE v7.3.1  ready in 2112 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  Vue DevTools: Open http://localhost:5173/__devtools__/ as a separate window
+  ➜  Vue DevTools: Press Alt(⌥)+Shift(⇧)+D in App to toggle the Vue DevTools
+Unhandled error: [Error: ENOENT: no such file or directory, stat '/app/frontend/dist/index.html'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'stat',
+  path: '/app/frontend/dist/index.html',
+  expose: false,
+  statusCode: 404,
+  status: 404
+}
