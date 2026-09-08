@@ -281,10 +281,20 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
   align-items: center;
   gap: 5px;
   position: relative;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: inherit;
+  width: 100%;
 }
 
 .video-selection-card:hover {
   background-color: #333;
+}
+
+.video-selection-card:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
 }
 
 .video-selection-card.selected {
@@ -292,11 +302,32 @@ input[type="text"], select { background: #1e1e1e; color: white; border: 1px soli
   background-color: #333;
 }
 
-.video-selection-card input[type="checkbox"] {
+.checkbox-indicator {
   position: absolute;
-  top: 5px;
-  left: 5px;
-  cursor: pointer;
+  top: 12px;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #666;
+  border-radius: 2px;
+  background-color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.checkbox-indicator.checked {
+  background-color: #42b983;
+  border-color: #42b983;
+}
+
+.checkbox-indicator.checked::after {
+  content: '✓';
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .selection-thumb {

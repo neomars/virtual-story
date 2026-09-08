@@ -101,14 +101,17 @@
         </div>
 
         <div class="unused-videos-grid">
-          <div v-for="file in unusedVideos" :key="file.video"
+          <button v-for="file in unusedVideos" :key="file.video"
+               type="button"
                class="video-selection-card"
                :class="{ selected: selectedUnusedVideos.includes(file.video) }"
-               @click="toggleVideoSelection(file.video)">
-            <input type="checkbox" :checked="selectedUnusedVideos.includes(file.video)" @click.stop="toggleVideoSelection(file.video)">
-            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="Thumbnail" class="selection-thumb">
+               @click="toggleVideoSelection(file.video)"
+               :aria-pressed="selectedUnusedVideos.includes(file.video)"
+               :aria-label="'Select video: ' + file.video">
+            <span class="checkbox-indicator" :class="{ checked: selectedUnusedVideos.includes(file.video) }" aria-hidden="true"></span>
+            <img :src="file.thumbnail || '/placeholder-thumb.png'" alt="" class="selection-thumb" aria-hidden="true">
             <span class="selection-title" :title="file.video">{{ file.video }}</span>
-          </div>
+          </button>
         </div>
       </div>
       <div v-else class="empty-state-compact">
