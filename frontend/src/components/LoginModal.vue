@@ -92,8 +92,20 @@ const close = () => {
 };
 
 const handleKeydown = (e) => {
-  if (props.isOpen && e.key === 'Escape') {
+  if (!props.isOpen) return;
+  if (e.key === 'Escape') {
     close();
+  } else if (e.key === 'Tab') {
+    const focusables = document.querySelectorAll('.modal-content button:not([disabled]), .modal-content input:not([disabled])');
+    if (focusables.length) {
+      if (e.shiftKey && document.activeElement === focusables[0]) {
+        e.preventDefault();
+        focusables[focusables.length - 1].focus();
+      } else if (!e.shiftKey && document.activeElement === focusables[focusables.length - 1]) {
+        e.preventDefault();
+        focusables[0].focus();
+      }
+    }
   }
 };
 
