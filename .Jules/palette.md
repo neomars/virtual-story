@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-29 - Modal Focus Trapping for Accessible Overlays
+**Learning:** For modal dialogs (`role="dialog"`), handling `Escape` dismissal alone is insufficient for keyboard navigation. Intercepting `Tab` and `Shift+Tab` to cycle focus between the first and last enabled controls within the modal content prevents keyboard focus from escaping into background content.
+**Action:** Always complement `Escape` dismissal with `Tab` cycle management in custom modal overlays.
