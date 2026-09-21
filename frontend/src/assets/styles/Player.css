@@ -46,6 +46,12 @@
   text-decoration: underline;
 }
 
+.sibling-link:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .separator {
   margin: 0 0.3rem;
   color: #42b983;
@@ -99,8 +105,14 @@
   transition: background-color 0.2s;
 }
 
-.thumbnail-container:hover .play-icon {
+.thumbnail-container:hover .play-icon,
+.thumbnail-container:focus-visible .play-icon {
   background-color: rgba(66, 185, 131, 0.8);
+}
+
+.thumbnail-container:focus-visible {
+  outline: 2px solid #42b983;
+  outline-offset: -2px;
 }
 
 .video-container {

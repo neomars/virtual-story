@@ -10,7 +10,10 @@
           <h3>Previous Scenes</h3>
           <ul v-if="sceneData.parent_scenes && sceneData.parent_scenes.length > 0">
             <li v-for="parent in sceneData.parent_scenes" :key="parent.id">
-              <router-link :to="{ path: `/player/${parent.id}` }">{{ parent.title }}</router-link>
+              <router-link
+                :to="{ path: `/player/${parent.id}` }"
+                :aria-label="'Go back to previous scene: ' + parent.title"
+              >{{ parent.title }}</router-link>
             </li>
           </ul>
           <p v-else>This is the beginning of the story.</p>
@@ -25,14 +28,18 @@
       <!-- Center: Thumbnail/Video -->
       <div class="center-panel">
         <!-- Sibling Navigation -->
-        <div v-if="sceneData.sibling_scenes && sceneData.sibling_scenes.length > 0" class="siblings-nav">
+        <nav v-if="sceneData.sibling_scenes && sceneData.sibling_scenes.length > 0" class="siblings-nav" aria-label="Alternative choices">
           <template v-for="(sibling, index) in sceneData.sibling_scenes" :key="sibling.id">
-            <router-link :to="{ path: `/player/${sibling.id}`, query: { from: route.query.from } }" class="sibling-link">
+            <router-link
+              :to="{ path: `/player/${sibling.id}`, query: { from: route.query.from } }"
+              class="sibling-link"
+              :aria-label="'Switch choice to ' + (sibling.choice_text || sibling.title)"
+            >
               {{ sibling.choice_text || sibling.title }}
             </router-link>
             <span v-if="index < sceneData.sibling_scenes.length - 1" class="separator" aria-hidden="true"> | </span>
           </template>
-        </div>
+        </nav>
 
         <div
           v-if="!isVideoPlaying"
