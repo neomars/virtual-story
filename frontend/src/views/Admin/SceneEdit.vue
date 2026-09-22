@@ -58,7 +58,7 @@
         <label for="video">Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
         <input v-if="!showExisting" type="file" id="video" @change="handleFileUpload" :required="!scene.existing_video_filename">
         <div v-else class="existing-videos-grid">
-          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+          <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search existing videos">
           <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                class="existing-video-card"
                :class="{ selected: scene.existing_video_filename === file.video }"
@@ -69,6 +69,7 @@
             <span class="card-title">{{ file.video }}</span>
           </button>
           <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
+          <p v-else-if="filteredExistingFiles.length === 0" class="empty-state">No videos match "{{ videoSearch }}".</p>
         </div>
       </div>
       <button type="submit" class="button" :disabled="isSaving">
@@ -147,7 +148,7 @@
             <label for="video-edit">New Video File (Upload or <a href="#" @click.prevent="showExisting = !showExisting" class="link-alt" @click.stop>Use existing</a>)</label>
               <input v-if="!showExisting" type="file" id="video-edit" @change="handleFileUpload">
               <div v-else class="existing-videos-grid">
-                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input">
+                <input type="text" v-model="videoSearch" ref="videoSearchInput" placeholder="Search videos..." class="media-search-input" aria-label="Search existing videos">
                 <button type="button" v-for="file in filteredExistingFiles" :key="file.video"
                      class="existing-video-card"
                      :class="{ selected: scene.existing_video_filename === file.video }"
@@ -158,6 +159,7 @@
                   <span class="card-title">{{ file.video }}</span>
                 </button>
                 <p v-if="existingFiles.length === 0" class="empty-state">No previously uploaded videos found.</p>
+                <p v-else-if="filteredExistingFiles.length === 0" class="empty-state">No videos match "{{ videoSearch }}".</p>
               </div>
             </div>
             <div class="form-group">
