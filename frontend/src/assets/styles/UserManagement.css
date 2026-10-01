@@ -72,6 +72,13 @@
   border-radius: 4px;
 }
 
+.password-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
+.password-wrapper input { width: 100%; padding-right: 2.5rem; }
+.password-wrapper.inline-wrapper { flex: 1; }
+.password-toggle { position: absolute; right: 0.5rem; background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.2rem 0.4rem; color: #ccc; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.password-toggle:hover { opacity: 0.8; }
+.password-toggle:focus-visible { outline: 2px solid #42b983; }
+
 .button {
   background-color: #42b983;
   color: white;

@@ -14,11 +14,17 @@
       <form @submit.prevent="changePassword" class="settings-form">
         <div class="form-group">
           <label for="old-password">Old password</label>
-          <input type="password" id="old-password" v-model="passChange.oldPassword" required />
+          <div class="password-wrapper">
+            <input :type="showOldPassword ? 'text' : 'password'" id="old-password" v-model="passChange.oldPassword" required aria-required="true" autocomplete="current-password" />
+            <button type="button" class="password-toggle" @click="showOldPassword = !showOldPassword" :aria-label="showOldPassword ? 'Hide old password' : 'Show old password'" :title="showOldPassword ? 'Hide old password' : 'Show old password'">{{ showOldPassword ? '🙈' : '👁️' }}</button>
+          </div>
         </div>
         <div class="form-group">
           <label for="new-password">New password</label>
-          <input type="password" id="new-password" v-model="passChange.newPassword" required />
+          <div class="password-wrapper">
+            <input :type="showNewPassword ? 'text' : 'password'" id="new-password" v-model="passChange.newPassword" required aria-required="true" autocomplete="new-password" />
+            <button type="button" class="password-toggle" @click="showNewPassword = !showNewPassword" :aria-label="showNewPassword ? 'Hide new password' : 'Show new password'" :title="showNewPassword ? 'Hide new password' : 'Show new password'">{{ showNewPassword ? '🙈' : '👁️' }}</button>
+          </div>
         </div>
         <button type="submit" class="button" :disabled="isChangingPass">
           {{ isChangingPass ? 'Changing...' : 'Update password' }}
@@ -33,9 +39,12 @@
       <h2>Users</h2>
       <form @submit.prevent="createUser" class="add-user-form">
         <label for="new-username" class="sr-only">Username</label>
-        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required />
+        <input type="text" id="new-username" v-model="newUser.username" placeholder="Username" required aria-required="true" autocomplete="username" />
         <label for="new-password-field" class="sr-only">Password</label>
-        <input type="password" id="new-password-field" v-model="newUser.password" placeholder="Password" required />
+        <div class="password-wrapper inline-wrapper">
+          <input :type="showCreatePassword ? 'text' : 'password'" id="new-password-field" v-model="newUser.password" placeholder="Password" required aria-required="true" autocomplete="new-password" />
+          <button type="button" class="password-toggle" @click="showCreatePassword = !showCreatePassword" :aria-label="showCreatePassword ? 'Hide password' : 'Show password'" :title="showCreatePassword ? 'Hide password' : 'Show password'">{{ showCreatePassword ? '🙈' : '👁️' }}</button>
+        </div>
         <button type="submit" class="button" :disabled="isCreatingUser">
           {{ isCreatingUser ? 'Adding...' : 'Add' }}
         </button>
@@ -74,6 +83,7 @@ const auth = inject('auth');
 const users = ref([]);
 const passChange = ref({ oldPassword: '', newPassword: '' });
 const newUser = ref({ username: '', password: '' });
+const showOldPassword = ref(false), showNewPassword = ref(false), showCreatePassword = ref(false);
 
 const isChangingPass = ref(false);
 const isCreatingUser = ref(false);
