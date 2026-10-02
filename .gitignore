@@ -35,3 +35,9 @@ npm_dev.log
 live-engine/target/
 live-engine/data/live.db*
 live-engine/models/
+
+# app Ubuntu : sidecars compilés, sources clonées, paquets
+/bin/*
+!/bin/.gitkeep
+/.build/
+/dist/

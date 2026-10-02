@@ -3,8 +3,9 @@ const { pool: dbPool } = require('./db');
 const fs = require('fs').promises;
 const path = require('path');
 
-const videosDir = path.join(__dirname, 'uploads/videos');
-const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
+const { uploadsDir } = require('./utils/paths');
+const videosDir = path.join(uploadsDir, 'videos');
+const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
 
 async function cleanupOrphanedFiles() {
   let connection;

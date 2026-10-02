@@ -8,7 +8,8 @@
     </p>
     <p>
       Ou discutez en direct avec une IA : <router-link to="/live">mode Live</router-link>
-      (<router-link to="/admin/live/personas">personnages</router-link>,
+      (<router-link to="/admin/live/models">modèles</router-link>,
+      <router-link to="/admin/live/personas">personnages</router-link>,
       <router-link to="/admin/live/media">médiathèque</router-link>).
     </p>
     <p>

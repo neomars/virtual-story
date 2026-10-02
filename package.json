@@ -6,7 +6,11 @@
   "scripts": {
     "start": "electron .",
     "build:linux": "electron-builder --linux",
-    "build:win": "electron-builder --windows"
+    "build:win": "electron-builder --windows",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:engine": "cargo build --release --manifest-path live-engine/Cargo.toml",
+    "build:sidecars": "bash scripts/build-sidecars.sh",
+    "dist:linux": "bash scripts/build-linux.sh"
   },
   "build": {
     "appId": "com.virtualstory.app",
@@ -21,11 +25,44 @@
       "package.json"
     ],
     "linux": {
-      "target": "AppImage",
-      "category": "Video"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "maintainer": "Virtual Story"
     },
     "win": {
       "target": "nsis"
+    },
+    "extraResources": [
+      {
+        "from": "live-engine/target/release/live-engine",
+        "to": "engine/live-engine"
+      },
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ],
+      "recommends": [
+        "nvidia-driver-550 | nvidia-driver"
+      ]
     }
   },
   "devDependencies": {

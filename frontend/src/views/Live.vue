@@ -23,6 +23,9 @@
       <label>Intensité maximale des médias : <b>{{ maxIntensity }}</b> / 5
         <input type="range" min="1" max="5" v-model.number="maxIntensity" />
       </label>
+      <p v-if="connected && !hello.llm" class="error">
+        L'IA n'est pas chargée. <router-link to="/admin/live/models">Télécharger / charger un modèle</router-link>
+      </p>
       <p class="status">
         <span :class="['pill', hello.llm && 'ok']">IA</span>
         <span :class="['pill', hello.stt && 'ok']">Micro</span>

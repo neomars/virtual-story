@@ -9,6 +9,7 @@ import Player from '../views/Player.vue'
 import Live from '../views/Live.vue'
 import LiveMedia from '../views/Admin/LiveMedia.vue'
 import LivePersonas from '../views/Admin/LivePersonas.vue'
+import LiveModels from '../views/Admin/LiveModels.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -33,6 +34,11 @@ const router = createRouter({
       path: '/admin/live/media',
       name: 'admin-live-media',
       component: LiveMedia
+    },
+    {
+      path: '/admin/live/models',
+      name: 'admin-live-models',
+      component: LiveModels
     },
     {
       path: '/admin/live/personas',

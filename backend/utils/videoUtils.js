@@ -4,7 +4,7 @@ const { exec } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
 const { pool: dbPool } = require('../db');
 
-const uploadsDir = path.join(__dirname, '../uploads');
+const { uploadsDir } = require('./paths');
 const getAbsPath = (vPath) => path.join(uploadsDir, vPath.startsWith('/') ? vPath.slice(1) : vPath);
 
 const deleteSceneInternal = async (sceneId) => {

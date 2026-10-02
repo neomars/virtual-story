@@ -132,7 +132,7 @@ impl SentenceSplitter {
             let idx = self.buf.char_indices().find(|(i, c)| {
                 matches!(c, '.' | '!' | '?' | '…' | '\n')
                     // pas de coupure sur "3.5" ou "etc.x" : il faut un espace/fin après
-                    && self.buf[i + c.len_utf8()..].chars().next().map_or(false, |n| n.is_whitespace())
+                    && self.buf[i + c.len_utf8()..].chars().next().is_some_and(|n| n.is_whitespace())
             });
             match idx {
                 Some((i, c)) => {
