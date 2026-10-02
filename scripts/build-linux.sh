@@ -1,30 +1,49 @@
 #!/usr/bin/env bash
-# Construit l'application Ubuntu complète (AppImage + .deb) dans ./dist :
-#   interface Vue + moteur Rust + llama-server/whisper-server (CUDA) + Electron.
-# Prérequis : node ≥ 20, npm, Rust (cargo) — et pour les sidecars : voir scripts/build-sidecars.sh.
+# Construit l'application Ubuntu complète : interface Vue + moteur Rust + llama-server/whisper-server (CUDA)
+# + Electron, et produit AppImage + .deb dans ./dist.
+#
+#   bash scripts/build-linux.sh [options]        (ou : npm run dist:linux)
+#     --dir             ne produit que le dossier dist/linux-unpacked (plus rapide, pour tester)
+#     --skip-install    ne relance pas npm install
+#     --skip-sidecars   ne prépare pas ./bin (llama-server, whisper-server)
+#     --no-doctor       n'exécute pas le diagnostic des prérequis
+# Variables : voir scripts/build-sidecars.sh (CUDA_ARCH, LLAMA_MODE, SKIP_WHISPER, …).
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-need() { command -v "$1" >/dev/null 2>&1 || { echo "✗ « $1 » est introuvable. $2" >&2; exit 1; }; }
-need node "Installe Node.js ≥ 20"
-need npm "Installe npm"
-need cargo "Installe Rust : https://rustup.rs"
+DIR_ONLY=0; INSTALL=1; SIDECARS=1; DOCTOR=1
+for a in "$@"; do
+  case "$a" in
+    --dir) DIR_ONLY=1 ;;
+    --skip-install) INSTALL=0 ;;
+    --skip-sidecars) SIDECARS=0 ;;
+    --no-doctor) DOCTOR=0 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    *) echo "option inconnue : $a" >&2; exit 2 ;;
+  esac
+done
 
-echo "→ dépendances npm"
-npm install --no-audit --no-fund
-(cd backend && npm install --no-audit --no-fund)
-(cd frontend && npm install --no-audit --no-fund)
+step() { printf '\n\033[1m→ %s\033[0m\n' "$*"; }
 
-echo "→ interface (Vue)"
-npm run build:frontend
+if [ "$DOCTOR" = 1 ]; then step "diagnostic"; bash scripts/doctor.sh || { echo "Corrige les ✗ ci-dessus (ou --no-doctor)." >&2; exit 1; }; fi
 
-echo "→ moteur (Rust)"
-npm run build:engine
+if [ "$INSTALL" = 1 ]; then
+  step "dépendances npm"
+  # --no-package-lock : le dépôt utilise pnpm-lock.yaml, on ne veut pas salir package-lock.json à chaque build.
+  npm install --no-audit --no-fund --no-package-lock
+  (cd backend && npm install --no-audit --no-fund --no-package-lock)
+  (cd frontend && npm install --no-audit --no-fund --no-package-lock)
+fi
 
-echo "→ sidecars CUDA (llama-server, whisper-server)"
-bash scripts/build-sidecars.sh
+step "interface (Vue)";            npm run --silent build:frontend
+step "moteur (Rust, release)";     npm run --silent build:engine
+if [ "$SIDECARS" = 1 ]; then step "serveurs IA (llama-server, whisper-server, voix)"; bash scripts/build-sidecars.sh; fi
 
-echo "→ paquets Ubuntu"
-npx electron-builder --linux
+step "paquets Ubuntu"
+if [ "$DIR_ONLY" = 1 ]; then npx electron-builder --linux dir --publish never
+else npx electron-builder --linux --publish never; fi
 
-echo "✓ Terminé :"; ls -lh dist/*.AppImage dist/*.deb 2>/dev/null || ls dist
+step "vérification du paquet"
+bash scripts/verify-package.sh
+
+echo; echo "✓ Terminé :"; ls -lh dist/*.AppImage dist/*.deb 2>/dev/null || ls dist/linux-unpacked | head

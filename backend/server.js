@@ -9,6 +9,7 @@ const { apiLimiter } = require('./middleware/rateLimiter');
 
 const liveProxy = require('./liveProxy');
 const { uploadsDir } = require('./utils/paths');
+const { ensureDefaults } = require('./bootstrap');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +50,9 @@ app.use(express.json());
 
 // Global API Rate Limiter
 app.use('/api/', apiLimiter);
+
+// Base JSON : crée l'admin par défaut au premier lancement (app empaquetée : personne ne lance init-db.js).
+ensureDefaults().catch((e) => console.error('Initialisation de la base impossible :', e));
 
 // Upload directories setup
 const videosDir = path.join(uploadsDir, 'videos');

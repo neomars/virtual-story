@@ -83,17 +83,13 @@ modèle Whisper « small ». `cargo run --release plan [id]` affiche le plan san
 
 ## Compiler l'app Ubuntu (NVIDIA)
 
-Prérequis : Ubuntu 24.04 (binaire llama.cpp officiel ; 22.04 : `LLAMA_MODE=source`), pilote NVIDIA, CUDA Toolkit (`nvcc`, pour
-`whisper-server`), `build-essential cmake git curl`, Node ≥ 20.19, Rust. Le moteur de voix (Python) s'installe depuis l'app.
-
-```bash
-npm run dist:linux        # = scripts/build-linux.sh : UI + moteur Rust + llama/whisper-server CUDA + AppImage + .deb
-```
-
-Détails (`scripts/build-sidecars.sh`) : `llama-server` est le **binaire officiel CUDA 12.8** (tag `b11146`, vérifié par
-SHA-256 ; `LLAMA_CPP_TAG`/`LLAMA_SHA256` pour un autre) ; `whisper-server` est compilé (`CUDA_ARCH=native` = la carte de la
-machine de build, ou par exemple `"86;89"` pour d'autres cartes) ; `WHISPER_CPP_REF`, `SKIP_WHISPER=1`, `FORCE=1`.
-Gemma 4 exige un llama.cpp récent (juin 2026 ou après). Les versions installées sont notées dans `bin/VERSIONS.txt`.
+Voir le README racine (`npm run doctor`, `npm run dist:linux`). Détails de `scripts/build-sidecars.sh` :
+`llama-server` est le **binaire officiel CUDA 12.8** (tag `b11146`, vérifié par SHA-256 ; `LLAMA_CPP_TAG` / `LLAMA_SHA256` /
+`CUDART_SHA256` pour une autre version, `LLAMA_MODE=source` pour le compiler) ; `whisper-server` est compilé
+(`CUDA_ARCH=native` = la carte de la machine de build, ou par exemple `"86;89"` pour d'autres cartes ; `WHISPER_CPP_REF`,
+`SKIP_WHISPER=1`) ; les scripts de voix sont copiés dans `bin/`. `FORCE=1` refait tout. Gemma 4 exige un llama.cpp récent
+(juin 2026 ou après). Les versions installées sont notées dans `bin/VERSIONS.txt`. `scripts/verify-package.sh [dossier]`
+contrôle un paquet déjà construit.
 
 À l'exécution, l'app stocke tout dans ton dossier utilisateur : base et médias dans `~/.config/Virtual Story`,
 modèles dans `~/.local/share/virtual-story/models` (`VS_MODELS_DIR` pour changer), moteur de voix Python dans
