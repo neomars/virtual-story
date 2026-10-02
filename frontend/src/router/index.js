@@ -6,6 +6,9 @@ import SceneList from '../views/Admin/SceneList.vue'
 import SceneEdit from '../views/Admin/SceneEdit.vue'
 import UserManagement from '../views/Admin/UserManagement.vue'
 import Player from '../views/Player.vue'
+import Live from '../views/Live.vue'
+import LiveMedia from '../views/Admin/LiveMedia.vue'
+import LivePersonas from '../views/Admin/LivePersonas.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +23,21 @@ const router = createRouter({
       name: 'player',
       component: Player,
       props: true
+    },
+    {
+      path: '/live',
+      name: 'live',
+      component: Live
+    },
+    {
+      path: '/admin/live/media',
+      name: 'admin-live-media',
+      component: LiveMedia
+    },
+    {
+      path: '/admin/live/personas',
+      name: 'admin-live-personas',
+      component: LivePersonas
     },
     {
       path: '/admin/scenes',

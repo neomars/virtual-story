@@ -30,3 +30,8 @@ npm_dev.log
 *.ntvs*
 *.njsproj
 *.sln
+
+# live-engine (Rust)
+live-engine/target/
+live-engine/data/live.db*
+live-engine/models/

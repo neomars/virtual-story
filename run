@@ -28,8 +28,17 @@ echo "Starting Frontend on http://localhost:5173..."
 # We run vite directly via node to bypass pnpm dynamic import/corepack issues
 (cd frontend && exec node ./node_modules/vite/bin/vite.js) &
 
+# Start Live engine (Rust) if cargo is available
+if command -v cargo >/dev/null 2>&1; then
+    echo "Starting Live engine on http://localhost:3001..."
+    (cd live-engine && exec cargo run --release) &
+else
+    echo "cargo not found: Live engine (AI chat) not started."
+fi
+
 echo "Both servers are starting."
 echo "- Backend: http://localhost:3000"
+echo "- Live engine: http://localhost:3001 (AI chat, see live-engine/README.md)"
 echo "- Frontend: http://localhost:5173"
 echo "Press Ctrl+C to stop both."
 

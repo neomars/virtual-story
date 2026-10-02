@@ -1,0 +1,38 @@
+# Copie ce fichier en live.toml et adapte-le. Valeurs par défaut pour 15 Go de VRAM / 64 Go de RAM.
+
+[server]
+bind = "127.0.0.1:3001"          # garde 127.0.0.1 : l'app est locale
+uploads_dir = "../backend/uploads"
+frontend_dir = "../frontend/dist"
+# admin_token = "change-moi"      # protège l'édition des médias / personas
+
+[hardware]
+vram_gb = 15.0
+ram_gb = 64.0
+vram_reserve_gb = 1.0            # OS + navigateur
+vram_other_models_gb = 1.0       # Whisper sur GPU (small ≈ 1 Go) ; passe à 0 si Whisper tourne sur CPU
+
+[llm]
+url = "http://127.0.0.1:8080"
+# Profil A (recommandé, tout sur GPU, rapide) : modèle 12B (base Mistral-Nemo) en Q5_K_M ≈ 8,7 Go
+model_size_gb = 8.7
+n_layers = 40
+n_kv_heads = 8
+head_dim = 128
+ctx_tokens = 16384
+# Profil B (plus « intelligent », ~12-18 tok/s grâce aux 64 Go de RAM) : 24-32B en Q4_K_M ≈ 14-19 Go
+#   model_size_gb = 19.0 ; n_layers = 64 ; ctx_tokens = 12288
+# model_path = "models/mon-modele.gguf"
+# autostart = true               # lance llama-server avec les paramètres calculés
+
+[stt]
+enabled = true
+url = "http://127.0.0.1:8081"    # whisper.cpp : whisper-server -m ggml-small.bin -l fr --port 8081
+language = "fr"
+
+[tts]
+enabled = true
+url = "http://127.0.0.1:8880"    # API compatible OpenAI /v1/audio/speech (ex. Kokoro-FastAPI)
+model = "kokoro"
+default_voice = "ff_siwis"
+format = "mp3"
