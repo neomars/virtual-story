@@ -1,6 +1,6 @@
 const path = require('path');
 
-const uploadsDir = path.join(__dirname, '../uploads');
+const { uploadsDir } = require('./paths');
 const videosDir = path.join(uploadsDir, 'videos');
 const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
 const partsDir = path.join(uploadsDir, 'parts');

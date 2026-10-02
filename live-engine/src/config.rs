@@ -4,10 +4,11 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub server: ServerConfig,
+    pub engine: EngineConfig,
     pub hardware: HardwareConfig,
     pub llm: LlmConfig,
     pub stt: SttConfig,
@@ -21,8 +22,22 @@ pub struct ServerConfig {
     pub data_dir: PathBuf,
     pub uploads_dir: PathBuf,
     pub frontend_dir: PathBuf,
+    /// Dossier des modèles téléchargés (défaut : `<data_dir>/models`).
+    pub models_dir: Option<PathBuf>,
+    /// Dossier des exécutables (llama-server, whisper-server…). Sinon, recherche dans le PATH.
+    pub bin_dir: PathBuf,
     /// Si défini, les routes d'écriture exigent `Authorization: Bearer <token>`.
     pub admin_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EngineConfig {
+    /// L'app lance et arrête elle-même llama-server / whisper-server / TTS.
+    /// Mets `false` si tu les gères à la main (voir `[llm].url`, `[stt].url`, `[tts].url`).
+    pub managed: bool,
+    /// Recharge au démarrage les derniers modèles choisis.
+    pub autoload: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,18 +57,14 @@ pub struct LlmConfig {
     /// URL d'un serveur compatible OpenAI (llama.cpp `llama-server`, Ollama, vLLM…).
     pub url: String,
     pub model: String,
-    /// Fichier GGUF (utilisé pour estimer la taille et pour le démarrage auto).
-    pub model_path: Option<PathBuf>,
-    /// Taille du modèle en Go si le fichier n'est pas encore présent.
+    /// Valeurs de repli quand aucun modèle géré n'est chargé (l'architecture réelle est lue dans le GGUF).
     pub model_size_gb: f64,
     pub n_layers: u32,
     pub n_kv_heads: u32,
     pub head_dim: u32,
     pub ctx_tokens: u32,
     pub temperature: f32,
-    /// Lance `llama-server` automatiquement avec les paramètres calculés.
-    pub autostart: bool,
-    pub binary: String,
+    /// Arguments supplémentaires ajoutés à `llama-server` pour tous les modèles.
     pub extra_args: Vec<String>,
 }
 
@@ -64,6 +75,8 @@ pub struct SttConfig {
     /// Serveur whisper.cpp (`whisper-server`), route `/inference`.
     pub url: String,
     pub language: String,
+    /// `false` : whisper-server tourne sur CPU (libère ~1 Go de VRAM).
+    pub use_gpu: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,18 +90,6 @@ pub struct TtsConfig {
     pub format: String,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            hardware: HardwareConfig::default(),
-            llm: LlmConfig::default(),
-            stt: SttConfig::default(),
-            tts: TtsConfig::default(),
-        }
-    }
-}
-
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -96,8 +97,16 @@ impl Default for ServerConfig {
             data_dir: "data".into(),
             uploads_dir: "../backend/uploads".into(),
             frontend_dir: "../frontend/dist".into(),
+            models_dir: None,
+            bin_dir: "bin".into(),
             admin_token: None,
         }
+    }
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        Self { managed: true, autoload: true }
     }
 }
 
@@ -113,15 +122,12 @@ impl Default for LlmConfig {
         Self {
             url: "http://127.0.0.1:8080".into(),
             model: "local".into(),
-            model_path: None,
             model_size_gb: 8.7,
             n_layers: 40,
             n_kv_heads: 8,
             head_dim: 128,
             ctx_tokens: 16384,
             temperature: 0.85,
-            autostart: false,
-            binary: "llama-server".into(),
             extra_args: vec![],
         }
     }
@@ -129,7 +135,7 @@ impl Default for LlmConfig {
 
 impl Default for SttConfig {
     fn default() -> Self {
-        Self { enabled: true, url: "http://127.0.0.1:8081".into(), language: "fr".into() }
+        Self { enabled: true, url: "http://127.0.0.1:8081".into(), language: "fr".into(), use_gpu: true }
     }
 }
 
@@ -147,10 +153,27 @@ impl Default for TtsConfig {
 
 impl Config {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-        let raw = std::fs::read_to_string(path)?;
-        Ok(toml::from_str(&raw)?)
+        let mut cfg: Self = if path.exists() {
+            toml::from_str(&std::fs::read_to_string(path)?)?
+        } else {
+            Self::default()
+        };
+        cfg.apply_env();
+        Ok(cfg)
+    }
+
+    /// Les variables d'environnement l'emportent (utilisées par l'app Electron empaquetée).
+    fn apply_env(&mut self) {
+        let var = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+        if let Some(v) = var("LIVE_BIND") { self.server.bind = v }
+        if let Some(v) = var("LIVE_DATA_DIR") { self.server.data_dir = v.into() }
+        if let Some(v) = var("LIVE_MODELS_DIR") { self.server.models_dir = Some(v.into()) }
+        if let Some(v) = var("LIVE_BIN_DIR") { self.server.bin_dir = v.into() }
+        if let Some(v) = var("LIVE_UPLOADS_DIR") { self.server.uploads_dir = v.into() }
+        if let Some(v) = var("LIVE_FRONTEND_DIR") { self.server.frontend_dir = v.into() }
+    }
+
+    pub fn models_dir(&self) -> PathBuf {
+        self.server.models_dir.clone().unwrap_or_else(|| self.server.data_dir.join("models"))
     }
 }

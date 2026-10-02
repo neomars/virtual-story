@@ -95,6 +95,7 @@ pub fn plan(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64) -> LlmPlan {
 pub fn llama_server_args(plan: &LlmPlan, model_path: &str, port: u16, extra: &[String]) -> Vec<String> {
     let mut a: Vec<String> = vec![
         "-m".into(), model_path.into(),
+        "--host".into(), "127.0.0.1".into(),
         "--port".into(), port.to_string(),
         "-c".into(), plan.ctx_tokens.to_string(),
         "-ngl".into(), plan.n_gpu_layers.to_string(),
@@ -108,9 +109,45 @@ pub fn llama_server_args(plan: &LlmPlan, model_path: &str, port: u16, extra: &[S
     a
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct GpuInfo {
+    pub name: String,
+    pub total_mb: u64,
+    pub used_mb: u64,
+}
+
+/// Sortie de `nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader,nounits`.
+pub fn parse_nvidia_smi(out: &str) -> Vec<GpuInfo> {
+    out.lines()
+        .filter_map(|l| {
+            let mut p = l.rsplitn(3, ',');
+            let used = p.next()?.trim().parse().ok()?;
+            let total = p.next()?.trim().parse().ok()?;
+            Some(GpuInfo { name: p.next()?.trim().to_string(), total_mb: total, used_mb: used })
+        })
+        .collect()
+}
+
+pub async fn detect_gpu() -> Option<GpuInfo> {
+    let out = tokio::process::Command::new("nvidia-smi")
+        .args(["--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"])
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() { return None; }
+    parse_nvidia_smi(&String::from_utf8_lossy(&out.stdout)).into_iter().next()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lit_la_sortie_de_nvidia_smi() {
+        let g = parse_nvidia_smi("NVIDIA GeForce RTX 4080 SUPER, 16376, 1204\n");
+        assert_eq!(g, vec![GpuInfo { name: "NVIDIA GeForce RTX 4080 SUPER".into(), total_mb: 16376, used_mb: 1204 }]);
+        assert!(parse_nvidia_smi("").is_empty());
+    }
 
     fn hw() -> HardwareConfig {
         HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 1.0 }

@@ -2,7 +2,7 @@ const alasql = require('alasql');
 const fs = require('fs');
 const path = require('path');
 
-const DB_FILE = path.resolve(__dirname, 'db.json');
+const DB_FILE = require('./utils/paths').dbFile;
 
 // Helper to save to JSON
 function save() {

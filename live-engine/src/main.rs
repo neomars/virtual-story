@@ -1,12 +1,14 @@
 mod api;
 mod config;
 mod director;
+mod engine;
+mod gguf;
 mod hardware;
 mod llm;
 mod media;
+mod models;
 mod persona;
 mod prompt;
-mod sidecar;
 mod state;
 mod voice;
 mod ws;
@@ -18,6 +20,61 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tower_http::services::{ServeDir, ServeFile};
 
+/// Fin de la lecture de stdin : l'app Electron qui nous a lancés est morte (même brutalement) →
+/// on s'arrête, ce qui décharge les modèles et libère le GPU. Activé par LIVE_EXIT_ON_STDIN_EOF=1.
+async fn parent_gone() {
+    if std::env::var("LIVE_EXIT_ON_STDIN_EOF").ok().as_deref() != Some("1") {
+        return std::future::pending().await;
+    }
+    use tokio::io::AsyncReadExt;
+    let mut sink = [0u8; 256];
+    let mut stdin = tokio::io::stdin();
+    while matches!(stdin.read(&mut sink).await, Ok(n) if n > 0) {}
+}
+
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = signal(SignalKind::terminate()).expect("SIGTERM");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = term.recv() => {}
+            _ = parent_gone() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = parent_gone() => {}
+    }
+}
+
+/// `live-engine plan [id]` : affiche le plan mémoire (lu dans le GGUF si le modèle est installé).
+async fn print_plan(cfg: &Config, models: &models::Models, id: Option<String>) -> anyhow::Result<()> {
+    let id = id.unwrap_or_else(|| "gemma4-12b-heretic".into());
+    let installed = models.installed(&id);
+    let (params, weights_gb) = match &installed {
+        Some(i) => {
+            let info = gguf::read_info(&i.files[0])?;
+            println!("architecture lue dans le GGUF : {info:?}");
+            (engine::llm_params(Some(&info), &cfg.llm), i.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+        }
+        None => {
+            println!("« {id} » n'est pas installé : plan estimé avec les valeurs de repli de la configuration.");
+            (cfg.llm.clone(), models.entry(&id).map(|e| e.size_gb).filter(|s| *s > 0.0).unwrap_or(cfg.llm.model_size_gb))
+        }
+    };
+    let mut hw = cfg.hardware.clone();
+    if let Some(g) = hardware::detect_gpu().await {
+        println!("GPU détecté : {} — {} Mo (dont {} Mo utilisés)", g.name, g.total_mb, g.used_mb);
+        if hw.vram_gb <= 0.0 { hw.vram_gb = g.total_mb as f64 / 1024.0; }
+    }
+    let plan = hardware::plan(&hw, &params, weights_gb);
+    println!("{}", serde_json::to_string_pretty(&plan)?);
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -25,36 +82,20 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cfg_path = PathBuf::from(std::env::var("LIVE_CONFIG").unwrap_or_else(|_| "live.toml".into()));
-    let cfg = Config::load(&cfg_path)?;
+    let cfg = Arc::new(Config::load(&cfg_path)?);
 
-    // Taille réelle du modèle si le fichier existe, sinon la valeur configurée.
-    let weights_gb = cfg
-        .llm
-        .model_path
-        .as_ref()
-        .and_then(|p| std::fs::metadata(p).ok())
-        .map(|m| m.len() as f64 / (1024.0 * 1024.0 * 1024.0))
-        .unwrap_or(cfg.llm.model_size_gb);
-    let plan = hardware::plan(&cfg.hardware, &cfg.llm, weights_gb);
+    let catalog = models::load_catalog(&cfg.server.data_dir);
+    let models = models::Models::new(catalog, cfg.models_dir());
 
     if std::env::args().nth(1).as_deref() == Some("plan") {
-        println!("{}", serde_json::to_string_pretty(&plan)?);
-        println!("\nlignes de commande llama-server :");
-        let model = cfg.llm.model_path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or("model.gguf".into());
-        let quoted: Vec<String> = hardware::llama_server_args(&plan, &model, 8080, &cfg.llm.extra_args)
-            .into_iter()
-            .map(|a| if a.contains(|c: char| c.is_whitespace() || "{}\"'$".contains(c)) { format!("'{a}'") } else { a })
-            .collect();
-        println!("llama-server {}", quoted.join(" "));
-        return Ok(());
+        return print_plan(&cfg, &models, std::env::args().nth(2)).await;
     }
 
-    tracing::info!(
-        "plan GPU : {}/{} couches, ctx {}, VRAM ≈ {:.1}/{:.1} Go, RAM ≈ {:.1} Go {}",
-        plan.n_gpu_layers.min(cfg.llm.n_layers), cfg.llm.n_layers, plan.ctx_tokens, plan.vram_used_gb, plan.vram_budget_gb,
-        plan.ram_used_gb, plan.notes.join(" ; ")
-    );
-    let _llama = sidecar::spawn_llama(&cfg, &plan)?; // gardé en vie jusqu'à la fin du processus
+    let engine = engine::Engine::new(cfg.clone(), models.clone());
+    if cfg.engine.managed && cfg.engine.autoload {
+        let e = engine.clone();
+        tokio::spawn(async move { e.autoload().await });
+    }
 
     let media = media::MediaLibrary::open(&cfg.server.data_dir.join("live.db"))?;
     let personas = persona::PersonaStore::new(&cfg.server.data_dir.join("personas"))?;
@@ -66,9 +107,10 @@ async fn main() -> anyhow::Result<()> {
         llm: llm::LlmClient::new(&cfg.llm.url, &cfg.llm.model),
         stt: cfg.stt.enabled.then(|| voice::Stt::new(cfg.stt.clone())),
         tts: cfg.tts.enabled.then(|| voice::Tts::new(cfg.tts.clone())),
-        plan,
         media,
         personas,
+        models,
+        engine: engine.clone(),
         cfg,
     });
 
@@ -81,6 +123,8 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("Virtual Story Live — http://{bind}");
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
+    tracing::info!("arrêt : libération des modèles");
+    engine.shutdown().await;
     Ok(())
 }

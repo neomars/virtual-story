@@ -1,6 +1,7 @@
 //! Routes REST d'administration + point d'entrée WebSocket.
 
 use crate::media::MediaPatch;
+use crate::models::Kind;
 use crate::persona::Persona;
 use crate::state::AppState;
 use crate::ws::handle_socket;
@@ -33,7 +34,15 @@ fn authorize(app: &AppState, headers: &HeaderMap) -> Result<(), (StatusCode, Jso
 pub fn router() -> Router<App> {
     Router::new()
         .route("/health", get(health))
-        .route("/plan", get(|State(a): State<App>| async move { Json(json!(a.plan)) }))
+        .route("/plan", get(|State(a): State<App>| async move { Json(json!(a.plan())) }))
+        .route("/models", get(models_list))
+        .route("/models/{id}/download", post(model_download))
+        .route("/models/{id}/cancel", post(model_cancel))
+        .route("/models/{id}", axum::routing::delete(model_delete))
+        .route("/engine/status", get(engine_status))
+        .route("/engine/load", post(engine_load))
+        .route("/engine/unload", post(engine_unload))
+        .route("/engine/logs/{kind}", get(engine_logs))
         .route("/ws", get(ws_upgrade))
         .route("/media", get(media_list))
         .route("/media/scan", post(media_scan))
@@ -44,8 +53,27 @@ pub fn router() -> Router<App> {
         .route("/personas/{id}", get(persona_get).put(persona_put).delete(persona_delete))
 }
 
-async fn ws_upgrade(ws: WebSocketUpgrade, State(app): State<App>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, app))
+/// Un site web quelconque ne doit pas pouvoir ouvrir une session sur ton moteur local (et ton GPU) :
+/// on n'accepte que les origines locales ou identiques à l'hôte demandé. Sans en-tête Origin
+/// (client non-navigateur), on accepte.
+pub fn origin_allowed(origin: Option<&str>, host: Option<&str>) -> bool {
+    let Some(origin) = origin else { return true };
+    let after = origin.split_once("://").map(|(_, r)| r).unwrap_or(origin);
+    let origin_host = after.split('/').next().unwrap_or("");
+    let hostname = |h: &str| -> String {
+        if let Some(rest) = h.strip_prefix('[') { format!("[{}", rest.split(']').next().unwrap_or("") ) + "]" }
+        else { h.split(':').next().unwrap_or("").to_lowercase() }
+    };
+    let oh = hostname(origin_host);
+    matches!(oh.as_str(), "localhost" | "127.0.0.1" | "[::1]") || host.is_some_and(|h| hostname(h) == oh)
+}
+
+async fn ws_upgrade(ws: WebSocketUpgrade, headers: HeaderMap, State(app): State<App>) -> axum::response::Response {
+    let get = |k: &str| headers.get(k).and_then(|v| v.to_str().ok());
+    if !origin_allowed(get("origin"), get("host")) {
+        return (StatusCode::FORBIDDEN, "origine non autorisée").into_response();
+    }
+    ws.on_upgrade(move |socket| handle_socket(socket, app)).into_response()
 }
 
 async fn health(State(a): State<App>) -> Json<Value> {
@@ -53,7 +81,7 @@ async fn health(State(a): State<App>) -> Json<Value> {
     let tts = match &a.tts { Some(t) => t.healthy().await, None => false };
     Json(json!({
         "llm": a.llm.healthy().await, "stt": stt, "tts": tts,
-        "plan": a.plan,
+        "plan": a.plan(),
         "media_count": a.media.list().map(|l| l.len()).unwrap_or(0),
     }))
 }
@@ -120,4 +148,107 @@ async fn persona_put(State(a): State<App>, h: HeaderMap, Path(id): Path<String>,
 async fn persona_delete(State(a): State<App>, h: HeaderMap, Path(id): Path<String>) -> ApiResult {
     authorize(&a, &h)?;
     if a.personas.delete(&id) { Ok(Json(json!({"deleted": id}))) } else { Err(err(StatusCode::NOT_FOUND, "persona introuvable")) }
+}
+
+// ---------- Modèles et moteur ----------
+
+async fn models_list(State(a): State<App>) -> Json<Value> {
+    let sel = a.engine.selection();
+    let items: Vec<Value> = a
+        .models
+        .catalog
+        .iter()
+        .map(|e| {
+            let inst = a.models.installed(&e.id);
+            let active = [&sel.llm, &sel.stt, &sel.tts].iter().any(|s| s.as_deref() == Some(e.id.as_str()));
+            json!({
+                "entry": e,
+                "installed": inst.is_some(),
+                "size_bytes": inst.as_ref().map(|i| i.size_bytes),
+                "download": a.models.state(&e.id),
+                "active": active,
+            })
+        })
+        .collect();
+    Json(json!(items))
+}
+
+async fn model_download(State(a): State<App>, h: HeaderMap, Path(id): Path<String>) -> ApiResult {
+    authorize(&a, &h)?;
+    let started = a.models.start_download(&id).map_err(|e| err(StatusCode::NOT_FOUND, e))?;
+    Ok(Json(json!({ "started": started })))
+}
+
+async fn model_cancel(State(a): State<App>, h: HeaderMap, Path(id): Path<String>) -> ApiResult {
+    authorize(&a, &h)?;
+    a.models.cancel(&id);
+    Ok(Json(json!({ "cancelled": id })))
+}
+
+async fn model_delete(State(a): State<App>, h: HeaderMap, Path(id): Path<String>) -> ApiResult {
+    authorize(&a, &h)?;
+    // On décharge d'abord le modèle s'il est en cours d'utilisation (fichier ouvert par le serveur).
+    if let Some(e) = a.models.entry(&id) {
+        let kind = e.kind;
+        if a.engine.status_of(kind).model.as_deref() == Some(id.as_str()) {
+            a.engine.unload(kind).await;
+        }
+    }
+    if a.models.delete(&id) { Ok(Json(json!({ "deleted": id }))) } else { Err(err(StatusCode::NOT_FOUND, "modèle introuvable")) }
+}
+
+async fn engine_status(State(a): State<App>) -> Json<Value> {
+    Json(a.engine.status_json().await)
+}
+
+#[derive(Deserialize)]
+struct LoadReq {
+    id: String,
+}
+
+async fn engine_load(State(a): State<App>, h: HeaderMap, Json(r): Json<LoadReq>) -> ApiResult {
+    authorize(&a, &h)?;
+    a.engine.load(&r.id).await.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "loading": r.id })))
+}
+
+#[derive(Deserialize)]
+struct UnloadReq {
+    kind: Kind,
+}
+
+async fn engine_unload(State(a): State<App>, h: HeaderMap, Json(r): Json<UnloadReq>) -> ApiResult {
+    authorize(&a, &h)?;
+    a.engine.unload(r.kind).await;
+    Ok(Json(json!({ "unloaded": r.kind })))
+}
+
+async fn engine_logs(State(a): State<App>, Path(kind): Path<String>) -> ApiResult {
+    let k = match kind.as_str() {
+        "llm" => Kind::Llm,
+        "stt" => Kind::Stt,
+        "tts" => Kind::Tts,
+        _ => return Err(err(StatusCode::NOT_FOUND, "composant inconnu")),
+    };
+    Ok(Json(json!({ "lines": a.engine.logs(k, 200) })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::origin_allowed;
+
+    #[test]
+    fn origines_locales_acceptees() {
+        assert!(origin_allowed(None, Some("127.0.0.1:3001")));
+        assert!(origin_allowed(Some("http://localhost:5173"), Some("127.0.0.1:3001")));
+        assert!(origin_allowed(Some("http://127.0.0.1:3000"), Some("127.0.0.1:3001")));
+        assert!(origin_allowed(Some("http://[::1]:3000"), Some("[::1]:3001")));
+        assert!(origin_allowed(Some("http://mon-pc.local:3000"), Some("mon-pc.local:3001")));
+    }
+
+    #[test]
+    fn sites_externes_refuses() {
+        assert!(!origin_allowed(Some("https://evil.example"), Some("127.0.0.1:3001")));
+        assert!(!origin_allowed(Some("http://localhost.evil.example"), Some("127.0.0.1:3001")));
+    }
 }

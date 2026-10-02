@@ -7,9 +7,16 @@ const fs = require('fs').promises;
 
 const { apiLimiter } = require('./middleware/rateLimiter');
 
+const liveProxy = require('./liveProxy');
+const { uploadsDir } = require('./utils/paths');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
+
+// Moteur IA live (Rust) : proxy REST + WebSocket, avant tout middleware qui lit le corps.
+app.use(liveProxy.middleware);
 
 // Basic security headers
 app.use(helmet({
@@ -41,16 +48,18 @@ app.use(session({
 app.use('/api/', apiLimiter);
 
 // Upload directories setup
-const videosDir = path.join(__dirname, 'uploads/videos');
-const thumbnailsDir = path.join(__dirname, 'uploads/thumbnails');
-const partsDir = path.join(__dirname, 'uploads/parts');
-const backgroundsDir = path.join(__dirname, 'uploads');
+const videosDir = path.join(uploadsDir, 'videos');
+const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
+const partsDir = path.join(uploadsDir, 'parts');
+const photosDir = path.join(uploadsDir, 'photos');
+const backgroundsDir = uploadsDir;
 
 (async () => {
     try {
         await fs.mkdir(videosDir, { recursive: true });
         await fs.mkdir(thumbnailsDir, { recursive: true });
         await fs.mkdir(partsDir, { recursive: true });
+        await fs.mkdir(photosDir, { recursive: true });
     } catch (error) {
         console.error("Error creating upload directories:", error);
     }
@@ -60,6 +69,7 @@ const backgroundsDir = path.join(__dirname, 'uploads');
 app.use('/videos', express.static(videosDir));
 app.use('/thumbnails', express.static(thumbnailsDir));
 app.use('/parts', express.static(partsDir));
+app.use('/photos', express.static(photosDir));
 app.use('/backgrounds', express.static(backgroundsDir));
 
 // Routes
@@ -94,6 +104,9 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).send({ message });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on http://localhost:${PORT} and listening on all interfaces.`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`Server is running on http://localhost:${PORT} (listening on ${HOST}).`);
+});
+server.on('upgrade', (req, socket, head) => {
+  if (!liveProxy.upgrade(req, socket, head)) socket.destroy();
 });

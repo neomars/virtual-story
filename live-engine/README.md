@@ -2,15 +2,31 @@
 
 Remplace les boutons de choix par une conversation dynamique : une IA locale (non censurée selon le modèle
 choisi) tient un personnage, parle (voix), t'écoute (micro) et **choisit elle-même** les vidéos/photos de la
-médiathèque pour illustrer l'échange.
+médiathèque pour illustrer l'échange. Tout tourne en local, sur ton GPU NVIDIA.
 
 ```
-Navigateur (Vue /live) ──WebSocket──> live-engine (Rust, axum)
-                                       ├─ llama-server  (LLM, GPU)      :8080
-                                       ├─ whisper-server (micro → texte) :8081
-                                       ├─ serveur TTS OpenAI-compatible  :8880  (Kokoro, CPU/GPU léger)
-                                       └─ SQLite : médias annotés + personas JSON
+App Ubuntu (Electron) ── lance ──> live-engine (Rust, axum, port 3001)
+   │  Express :3000 (UI + admin) ── proxy /api/live ──┘   │
+   │                                                      ├─ télécharge les modèles (Hugging Face, reprise + SHA-256)
+   │                                                      ├─ lit l'architecture réelle du GGUF → plan VRAM
+   │                                                      ├─ lance/arrête llama-server  (IA texte, GPU)   :8080
+   │                                                      ├─ lance/arrête whisper-server (micro → texte)   :8081
+   │                                                      └─ lance/arrête le serveur TTS (voix)            :8880
 ```
+
+## Utilisation dans l'app
+
+1. **Admin → Modèles IA** (`/admin/live/models`) : clique sur *Télécharger* (Gemma 4 12B Heretic recommandé, puis
+   Whisper large-v3-turbo Q5), puis *Charger*. L'écran affiche l'état, le plan mémoire, la VRAM réelle et les journaux.
+   Les téléchargements reprennent après une coupure et sont vérifiés par SHA-256. Les derniers modèles choisis se
+   rechargent au démarrage.
+2. **Admin → Médiathèque** : *Scanner les uploads* (vidéos **et** photos), puis annote tags, ambiance, intensité.
+3. **Admin → Personnages** : crée ton personnage (nom, personnalité, style, scénario, voix).
+4. **Live** : choisis le personnage, parle ou écris. Parler pendant que l'IA répond la coupe (barge-in).
+
+Ajouter un modèle au catalogue : crée `catalog.json` dans le dossier de données (liste d'objets
+`{id, kind: "llm"|"stt"|"tts", name, repo, pattern | files, args, exec}`) ; un même `id` remplace l'entrée intégrée.
+`HF_TOKEN` (variable d'environnement) permet de télécharger depuis des dépôts protégés.
 
 ## Comment l'IA choisit les médias
 
@@ -23,72 +39,52 @@ Le LLM écrit du texte normal avec des directives invisibles (plus fiable que le
 | `[[replies: Oui \| Non \| Plus tard]]` | boutons de réponse rapide (optionnels) |
 | `[[state: confiance=3]]` | mémoire du récit, réinjectée à chaque tour |
 
-Le moteur ne lui montre que **les tags réellement présents** dans la médiathèque et applique côté serveur
-le plafond d'intensité choisi par l'utilisateur.
+L'IA ne voit que les tags réellement présents dans la médiathèque ; le plafond d'intensité (curseur 1-5) est appliqué
+par le serveur.
 
-## Adaptation à 64 Go de RAM / 15 Go de VRAM
+## Adaptation à 15 Go de VRAM / 64 Go de RAM
 
-`live-engine plan` calcule le budget (poids + cache KV q8_0 + tampons) et les arguments de `llama-server` :
+Le plan est recalculé à chaque chargement depuis le **vrai** GGUF (couches, têtes KV, dimension de tête, contexte) :
+poids + cache KV en q8_0 + tampons, comparés à la VRAM disponible. Si tout tient, `-ngl` met toutes les couches sur le
+GPU ; sinon le contexte est réduit d'abord, puis une partie des couches passe en RAM. `cargo run --release plan [id]`
+affiche ce plan sans rien lancer. Le calcul du cache KV suppose une attention complète : il surestime les modèles à
+fenêtre glissante (Gemma), donc il est prudent.
 
-| Profil | Modèle | VRAM | Vitesse | Config |
-|---|---|---|---|---|
-| **A (défaut)** | 12B (base Mistral-Nemo) Q5_K_M ≈ 8,7 Go, ctx 16k | ≈ 11 Go, 100 % GPU | rapide | `live.example.toml` |
-| **B** | 24-32B Q4_K_M ≈ 14-19 Go, ctx 12k | 13 Go + reste en RAM | plus lent (offload partiel) | décommenter le profil B |
+| Profil | Modèle | Placement |
+|---|---|---|
+| **A (défaut)** | Gemma 4 12B Heretic Q4_K_M ≈ 7,4 Go, ctx 16k | 100 % GPU |
+| **B** | Cydonia 24B IQ4_XS ≈ 12,8 Go | GPU + un peu de RAM |
 
-Reste de la VRAM (≈ 1-2 Go) : Whisper `small` sur GPU. Le TTS (Kokoro) tourne sur CPU sans gêner le LLM.
-Choisis le fine-tune GGUF que tu veux (le moteur parle l'API OpenAI : Ollama/vLLM fonctionnent aussi).
-Les vitesses réelles dépendent de ta carte : lance `cargo run --release plan` puis mesure.
+## Compiler l'app Ubuntu (NVIDIA)
 
-## Démarrage
-
-```bash
-cd live-engine
-cp live.example.toml live.toml
-cargo run --release plan                 # plan mémoire + commande llama-server
-llama-server <args du plan> &            # ou llm.autostart = true
-whisper-server -m ggml-small.bin -l fr --port 8081 &
-# + un serveur TTS compatible /v1/audio/speech sur :8880
-cargo run --release                      # http://127.0.0.1:3001
-cd ../frontend && npm run dev            # /live, /admin/live/media, /admin/live/personas
-```
-
-1. `/admin/live/media` → « Scanner les uploads » (vidéos **et photos**), puis annote : tags, ambiance, intensité.
-2. `/admin/live/personas` → crée ton personnage (nom, personnalité, style, scénario, voix).
-3. `/live` → choisis le personnage, parle ou écris. Parler pendant que l'IA répond la coupe (barge-in).
-
-## Profil retenu : Gemma 4 12B « Heretic » (Q4_K_M)
-
-Config prête à l'emploi : `live.gemma4-12b.toml` (plan : tout sur GPU, ≈ 11,4 Go de VRAM estimés avec un cache KV
-volontairement surestimé, contexte 16k).
+Prérequis : Ubuntu 22.04/24.04, pilote NVIDIA, CUDA Toolkit (`nvcc`), `build-essential cmake git`, Node ≥ 20, Rust.
 
 ```bash
-cd live-engine
-cp live.gemma4-12b.toml live.toml
-pip install -U "huggingface_hub[cli]"
-huggingface-cli download igorls/gemma-4-12B-it-heretic-GGUF --include "*Q4_K_M*" --local-dir models
-# ajuste llm.model_path dans live.toml au nom exact du fichier téléchargé
-cargo run --release plan                 # affiche la commande llama-server à lancer
+npm run dist:linux        # = scripts/build-linux.sh : UI + moteur Rust + llama/whisper-server CUDA + AppImage + .deb
 ```
 
-Points d'attention :
-- Gemma 4 demande un **llama.cpp récent** (compilé après le 2026-06-04). Compile-le avec ton backend GPU
-  (`-DGGML_CUDA=ON` pour NVIDIA, `-DGGML_VULKAN=ON` pour AMD/autre).
-- Le mode « thinking » est coupé par `--chat-template-kwargs '{"enable_thinking":false}'` ; s'il apparaît quand même
-  dans les réponses, mets à jour llama.cpp.
-- Si les réponses contiennent des `---` répétés, le chat template du GGUF est défectueux : relance avec `--jinja`
-  et le template officiel du modèle de base.
-- `n_kv_heads` et `head_dim` sont des estimations (voir le commentaire dans le fichier) : à vérifier dans `config.json`.
-- À tester dès le premier lancement : le respect des balises `[[show: …]]` / `[[replies: …]]` sur 30-50 tours. Si le
-  modèle les oublie ou les déforme, compare avec `Ministral-3-14B-Nymphaea-RP` ou `Rocinante-X-12B`.
+Détails (`scripts/build-sidecars.sh`) : `CUDA_ARCH=native` (défaut : la carte de la machine de build ; mets par
+exemple `"86;89"` pour un paquet destiné à d'autres cartes), `BUNDLE_CUDA_LIBS=1` embarque `libcudart/libcublas`
+(l'AppImage devient autonome mais pèse plus lourd), `LLAMA_CPP_REF` / `WHISPER_CPP_REF` fixent les versions.
+Gemma 4 exige un llama.cpp récent (juin 2026 ou après). Les versions compilées sont notées dans `bin/VERSIONS.txt`.
+
+À l'exécution, l'app stocke tout dans ton dossier utilisateur : base et médias dans `~/.config/Virtual Story`,
+modèles dans `~/.local/share/virtual-story/models` (`VS_MODELS_DIR` pour changer). Journaux : `~/.config/Virtual
+Story/logs/live-engine.log`.
+
+## Développement
+
+```bash
+cd live-engine && cargo run --release        # moteur sur :3001 (lit live.toml s'il existe)
+cd frontend && npm run dev                   # Vite proxifie /api/live vers :3001
+cargo test                                   # planificateur, GGUF, catalogue/téléchargement, directives, médias…
+```
 
 ## Règles du moteur
 
-- Usage personnel : aucune vérification de médias, aucun refus ni avertissement dans le prompt, et le curseur
-  d'intensité (1-5) est à 5 par défaut ; c'est un réglage à toi, pas une restriction.
+- Usage personnel : aucune vérification de médias, aucun refus ni avertissement dans le prompt, curseur d'intensité à 5
+  par défaut (réglage à toi).
 - Une seule limite est conservée : les personnages sont des adultes. Une fiche avec `age < 18` est refusée à
   l'enregistrement et ignorée au chargement, et le prompt interdit tout contenu sexuel impliquant un mineur.
-- Le serveur écoute sur 127.0.0.1 ; `admin_token` protège l'édition si tu l'exposes sur le réseau.
-
-## Tests
-
-`cargo test` : planificateur matériel, parseur de directives en flux, recherche de médias, SSE, personas.
+- Sécurité locale : le moteur écoute sur 127.0.0.1 ; les WebSocket venant d'un autre site web sont refusés ;
+  `admin_token` protège l'édition si tu l'exposes sur un réseau.

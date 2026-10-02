@@ -76,7 +76,7 @@ pub async fn handle_socket(socket: WebSocket, app: Arc<AppState>) {
         match &app.tts { Some(t) => t.healthy().await, None => false },
     );
     send(&out, json!({"type":"hello","llm":llm_ok,"stt":stt_ok,"tts":tts_ok,
-                      "plan": app.plan}));
+                      "plan": app.plan()}));
 
     while let Some(Ok(msg)) = source.next().await {
         match msg {
@@ -209,7 +209,7 @@ async fn compact(app: &Arc<AppState>, session: &Arc<Mutex<Session>>) {
         let s = session.lock().await;
         let used: usize = s.history.iter().map(|m| estimate_tokens(&m.content)).sum::<usize>()
             + estimate_tokens(&s.summary) + 1500; // marge : prompt système
-        if used as f64 > app.plan.ctx_tokens as f64 * 0.75 && s.history.len() > 6 {
+        if used as f64 > app.plan().ctx_tokens as f64 * 0.75 && s.history.len() > 6 {
             let n = s.history.len() / 2;
             Some((s.history[..n].to_vec(), s.summary.clone(), n))
         } else {

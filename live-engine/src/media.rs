@@ -163,7 +163,7 @@ impl MediaLibrary {
             .filter(|m| {
                 m.intensity <= q.max_intensity
                     && !q.exclude.contains(&m.id)
-                    && q.kind.as_deref().map_or(true, |k| k == m.kind)
+                    && q.kind.as_deref().is_none_or(|k| k == m.kind)
                     && (!q.ambient_only || m.ambient)
             })
             .map(|m| {
