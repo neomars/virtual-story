@@ -3,6 +3,7 @@
 //! paramètres de `llama-server` (couches sur GPU, contexte, quantification du KV).
 
 use crate::config::{HardwareConfig, LlmConfig};
+use crate::gguf::GgufInfo;
 use serde::Serialize;
 
 const COMPUTE_BUFFER_GB: f64 = 0.8;
@@ -23,6 +24,7 @@ pub struct LlmPlan {
     pub notes: Vec<String>,
 }
 
+/// Estimation prudente : attention complète sur toutes les couches (surestime les modèles à fenêtre glissante).
 fn kv_gb(llm: &LlmConfig, ctx: u32, bytes_per_elem: f64) -> f64 {
     // K et V : 2 × couches × têtes KV × dim × contexte × octets
     2.0 * llm.n_layers as f64 * llm.n_kv_heads as f64 * llm.head_dim as f64 * ctx as f64
@@ -30,19 +32,70 @@ fn kv_gb(llm: &LlmConfig, ctx: u32, bytes_per_elem: f64) -> f64 {
         / GB
 }
 
+const BPE_Q8_0: f64 = 1.0625; // q8_0 : 34 octets / 32 éléments
+/// Taille du micro-lot de llama.cpp (-ub, défaut 512) : s'ajoute à la fenêtre glissante dans le cache SWA.
+const N_UBATCH: u32 = 512;
+
+fn pad256(n: u32) -> u32 {
+    n.div_ceil(256) * 256
+}
+
+/// Cache KV réel de llama.cpp d'après l'en-tête GGUF, couche par couche :
+/// couches globales → `pad256(ctx)` cellules ; couches à fenêtre glissante → `pad256(min(ctx, fenêtre + ubatch))`
+/// cellules ; octets = cellules × têtes KV × (dim K + dim V) × octets par élément (cf. llama-kv-cache-iswa).
+pub fn kv_gb_gguf(info: &GgufInfo, ctx: u32, bytes_per_elem: f64) -> f64 {
+    let n = info.block_count as usize;
+    let size_base = pad256(ctx);
+    let n_swa = info.sliding_window.unwrap_or(0);
+    let size_swa = if n_swa > 0 { pad256(size_base.min(n_swa + N_UBATCH)) } else { size_base };
+    let d_k_full = info.key_length.filter(|k| *k > 0).unwrap_or_else(|| info.head_dim());
+    let d_v_full = info.value_length.filter(|k| *k > 0).unwrap_or(d_k_full);
+    let kv_layers = n.saturating_sub(info.shared_kv_layers as usize);
+    let mut total = 0.0;
+    for il in 0..kv_layers {
+        // Sans motif connu, on traite la couche comme globale (estimation prudente).
+        let is_swa = n_swa > 0
+            && match (info.sliding_window_pattern.get(il), info.sliding_window_pattern_n) {
+                (Some(b), _) => *b,
+                (None, _) if !info.sliding_window_pattern.is_empty() => false,
+                (None, Some(p)) if p > 0 => (il as u32 % p) < p - 1,
+                _ => false,
+            };
+        let heads = info.head_count_kv_per_layer.get(il).copied().unwrap_or(info.head_count_kv).max(1);
+        let (dk, dv) = if is_swa {
+            let dk = info.key_length_swa.filter(|k| *k > 0).unwrap_or(d_k_full);
+            (dk, info.value_length_swa.filter(|k| *k > 0).unwrap_or(dk))
+        } else {
+            (d_k_full, d_v_full)
+        };
+        let cells = if is_swa { size_swa } else { size_base } as f64;
+        total += cells * heads as f64 * (dk + dv) as f64 * bytes_per_elem;
+    }
+    total / GB
+}
+
+/// Plan mémoire avec l'estimation prudente (sans GGUF).
 pub fn plan(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64) -> LlmPlan {
+    plan_with(hw, llm, weights_gb, &|ctx| kv_gb(llm, ctx, BPE_Q8_0))
+}
+
+/// Plan mémoire avec le vrai cache KV calculé depuis l'en-tête GGUF.
+pub fn plan_for_gguf(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64, info: &GgufInfo) -> LlmPlan {
+    plan_with(hw, llm, weights_gb, &|ctx| kv_gb_gguf(info, ctx, BPE_Q8_0))
+}
+
+fn plan_with(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64, kv_of: &dyn Fn(u32) -> f64) -> LlmPlan {
     let budget = (hw.vram_gb - hw.vram_reserve_gb - hw.vram_other_models_gb).max(0.0);
     let mut notes = Vec::new();
 
-    // 1) On privilégie le KV en q8_0 (≈ moitié moins gros, perte de qualité négligeable)
-    //    et on ne descend le contexte que si le modèle ne tient vraiment pas.
+    // 1) KV en q8_0 (≈ moitié moins gros, perte de qualité négligeable) ; on ne réduit le contexte
+    //    que si le modèle ne tient vraiment pas.
     let kv_type = "q8_0";
-    let bpe = 1.0625; // q8_0 : 34 octets / 32 éléments
     let mut ctx = llm.ctx_tokens;
     let min_ctx = 4096;
 
     // 2) Tout sur GPU ?
-    let fits_full = |ctx: u32| weights_gb + kv_gb(llm, ctx, bpe) + COMPUTE_BUFFER_GB <= budget;
+    let fits_full = |ctx: u32| weights_gb + kv_of(ctx) + COMPUTE_BUFFER_GB <= budget;
     let mut full = fits_full(ctx);
     while !full && ctx > 8192 {
         ctx -= 2048;
@@ -60,7 +113,7 @@ pub fn plan(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64) -> LlmPlan {
     } else {
         // Offload partiel : le KV reste sur GPU (accès fréquents), on remplit le reste de couches.
         ctx = ctx.max(min_ctx);
-        let kv = kv_gb(llm, ctx, bpe);
+        let kv = kv_of(ctx);
         let per_layer = weights_gb / llm.n_layers as f64;
         let room = (budget - kv - COMPUTE_BUFFER_GB).max(0.0);
         let layers = ((room / per_layer).floor() as u32).min(llm.n_layers);
@@ -76,7 +129,7 @@ pub fn plan(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64) -> LlmPlan {
         }
     }
 
-    let kv = kv_gb(llm, ctx, bpe);
+    let kv = kv_of(ctx);
     LlmPlan {
         n_gpu_layers,
         ctx_tokens: ctx,
@@ -151,6 +204,61 @@ mod tests {
 
     fn hw() -> HardwareConfig {
         HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 1.0 }
+    }
+
+    fn gemma4_12b() -> GgufInfo {
+        // 48 couches : motif 5 locales (8 têtes KV × 256) puis 1 globale (1 tête KV × 512), fenêtre 1024.
+        GgufInfo {
+            architecture: "gemma4".into(), block_count: 48, context_length: 262144, head_count: 16, head_count_kv: 8,
+            key_length: Some(512), key_length_swa: Some(256), sliding_window: Some(1024),
+            head_count_kv_per_layer: (0..48).map(|i| if i % 6 == 5 { 1 } else { 8 }).collect(),
+            sliding_window_pattern: (0..48).map(|i| i % 6 != 5).collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn kv_de_gemma4_12b_calcule_comme_llama_cpp() {
+        // Attendu (q8_0 K et V) : SWA 40 × 1536 cellules × 8 × 512 o… = 255 Mio ; global 8 × 16384 × 1 × 1024 = 136 Mio.
+        let kv = kv_gb_gguf(&gemma4_12b(), 16384, BPE_Q8_0);
+        let mib = kv * 1024.0;
+        assert!((mib - 391.0).abs() < 1.0, "{mib} Mio");
+        // Le cache des couches glissantes est constant : doubler le contexte n'ajoute que la part globale.
+        let kv32 = kv_gb_gguf(&gemma4_12b(), 32768, BPE_Q8_0) * 1024.0;
+        assert!((kv32 - mib - 136.0).abs() < 1.0, "{kv32} Mio");
+    }
+
+    #[test]
+    fn motif_scalaire_gemma3() {
+        // n=6 : 5 couches locales (indices 0-4) puis 1 globale (5), sans tableau dans le GGUF.
+        let info = GgufInfo {
+            block_count: 12, head_count: 8, head_count_kv: 4, key_length: Some(256), sliding_window: Some(512),
+            sliding_window_pattern_n: Some(6), ..Default::default()
+        };
+        let swa_cells = (512 + 512) as f64; // fenêtre + ubatch, déjà multiple de 256
+        let glob_cells = 8192.0;
+        let per = |cells: f64| cells * 4.0 * 512.0 * BPE_Q8_0;
+        let expected = (10.0 * per(swa_cells) + 2.0 * per(glob_cells)) / GB;
+        assert!((kv_gb_gguf(&info, 8192, BPE_Q8_0) - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gemma4_12b_avec_voix_et_whisper_sur_15_go() {
+        let llm = LlmConfig { n_layers: 48, ..LlmConfig::default() }; // comme engine::llm_params avec ce GGUF
+        // Whisper turbo (≈ 1,2 Go) sur GPU + voix Chatterbox (≈ 4,5 Go) + 1 Go pour l'OS : très juste,
+        // le planificateur met quelques couches en RAM plutôt que d'échouer.
+        let hw = HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 5.7 };
+        let p = plan_for_gguf(&hw, &llm, 7.4, &gemma4_12b());
+        assert!(p.vram_used_gb <= p.vram_budget_gb + 1e-9, "{p:?}");
+        assert!(p.n_gpu_layers >= 45, "au plus quelques couches en RAM : {p:?}");
+        // Whisper sur CPU (stt.use_gpu = false) : ≈ 4,5 Go d'autres modèles → tout sur GPU, contexte 16k.
+        let hw = HardwareConfig { vram_other_models_gb: 4.5, ..hw };
+        let p = plan_for_gguf(&hw, &llm, 7.4, &gemma4_12b());
+        assert!(p.full_offload, "{p:?}");
+        assert_eq!(p.ctx_tokens, 16384);
+        // L'estimation prudente (attention complète sur 48 couches) est bien plus pessimiste que le calcul exact.
+        let cautious = LlmConfig { n_kv_heads: 8, head_dim: 256, ..llm };
+        assert!(kv_gb(&cautious, 16384, BPE_Q8_0) > 5.0 * kv_gb_gguf(&gemma4_12b(), 16384, BPE_Q8_0));
     }
 
     #[test]

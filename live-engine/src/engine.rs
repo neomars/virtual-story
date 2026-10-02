@@ -57,14 +57,42 @@ pub struct Engine {
     logs: Arc<Mutex<HashMap<Kind, VecDeque<String>>>>,
     running: tokio::sync::Mutex<HashMap<Kind, Running>>,
     counter: AtomicU64,
+    tts_runtime: Mutex<RuntimeStatus>,
 }
 
 fn port_of(url: &str, default: u16) -> u16 {
     url.trim_end_matches('/').rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(default)
 }
 
-fn fill(arg: &str, model: &str, dir: &str, host: &str, port: u16) -> String {
-    arg.replace("{model}", model).replace("{dir}", dir).replace("{host}", host).replace("{port}", &port.to_string())
+fn fill(arg: &str, model: &str, dir: &str, voices: &str, host: &str, port: u16) -> String {
+    arg.replace("{model}", model)
+        .replace("{dir}", dir)
+        .replace("{voices}", voices)
+        .replace("{host}", host)
+        .replace("{port}", &port.to_string())
+}
+
+/// Environnement Python isolé du moteur de voix (même convention que scripts/tts/tts-server).
+pub fn tts_venv() -> PathBuf {
+    if let Ok(v) = std::env::var("VS_TTS_VENV") {
+        if !v.is_empty() { return v.into(); }
+    }
+    let base = std::env::var("XDG_DATA_HOME").ok().filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".local/share")
+    });
+    base.join("virtual-story").join("tts-venv")
+}
+
+/// Le moteur de voix est prêt si l'environnement a été installé (ou en mode test TTS_FAKE=1).
+pub fn tts_runtime_ready() -> bool {
+    std::env::var("TTS_FAKE").ok().as_deref() == Some("1") || tts_venv().join(".ready").exists()
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct RuntimeStatus {
+    /// absent | installing | ready | error
+    pub state: String,
+    pub error: Option<String>,
 }
 
 /// Paramètres du modèle d'après son GGUF (repli : valeurs de la configuration).
@@ -90,7 +118,18 @@ impl Engine {
             logs: Arc::new(Mutex::new(HashMap::new())),
             running: tokio::sync::Mutex::new(HashMap::new()),
             counter: AtomicU64::new(1),
+            tts_runtime: Mutex::new(RuntimeStatus::default()),
         })
+    }
+
+    /// VRAM à garder pour le micro et la voix qui doivent encore se charger (répartie selon leur poids habituel :
+    /// Whisper ≈ 1,2 Go, voix ≈ 4,5 Go, total = `hardware.vram_other_models_gb`). Seuls les composants choisis comptent.
+    fn pending_other_gb(&self) -> f64 {
+        let sel = self.selection();
+        let pending = |k: Kind, chosen: bool, enabled: bool| enabled && chosen && self.status_of(k).state != "ready";
+        let w = if pending(Kind::Stt, sel.stt.is_some(), self.cfg.stt.enabled && self.cfg.stt.use_gpu) { 1.2 } else { 0.0 }
+            + if pending(Kind::Tts, sel.tts.is_some(), self.cfg.tts.enabled) { 4.5 } else { 0.0 };
+        self.cfg.hardware.vram_other_models_gb * w / 5.7
     }
 
     pub fn status_of(&self, k: Kind) -> ComponentStatus {
@@ -156,6 +195,9 @@ impl Engine {
             return Err("moteur non géré (engine.managed = false) : lance les serveurs toi-même".into());
         }
         let entry = self.models.entry(id).ok_or("modèle inconnu")?.clone();
+        if entry.kind == Kind::Tts && !tts_runtime_ready() {
+            return Err("moteur de voix non installé : clique sur « Installer le moteur de voix »".into());
+        }
         let installed = self.models.installed(id).ok_or("modèle non installé : télécharge-le d'abord")?;
         let kind = entry.kind;
         self.unload(kind).await;
@@ -246,11 +288,21 @@ impl Engine {
                 let info = gguf::read_info(inst.files.first().unwrap()).map_err(|er| format!("GGUF illisible : {er}"))?;
                 let params = llm_params(Some(&info), &self.cfg.llm);
                 let mut hw = self.cfg.hardware.clone();
+                let gpu = self.gpu().await;
                 if hw.vram_gb <= 0.0 {
-                    hw.vram_gb = self.gpu().await.map(|g| g.total_mb as f64 / 1024.0).unwrap_or(15.0);
+                    hw.vram_gb = gpu.as_ref().map(|g| g.total_mb as f64 / 1024.0).unwrap_or(15.0);
+                }
+                // On ne réserve de la VRAM que pour la voix et le micro choisis et pas encore chargés.
+                hw.vram_other_models_gb = self.pending_other_gb();
+                // Garde-fou : jamais plus que la VRAM réellement libre (navigateur, autres applications…).
+                if let Some(g) = &gpu {
+                    let free_budget = g.total_mb.saturating_sub(g.used_mb) as f64 / 1024.0 - 0.3 - hw.vram_other_models_gb;
+                    if free_budget < hw.vram_gb - hw.vram_reserve_gb - hw.vram_other_models_gb {
+                        hw.vram_reserve_gb = (hw.vram_gb - hw.vram_other_models_gb - free_budget).max(hw.vram_reserve_gb);
+                    }
                 }
                 let weights_gb = inst.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-                let plan = hardware::plan(&hw, &params, weights_gb);
+                let plan = hardware::plan_for_gguf(&hw, &params, weights_gb, &info);
                 let port = port_of(&self.cfg.llm.url, 8080);
                 let mut extra = self.cfg.llm.extra_args.clone();
                 extra.extend(e.args.iter().cloned());
@@ -268,7 +320,9 @@ impl Engine {
             Kind::Tts => {
                 let exec = e.exec.clone().ok_or("entrée TTS sans `exec` dans le catalogue")?;
                 let port = port_of(&self.cfg.tts.url, 8880);
-                let args = e.args.iter().map(|a| fill(a, &model, &dir, "127.0.0.1", port)).collect();
+                let voices = self.cfg.voices_dir();
+                let _ = std::fs::create_dir_all(&voices);
+                let args = e.args.iter().map(|a| fill(a, &model, &dir, &voices.to_string_lossy(), "127.0.0.1", port)).collect();
                 Ok((exec, args, self.cfg.tts.url.clone(), true, None))
             }
         }
@@ -315,6 +369,55 @@ impl Engine {
         }
     }
 
+    pub fn tts_runtime_status(&self) -> RuntimeStatus {
+        let mut st = self.tts_runtime.lock().unwrap().clone();
+        if st.state.is_empty() || (st.state == "absent" && tts_runtime_ready()) {
+            st.state = if tts_runtime_ready() { "ready" } else { "absent" }.into();
+        }
+        st
+    }
+
+    /// Installe le moteur de voix en lançant `setup-tts.sh` ; la sortie va dans les journaux du TTS.
+    pub async fn install_tts_runtime(self: &Arc<Self>) -> Result<(), String> {
+        {
+            let mut g = self.tts_runtime.lock().unwrap();
+            if g.state == "installing" { return Ok(()) }
+            *g = RuntimeStatus { state: "installing".into(), error: None };
+        }
+        let script = self.cfg.server.bin_dir.join("setup-tts.sh");
+        if !script.exists() {
+            let msg = format!("{} introuvable : lance scripts/build-sidecars.sh", script.display());
+            *self.tts_runtime.lock().unwrap() = RuntimeStatus { state: "error".into(), error: Some(msg.clone()) };
+            return Err(msg);
+        }
+        let mut cmd = Command::new("bash");
+        cmd.arg(&script).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
+        let mut child = cmd.spawn().map_err(|e| format!("lancement impossible : {e}"))?;
+        Self::push_log(&self.logs, Kind::Tts, format!("$ bash {}", script.display()));
+        for (s, err) in [(child.stdout.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), false),
+                         (child.stderr.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), true)] {
+            if let Some(s) = s {
+                let logs = self.logs.clone();
+                tokio::spawn(async move {
+                    let mut lines = BufReader::new(s).lines();
+                    while let Ok(Some(l)) = lines.next_line().await {
+                        Self::push_log(&logs, Kind::Tts, if err { format!("[err] {l}") } else { l });
+                    }
+                });
+            }
+        }
+        let me = self.clone();
+        tokio::spawn(async move {
+            let st = match child.wait().await {
+                Ok(s) if s.success() && tts_runtime_ready() => RuntimeStatus { state: "ready".into(), error: None },
+                Ok(s) => RuntimeStatus { state: "error".into(), error: Some(format!("l'installation a échoué ({s}) — voir les journaux")) },
+                Err(e) => RuntimeStatus { state: "error".into(), error: Some(e.to_string()) },
+            };
+            *me.tts_runtime.lock().unwrap() = st;
+        });
+        Ok(())
+    }
+
     pub async fn status_json(&self) -> Value {
         let comp = |k: Kind| serde_json::to_value(self.status_of(k)).unwrap_or(Value::Null);
         let gpu = self.gpu().await;
@@ -324,6 +427,7 @@ impl Engine {
             "configured_vram_gb": self.cfg.hardware.vram_gb,
             "llm": comp(Kind::Llm), "stt": comp(Kind::Stt), "tts": comp(Kind::Tts),
             "selection": self.selection(),
+            "tts_runtime": self.tts_runtime_status(),
         })
     }
 }
@@ -352,14 +456,14 @@ mod tests {
 
     #[test]
     fn jokers_des_arguments() {
-        assert_eq!(fill("--m={model}:{port}@{host} {dir}", "/m.onnx", "/d", "h", 7), "--m=/m.onnx:7@h /d");
+        assert_eq!(fill("--m={model}:{port}@{host} {dir} {voices}", "/m.onnx", "/d", "/v", "h", 7), "--m=/m.onnx:7@h /d /v");
     }
 
     #[test]
     fn parametres_lus_du_gguf() {
         let info = gguf::GgufInfo {
             architecture: "x".into(), block_count: 48, context_length: 8192, head_count: 16, head_count_kv: 8,
-            key_length: Some(256), embedding_length: None, sliding_window: None,
+            key_length: Some(256), ..Default::default()
         };
         let p = llm_params(Some(&info), &LlmConfig::default());
         assert_eq!((p.n_layers, p.n_kv_heads, p.head_dim, p.ctx_tokens), (48, 8, 256, 8192));

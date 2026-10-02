@@ -54,15 +54,15 @@ async fn shutdown_signal() {
 async fn print_plan(cfg: &Config, models: &models::Models, id: Option<String>) -> anyhow::Result<()> {
     let id = id.unwrap_or_else(|| "gemma4-12b-heretic".into());
     let installed = models.installed(&id);
-    let (params, weights_gb) = match &installed {
+    let (params, weights_gb, info) = match &installed {
         Some(i) => {
             let info = gguf::read_info(&i.files[0])?;
             println!("architecture lue dans le GGUF : {info:?}");
-            (engine::llm_params(Some(&info), &cfg.llm), i.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+            (engine::llm_params(Some(&info), &cfg.llm), i.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0), Some(info))
         }
         None => {
-            println!("« {id} » n'est pas installé : plan estimé avec les valeurs de repli de la configuration.");
-            (cfg.llm.clone(), models.entry(&id).map(|e| e.size_gb).filter(|s| *s > 0.0).unwrap_or(cfg.llm.model_size_gb))
+            println!("« {id} » n'est pas installé : plan estimé (prudent) avec les valeurs de repli de la configuration.");
+            (cfg.llm.clone(), models.entry(&id).map(|e| e.size_gb).filter(|s| *s > 0.0).unwrap_or(cfg.llm.model_size_gb), None)
         }
     };
     let mut hw = cfg.hardware.clone();
@@ -70,7 +70,10 @@ async fn print_plan(cfg: &Config, models: &models::Models, id: Option<String>) -
         println!("GPU détecté : {} — {} Mo (dont {} Mo utilisés)", g.name, g.total_mb, g.used_mb);
         if hw.vram_gb <= 0.0 { hw.vram_gb = g.total_mb as f64 / 1024.0; }
     }
-    let plan = hardware::plan(&hw, &params, weights_gb);
+    let plan = match &info {
+        Some(i) => hardware::plan_for_gguf(&hw, &params, weights_gb, i),
+        None => hardware::plan(&hw, &params, weights_gb),
+    };
     println!("{}", serde_json::to_string_pretty(&plan)?);
     Ok(())
 }
@@ -99,6 +102,7 @@ async fn main() -> anyhow::Result<()> {
 
     let media = media::MediaLibrary::open(&cfg.server.data_dir.join("live.db"))?;
     let personas = persona::PersonaStore::new(&cfg.server.data_dir.join("personas"))?;
+    personas.seed_defaults();
     let bind = cfg.server.bind.clone();
     let uploads = cfg.server.uploads_dir.clone();
     let frontend = cfg.server.frontend_dir.clone();

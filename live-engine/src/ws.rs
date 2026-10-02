@@ -17,6 +17,7 @@ use crate::media::SearchQuery;
 use crate::persona::Persona;
 use crate::prompt::{estimate_tokens, system_prompt};
 use crate::state::AppState;
+use crate::voice::TtsStyle;
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{stream, Stream, StreamExt};
 use serde_json::{json, Value};
@@ -271,9 +272,14 @@ async fn run_generation(
     let mut splitter = SentenceSplitter::default();
     let mut raw = String::new();
     let mut seq: u32 = 0;
-    let (tts_on, voice) = {
+    let (tts_on, voice, style) = {
         let s = session.lock().await;
-        (s.tts_on, s.persona.as_ref().and_then(|p| p.voice.clone()))
+        let p = s.persona.as_ref();
+        (
+            s.tts_on,
+            p.and_then(|p| p.voice.clone()),
+            TtsStyle { exaggeration: p.and_then(|p| p.tts_exaggeration), cfg_weight: p.and_then(|p| p.tts_cfg_weight) },
+        )
     };
 
     let speak = |sentence: String, seq: &mut u32| {
@@ -283,7 +289,7 @@ async fn run_generation(
         if text.is_empty() { return; }
         let voice = voice.clone();
         let h = tokio::spawn(async move {
-            match tts.speak(&text, voice.as_deref()).await {
+            match tts.speak(&text, voice.as_deref(), &style).await {
                 Ok(b) => Some(b),
                 Err(e) => { tracing::warn!("TTS : {e}"); None }
             }

@@ -4,8 +4,10 @@ use crate::media::MediaPatch;
 use crate::models::Kind;
 use crate::persona::Persona;
 use crate::state::AppState;
+use crate::voice::TtsStyle;
 use crate::ws::handle_socket;
-use axum::extract::{Path, State, WebSocketUpgrade};
+use axum::body::Bytes;
+use axum::extract::{DefaultBodyLimit, Path, State, WebSocketUpgrade};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -43,6 +45,13 @@ pub fn router() -> Router<App> {
         .route("/engine/load", post(engine_load))
         .route("/engine/unload", post(engine_unload))
         .route("/engine/logs/{kind}", get(engine_logs))
+        .route("/engine/tts-runtime/install", post(tts_runtime_install))
+        .route("/voices", get(voices_list))
+        .route(
+            "/voices/{name}",
+            axum::routing::put(voice_put).delete(voice_delete).layer(DefaultBodyLimit::max(MAX_VOICE_BYTES)),
+        )
+        .route("/tts/preview", post(tts_preview))
         .route("/ws", get(ws_upgrade))
         .route("/media", get(media_list))
         .route("/media/scan", post(media_scan))
@@ -233,9 +242,114 @@ async fn engine_logs(State(a): State<App>, Path(kind): Path<String>) -> ApiResul
     Ok(Json(json!({ "lines": a.engine.logs(k, 200) })))
 }
 
+// ---------- Voix de référence et synthèse ----------
+
+const MAX_VOICE_BYTES: usize = 25 * 1024 * 1024;
+
+pub fn valid_voice_name(n: &str) -> bool {
+    !n.is_empty() && n.len() <= 64 && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Reconnaît le format par son en-tête (on ne fait pas confiance au Content-Type).
+pub fn detect_audio_ext(b: &[u8]) -> Option<&'static str> {
+    if b.len() > 12 && &b[..4] == b"RIFF" && &b[8..12] == b"WAVE" { return Some("wav") }
+    if b.len() > 4 && &b[..4] == b"fLaC" { return Some("flac") }
+    if b.len() > 4 && &b[..4] == b"OggS" { return Some("ogg") }
+    if b.len() > 3 && (&b[..3] == b"ID3" || (b[0] == 0xFF && b[1] & 0xE0 == 0xE0)) { return Some("mp3") }
+    None
+}
+
+const VOICE_EXTS: [&str; 4] = ["wav", "mp3", "flac", "ogg"];
+
+async fn voices_list(State(a): State<App>) -> Json<Value> {
+    let mut names: Vec<String> = std::fs::read_dir(a.cfg.voices_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let p = e.path();
+            let ext = p.extension()?.to_str()?.to_lowercase();
+            let stem = p.file_stem()?.to_str()?.to_string();
+            (VOICE_EXTS.contains(&ext.as_str()) && valid_voice_name(&stem)).then_some(stem)
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    Json(json!({ "voices": names }))
+}
+
+async fn voice_put(State(a): State<App>, h: HeaderMap, Path(name): Path<String>, body: Bytes) -> ApiResult {
+    authorize(&a, &h)?;
+    if !valid_voice_name(&name) {
+        return Err(err(StatusCode::BAD_REQUEST, "nom de voix invalide (lettres, chiffres, - et _, 64 max)"));
+    }
+    let ext = detect_audio_ext(&body)
+        .ok_or_else(|| err(StatusCode::UNSUPPORTED_MEDIA_TYPE, "format audio non reconnu (wav, mp3, flac ou ogg)"))?;
+    let dir = a.cfg.voices_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    for other in VOICE_EXTS { let _ = std::fs::remove_file(dir.join(format!("{name}.{other}"))); }
+    std::fs::write(dir.join(format!("{name}.{ext}")), &body).map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    Ok(Json(json!({ "voice": name, "bytes": body.len() })))
+}
+
+async fn voice_delete(State(a): State<App>, h: HeaderMap, Path(name): Path<String>) -> ApiResult {
+    authorize(&a, &h)?;
+    if !valid_voice_name(&name) { return Err(err(StatusCode::BAD_REQUEST, "nom de voix invalide")) }
+    let dir = a.cfg.voices_dir();
+    let removed = VOICE_EXTS.iter().filter(|e| std::fs::remove_file(dir.join(format!("{name}.{e}"))).is_ok()).count();
+    if removed > 0 { Ok(Json(json!({ "deleted": name }))) } else { Err(err(StatusCode::NOT_FOUND, "voix introuvable")) }
+}
+
+#[derive(Deserialize)]
+struct PreviewReq {
+    text: String,
+    voice: Option<String>,
+    exaggeration: Option<f32>,
+    cfg_weight: Option<f32>,
+}
+
+/// Écoute d'essai : la voix lit un texte avec les réglages du formulaire (pour trouver le bon ton).
+async fn tts_preview(State(a): State<App>, h: HeaderMap, Json(r): Json<PreviewReq>) -> Result<axum::response::Response, (StatusCode, Json<Value>)> {
+    authorize(&a, &h)?;
+    let tts = a.tts.as_ref().ok_or_else(|| err(StatusCode::BAD_REQUEST, "synthèse vocale désactivée"))?;
+    let text: String = r.text.chars().take(600).collect();
+    if text.trim().is_empty() { return Err(err(StatusCode::BAD_REQUEST, "texte vide")) }
+    let style = TtsStyle { exaggeration: r.exaggeration, cfg_weight: r.cfg_weight };
+    let audio = tts
+        .speak(&text, r.voice.as_deref().filter(|v| !v.is_empty()), &style)
+        .await
+        .map_err(|e| err(StatusCode::BAD_GATEWAY, format!("voix : {e}")))?;
+    Ok(([(axum::http::header::CONTENT_TYPE, tts.mime())], audio).into_response())
+}
+
+async fn tts_runtime_install(State(a): State<App>, h: HeaderMap) -> ApiResult {
+    authorize(&a, &h)?;
+    a.engine.install_tts_runtime().await.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "installing": true })))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::origin_allowed;
+    use super::{detect_audio_ext, origin_allowed, valid_voice_name};
+
+    #[test]
+    fn formats_audio_reconnus_par_en_tete() {
+        assert_eq!(detect_audio_ext(b"RIFF\0\0\0\0WAVEfmt "), Some("wav"));
+        assert_eq!(detect_audio_ext(b"fLaC\0\0\0\0"), Some("flac"));
+        assert_eq!(detect_audio_ext(b"OggS\0\0\0\0"), Some("ogg"));
+        assert_eq!(detect_audio_ext(b"ID3\x04\0\0\0\0"), Some("mp3"));
+        assert_eq!(detect_audio_ext(&[0xFF, 0xFB, 0x90, 0x00, 0x00]), Some("mp3"));
+        assert_eq!(detect_audio_ext(b"MZ\x90\0 un executable"), None);
+        assert_eq!(detect_audio_ext(b""), None);
+    }
+
+    #[test]
+    fn noms_de_voix() {
+        assert!(valid_voice_name("camille_25-b"));
+        assert!(!valid_voice_name("../etc/passwd"));
+        assert!(!valid_voice_name("a b"));
+        assert!(!valid_voice_name(""));
+    }
 
     #[test]
     fn origines_locales_acceptees() {

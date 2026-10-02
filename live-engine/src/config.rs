@@ -47,7 +47,7 @@ pub struct HardwareConfig {
     pub ram_gb: f64,
     /// VRAM laissée à l'OS / l'affichage / le navigateur.
     pub vram_reserve_gb: f64,
-    /// VRAM réservée à d'autres modèles résidents (Whisper GPU, génération d'images…).
+    /// VRAM réservée aux autres modèles résidents (Whisper ≈ 1,2 Go + voix Chatterbox ≈ 4,5 Go par défaut).
     pub vram_other_models_gb: f64,
 }
 
@@ -88,6 +88,8 @@ pub struct TtsConfig {
     pub model: String,
     pub default_voice: String,
     pub format: String,
+    /// Langue de synthèse envoyée au serveur de voix.
+    pub language: String,
 }
 
 impl Default for ServerConfig {
@@ -112,7 +114,7 @@ impl Default for EngineConfig {
 
 impl Default for HardwareConfig {
     fn default() -> Self {
-        Self { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 1.0 }
+        Self { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 5.7 }
     }
 }
 
@@ -144,9 +146,10 @@ impl Default for TtsConfig {
         Self {
             enabled: true,
             url: "http://127.0.0.1:8880".into(),
-            model: "kokoro".into(),
-            default_voice: "ff_siwis".into(),
-            format: "mp3".into(),
+            model: "chatterbox".into(),
+            default_voice: "default".into(),
+            format: "wav".into(),
+            language: "fr".into(),
         }
     }
 }
@@ -171,6 +174,11 @@ impl Config {
         if let Some(v) = var("LIVE_BIN_DIR") { self.server.bin_dir = v.into() }
         if let Some(v) = var("LIVE_UPLOADS_DIR") { self.server.uploads_dir = v.into() }
         if let Some(v) = var("LIVE_FRONTEND_DIR") { self.server.frontend_dir = v.into() }
+    }
+
+    /// Voix de référence (échantillons audio) pour le clonage de voix.
+    pub fn voices_dir(&self) -> PathBuf {
+        self.server.data_dir.join("voices")
     }
 
     pub fn models_dir(&self) -> PathBuf {

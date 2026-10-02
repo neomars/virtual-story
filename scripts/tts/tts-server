@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Lanceur du serveur de voix : utilise l'environnement Python isolé créé par setup-tts.sh.
+set -euo pipefail
+DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+VENV="${VS_TTS_VENV:-${XDG_DATA_HOME:-$HOME/.local/share}/virtual-story/tts-venv}"
+PY="$VENV/bin/python"
+if [ "${TTS_FAKE:-0}" = "1" ] && [ ! -x "$PY" ]; then PY="python3"; fi   # tests sans GPU
+if [ ! -x "$PY" ] && [ "$PY" != "python3" ]; then
+  echo "Moteur de voix non installé : clique sur « Installer le moteur de voix » dans l'écran Modèles." >&2
+  exit 3
+fi
+# Le cache Hugging Face reste dans le dossier de l'app (repli de from_pretrained).
+export HF_HOME="${HF_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/virtual-story/hf-cache}"
+exec "$PY" "$DIR/chatterbox_server.py" "$@"

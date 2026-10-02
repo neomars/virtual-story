@@ -17,6 +17,17 @@ pub struct GgufInfo {
     pub key_length: Option<u32>,
     pub embedding_length: Option<u32>,
     pub sliding_window: Option<u32>,
+    /// Têtes KV par couche, si le GGUF fournit un tableau (Gemma 4 : 8 en fenêtre glissante, 1 en global).
+    pub head_count_kv_per_layer: Vec<u32>,
+    /// Couches à fenêtre glissante : tableau de booléens (Gemma 4)…
+    pub sliding_window_pattern: Vec<bool>,
+    /// …ou motif scalaire n (Gemma 3 : n=6 → 5 couches locales puis 1 globale).
+    pub sliding_window_pattern_n: Option<u32>,
+    pub key_length_swa: Option<u32>,
+    pub value_length: Option<u32>,
+    pub value_length_swa: Option<u32>,
+    /// Dernières couches qui réutilisent le KV des précédentes (aucun cache propre).
+    pub shared_kv_layers: u32,
 }
 
 impl GgufInfo {
@@ -158,13 +169,27 @@ pub fn parse<R: Read + Seek>(r: &mut BufReader<R>) -> std::io::Result<GgufInfo> 
         let t = u32_(r)?;
         let wanted = key == "general.architecture"
             || [".block_count", ".context_length", ".attention.head_count", ".attention.head_count_kv",
-                ".attention.key_length", ".embedding_length", ".attention.sliding_window"]
+                ".attention.key_length", ".embedding_length", ".attention.sliding_window",
+                ".attention.sliding_window_pattern", ".attention.key_length_swa", ".attention.value_length",
+                ".attention.value_length_swa", ".attention.shared_kv_layers"]
                 .iter()
                 .any(|suf| key.ends_with(suf));
         let v = read_value(r, t, wanted)?;
         if !wanted { continue; }
         if key == "general.architecture" {
             if let V::Str(s) = &v { info.architecture = s.clone(); }
+            continue;
+        }
+        // Tableaux par couche (têtes KV, motif de fenêtre glissante) : on garde le détail.
+        if key.ends_with(".attention.head_count_kv") {
+            if let V::NumArr(a) = &v { info.head_count_kv_per_layer = a.iter().map(|x| (*x).max(0) as u32).collect() }
+        }
+        if key.ends_with(".attention.sliding_window_pattern") {
+            match &v {
+                V::NumArr(a) => info.sliding_window_pattern = a.iter().map(|x| *x != 0).collect(),
+                V::Num(n) if *n > 0 => info.sliding_window_pattern_n = Some(*n as u32),
+                _ => {}
+            }
             continue;
         }
         let Some(n) = as_u32(&v) else { continue };
@@ -176,6 +201,10 @@ pub fn parse<R: Read + Seek>(r: &mut BufReader<R>) -> std::io::Result<GgufInfo> 
         else if key.ends_with(".attention.key_length") && info.key_length.is_none() { info.key_length = Some(n) }
         else if key.ends_with(".embedding_length") && info.embedding_length.is_none() { info.embedding_length = Some(n) }
         else if key.ends_with(".attention.sliding_window") && info.sliding_window.is_none() { info.sliding_window = Some(n) }
+        else if key.ends_with(".attention.key_length_swa") && info.key_length_swa.is_none() { info.key_length_swa = Some(n) }
+        else if key.ends_with(".attention.value_length_swa") && info.value_length_swa.is_none() { info.value_length_swa = Some(n) }
+        else if key.ends_with(".attention.value_length") && info.value_length.is_none() { info.value_length = Some(n) }
+        else if key.ends_with(".attention.shared_kv_layers") { info.shared_kv_layers = n }
     }
     if info.block_count == 0 {
         return Err(std::io::Error::other("GGUF sans block_count : architecture illisible"));
@@ -239,6 +268,39 @@ mod tests {
         assert_eq!(i.context_length, 131072);
         assert_eq!(i.head_dim(), 256);
         assert_eq!(i.sliding_window, Some(1024));
+    }
+
+    /// GGUF au gabarit Gemma 4 12B : 48 couches, tableaux de têtes KV et de motif de fenêtre.
+    fn gemma4_like() -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend(b"GGUF");
+        b.extend(3u32.to_le_bytes());
+        b.extend(0u64.to_le_bytes());
+        b.extend(9u64.to_le_bytes());
+        s(&mut b, "general.architecture"); b.extend(8u32.to_le_bytes()); s(&mut b, "gemma4");
+        kv_u32(&mut b, "gemma4.block_count", 48);
+        kv_u32(&mut b, "gemma4.context_length", 262144);
+        kv_u32(&mut b, "gemma4.attention.head_count", 16);
+        kv_u32(&mut b, "gemma4.attention.key_length", 512);
+        kv_u32(&mut b, "gemma4.attention.key_length_swa", 256);
+        kv_u32(&mut b, "gemma4.attention.sliding_window", 1024);
+        s(&mut b, "gemma4.attention.head_count_kv"); b.extend(9u32.to_le_bytes()); b.extend(4u32.to_le_bytes());
+        b.extend(48u64.to_le_bytes());
+        for i in 0..48 { b.extend((if i % 6 == 5 { 1u32 } else { 8u32 }).to_le_bytes()); }
+        s(&mut b, "gemma4.attention.sliding_window_pattern"); b.extend(9u32.to_le_bytes()); b.extend(7u32.to_le_bytes());
+        b.extend(48u64.to_le_bytes());
+        for i in 0..48 { b.push(if i % 6 == 5 { 0 } else { 1 }); }
+        b
+    }
+
+    #[test]
+    fn lit_les_tableaux_par_couche_de_gemma4() {
+        let i = parse(&mut BufReader::new(Cursor::new(gemma4_like()))).unwrap();
+        assert_eq!(i.block_count, 48);
+        assert_eq!(i.head_count_kv_per_layer.len(), 48);
+        assert_eq!((i.head_count_kv_per_layer[0], i.head_count_kv_per_layer[5]), (8, 1));
+        assert_eq!(i.sliding_window_pattern.iter().filter(|x| **x).count(), 40);
+        assert_eq!((i.key_length, i.key_length_swa, i.sliding_window), (Some(512), Some(256), Some(1024)));
     }
 
     #[test]
