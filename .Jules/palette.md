@@ -47,3 +47,7 @@
 ## 2025-05-28 - Preventing Accidental Triggers in Nested Labels
 **Learning:** Interactive elements (like "Use existing" toggle links) placed inside a `<label>` will trigger the label's associated input (e.g., a file picker) when clicked. Using the `@click.stop` event modifier on the nested interactive element prevents this event bubbling and improves the precision of the interface.
 **Action:** Always use event propagation stops (like `@click.stop` in Vue) when nesting interactive controls within semantic labels.
+
+## 2025-05-29 - Explicit Empty State for Media Filtering
+**Learning:** When users filter media or list items using a search input, an empty grid without feedback causes confusion. Providing an explicit empty state message referencing the current query (e.g., 'No videos match "..."') reassures users that the search completed with zero results rather than failing to load.
+**Action:** Always provide a contextual empty state message when client-side list filtering yields no matches.
