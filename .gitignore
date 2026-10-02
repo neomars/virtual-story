@@ -41,3 +41,7 @@ live-engine/models/
 !/bin/.gitkeep
 /.build/
 /dist/
+
+# Python
+__pycache__/
+*.pyc

@@ -125,6 +125,10 @@ whisper_source() {
   if ! ldd "$BIN/whisper-server" | grep -q "not found"; then :; else copy_cuda_libs; fi
 }
 
+# ------------------------------------------------------------------------------- serveur de voix
+# Lanceur + serveur Python (le moteur de voix lui-même s'installe depuis l'app : « Installer le moteur de voix »).
+install -m 0755 "$ROOT/scripts/tts/tts-server" "$ROOT/scripts/tts/setup-tts.sh" "$ROOT/scripts/tts/chatterbox_server.py" "$BIN/"
+
 if [ -x "$BIN/llama-server" ] && [ "${FORCE:-0}" != "1" ]; then
   echo "✓ llama-server déjà présent (FORCE=1 pour refaire)"
 elif [ "$LLAMA_MODE" = "source" ]; then llama_source

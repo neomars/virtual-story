@@ -1,168 +1,126 @@
 # Virtual Story
 
-Virtual Story is an interactive, "choose your own adventure" video application. It allows users to navigate through a branching narrative by making choices at the end of video segments, creating a personalized story experience. This project is inspired by platforms like LifeSelector.
+Application de bureau (Ubuntu) pour une expérience vidéo interactive, avec deux modes :
 
-## Technology Stack
+- **Histoire interactive** : un récit « dont vous êtes le héros » fait de courts segments vidéo ; à la fin de chaque
+  segment, l'utilisateur choisit la suite (arbre de décision, chapitres, boucle d'ambiance). Inspiré de LifeSelector.
+- **Live (IA)** : une conversation dynamique avec un personnage IA que vous définissez. Elle tourne **en local** sur votre
+  GPU NVIDIA : l'IA écoute (micro), répond à voix haute, et **choisit elle-même** les vidéos et photos de votre
+  médiathèque pour illustrer l'échange. Les boutons de choix sont remplacés par du texte libre, de la voix, et des
+  réponses rapides proposées par l'IA.
 
-- **Frontend:** Vue.js
-- **Backend:** Node.js with Express.js
-- **Database:** MariaDB
+## Architecture
 
-## How It Works
-
-A story is constructed from multiple short video segments. At the end of each segment, the viewer is presented with choices that lead to different video segments, allowing the story to branch. The narrative is managed by a decision tree stored in the database.
-
-## Installation
-
-Follow these steps to set up the project for development.
-
-### 1. Prerequisites
-
-Ensure you have the following software installed on your system:
-
--   **Node.js:** (v18 or later recommended)
--   **pnpm:** (used for dependency management)
--   **MariaDB:** A running instance of the MariaDB server.
--   **ffmpeg:** Required for video processing tasks in the administration panel (e.g., generating thumbnails). You can install it using your system's package manager (e.g., `apt`, `brew`, `choco`).
-
-### 2. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd virtual-story
+```
+Electron (app Ubuntu)
+ ├─ Express :3000        interface Vue, API de l'histoire, base JSON, uploads, connexion admin
+ │    └─ proxy /api/live (REST + WebSocket) ──┐
+ └─ live-engine :3001    moteur Rust (axum) ◄──┘
+      ├─ llama-server  (IA texte, CUDA)          modèles .gguf téléchargés depuis Hugging Face
+      ├─ whisper-server (micro → texte, CUDA)
+      └─ tts-server    (voix de l'IA, Chatterbox)  voix clonée depuis un échantillon
 ```
 
-### 3. Database Setup
+| Couche | Technologie |
+|---|---|
+| Interface | Vue 3 + Vite |
+| Serveur web | Node.js + Express (sessions, uploads, ffmpeg via `ffmpeg-static`) |
+| Données | fichier JSON (`db.json`, alasql) — pas de serveur de base de données |
+| Moteur IA | Rust (axum, tokio, SQLite pour la médiathèque live) |
+| Inférence | llama.cpp (LLM), whisper.cpp (reconnaissance vocale), Chatterbox (voix) |
+| Paquet | Electron + electron-builder (AppImage, .deb) |
 
-Create a dedicated database and user for the application.
+## Installer l'application (Ubuntu + NVIDIA)
 
-1.  Log in to your MariaDB server as a user with sufficient privileges (e.g., `root`):
-    ```bash
-    mysql -u root -p
-    ```
+Prérequis : Ubuntu 24.04 (22.04 : voir `LLAMA_MODE=source`), pilote NVIDIA, CUDA Toolkit (`nvcc`, pour `whisper-server`),
+`build-essential cmake git curl`, Node ≥ 20.19, Rust (`cargo`).
 
-2.  Run the following SQL commands to create the database and a new user. Replace `'your_db_user'` and `'your_db_password'` with secure credentials.
+```bash
+git clone <url-du-depot> virtual-story && cd virtual-story
+npm run dist:linux       # UI + moteur Rust + llama-server/whisper-server + AppImage + .deb dans ./dist
+```
 
-    ```sql
-    CREATE DATABASE virtualstory;
-    CREATE USER 'your_db_user'@'localhost' IDENTIFIED BY 'your_db_password';
-    GRANT ALL PRIVILEGES ON virtualstory.* TO 'your_db_user'@'localhost';
-    FLUSH PRIVILEGES;
-    EXIT;
-    ```
+Au premier lancement : **Admin → Modèles IA** pour télécharger et charger l'IA, le micro et la voix (voir plus bas).
+Détails de la compilation (architectures CUDA, versions, Ubuntu 22.04…) : [`live-engine/README.md`](live-engine/README.md).
 
-### 4. Backend Setup
+Emplacements (app empaquetée) : base et médias dans `~/.config/Virtual Story`, modèles dans
+`~/.local/share/virtual-story/models` (`VS_MODELS_DIR` pour changer), journaux dans `~/.config/Virtual Story/logs/`.
 
-1.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
+## Développement
 
-2.  Copy the example environment file:
-    ```bash
-    cp .env.example .env
-    ```
+Prérequis : Node ≥ 20.19, Rust, `npm` ou `pnpm`.
 
-3.  Edit the new `.env` file and replace the placeholder values with the database credentials you just created.
-    - **Note:** You should also set a unique `SESSION_SECRET` for security.
+```bash
+cd backend  && npm install        # serveur Express
+cd ../frontend && npm install     # interface Vue
+cd ../live-engine && cargo build  # moteur IA (optionnel si vous ne testez que le mode histoire)
+cd .. && node backend/init-db.js  # première fois : crée la base JSON et l'utilisateur admin
+./run                             # Express :3000 + Vite :5173 + moteur live :3001
+```
 
-4.  Install the dependencies:
-    ```bash
-    pnpm install
-    ```
+- Interface de développement : <http://localhost:5173> (Vite proxifie `/api` vers Express et `/api/live` vers le moteur).
+- Variables utiles (à **exporter dans le shell**, le fichier `.env` n'est pas lu) : `SESSION_SECRET` (obligatoire en
+  production), `PORT`, `HOST`, `VS_DATA_DIR` (dossier de la base et des uploads).
+- Mode histoire seul : `node backend/server.js` suffit (l'onglet Live affichera « moteur injoignable »).
+- Tests du moteur : `cd live-engine && cargo test`.
 
-### 5. Frontend Setup
+## Mode Live (IA)
 
-1.  Navigate to the frontend directory from the project root:
-    ```bash
-    cd frontend
-    ```
+1. **Admin → Modèles IA** (`/admin/live/models`) : téléchargez (reprise après coupure, vérification SHA-256) puis
+   chargez un modèle de texte, un modèle de reconnaissance vocale et le moteur de voix. Vous y voyez l'état, le plan
+   mémoire (couches sur GPU, contexte), la VRAM utilisée et les journaux. Les derniers modèles choisis se rechargent
+   au démarrage.
+2. **Admin → Médiathèque** (`/admin/live/media`) : « Scanner les uploads » référence vos vidéos **et** photos ;
+   annotez-les (tags, ambiance, intensité 1-5, boucle d'ambiance). L'IA ne voit que ces annotations.
+3. **Admin → Personnages** (`/admin/live/personas`) : nom, âge (adulte), personnalité, style d'expression, scénario,
+   premier message, voix de référence et réglages d'expressivité.
+4. **Live** (`/live`) : choisissez un personnage, parlez ou écrivez. Parler pendant que l'IA répond la coupe.
+   Le curseur d'intensité plafonne les médias proposés.
 
-2.  Install the dependencies:
-    ```bash
-    pnpm install
-    ```
+L'IA pilote l'écran avec des directives invisibles dans sa réponse (`[[show: …]]`, `[[ambient: …]]`,
+`[[replies: …]]`, `[[state: …]]`) ; voir [`live-engine/README.md`](live-engine/README.md).
 
-## How to Run
+Règles : usage personnel, sans filtrage de thème ni avertissement ; une seule limite est conservée, **tous les personnages
+sont des adultes** (une fiche avec un âge < 18 est refusée). Le moteur n'écoute que sur `127.0.0.1`, refuse les
+WebSocket venant d'autres sites, et toute modification via `/api/live` exige la connexion admin.
 
-1.  **Initialize the Database Schema:**
-    Before starting the server for the first time, you must create the necessary tables. From the project's **root directory**, run:
-    ```bash
-    node backend/init-db.js
-    ```
+## Mode histoire : tutoriel d'administration
 
-2.  **Start the Backend Server:**
-    From the **root directory**, run:
-    ```bash
-    node backend/server.js
-    ```
-    The server will start on `http://localhost:3000`.
+L'administration est protégée par une connexion ; elle permet de construire et visualiser le récit.
 
-3.  **Start the Frontend Development Server:**
-    In a new terminal, navigate to the **frontend directory** and run:
-    ```bash
-    pnpm dev
-    ```
-    The application will be accessible at `http://localhost:5173` (or the next available port).
+### Sécurité et connexion
 
-## Usage Tutorial
+- **Identifiants initiaux** : après `node backend/init-db.js`, l'utilisateur est `admin` / `admin` — **changez-le**.
+- **Connexion** : le lien **Admin** de l'en-tête ouvre une fenêtre de connexion si vous n'êtes pas connecté.
+- **Mot de passe / utilisateurs** : section **Admin → Users & Profile** (changer son mot de passe, créer ou supprimer
+  des administrateurs, sauf soi-même).
+- **Session** : cookie de session ; protection contre la force brute (10 tentatives de connexion par 15 minutes).
 
-The administration interface allows you to build and visualize your interactive story. It is protected by authentication to ensure only authorized users can modify the story.
+### Graphe de l'histoire
 
-### Security and Authentication
+La page d'administration principale affiche l'arbre des scènes : les scènes racines en haut, les scènes liées par un
+choix imbriquées sous leur parent, un badge indique le chapitre. Chaque scène a des boutons **Edit** et **View**.
 
--   **Initial Credentials:** After initializing the database, the default user is `admin` with the password `admin`.
--   **Logging In:** Click the **"Admin"** link in the header. If you are not logged in, a modal will appear requesting your credentials.
--   **Changing Password:** Once logged in, go to the **"Admin"** section and click the **"Users & Profile"** button. Here you can change your password by providing your old password and a new one.
--   **Managing Users:** The same section allows you to create new administrative users or delete existing ones (except your own account).
--   **Session Security:** Authentication is handled via secure cookies. Brute-force protection is implemented (10 attempts allowed every 15 minutes).
+![Graphe de l'histoire](docs/images/admin_story_graph.png)
 
-### Main View: Story Graph
+### Scènes
 
-The main admin page displays the "Story Graph", a hierarchical view showing connections between all your scenes.
+1. **Add Root Scene** crée un point de départ.
+2. Après l'enregistrement, vous restez sur le formulaire pour enchaîner plusieurs scènes.
+3. Sur la page d'édition : titre, chapitre, vidéo et miniature, **ajout d'un choix** (enfant) et **lien vers un parent**.
 
--   **Root Scenes:** Scenes without a parent are displayed at the top level.
--   **Child Scenes:** Scenes linked by a choice are nested under their parent scene.
--   **Chapter Badges:** Scenes associated with a chapter display a badge with the chapter name.
+### Chapitres (« parts »)
 
-Each scene in the graph has buttons to **"Edit"** (modify details and links) or **"View"** (preview it in the player).
+Titre et scène de départ, renommables à tout moment. Une **vidéo d'ambiance en boucle** par chapitre s'affiche en fond
+du lecteur (panneau de gauche). Les chapitres apparaissent dans l'en-tête pour un accès rapide.
 
-![Story Graph](docs/images/admin_story_graph.png)
+### Lecteur
 
-### Managing Scenes
+- Mode plein écran par défaut (la vidéo masque l'interface) ; lecture automatique avec son, repli en muet si le
+  navigateur la bloque.
+- « Previous Scenes » remonte dans le fil de l'histoire plutôt que dans l'historique du navigateur.
+- **Player Background** (Admin) : image de fond globale derrière le lecteur.
 
-1.  **Add a Root Scene:** Use the **"Add Root Scene"** button to create a new scene that will be a starting point for a narrative branch.
-2.  **Sequential Creation:** When creating a scene, you stay on the form page after saving. This allows you to quickly enter multiple scenes in a row without returning to the list.
-3.  **Edit a Scene:** On the edit page, you can:
-    -   Modify the scene title and associate it with a **Chapter**.
-    -   Upload a new video and its thumbnail.
-    -   **Add a choice (child):** Link this scene to another by creating a choice.
-    -   **Link a parent:** Create an incoming link from another scene, making this one its child.
+## Auteur
 
-### Chapter Management (Parts)
-
-The "Parts" system organizes your narrative into distinct chapters.
-
--   **Creation:** Give your chapter a title and select its starting scene.
--   **Editing:** You can rename a chapter or change its starting scene at any time.
--   **Ambient Loop Video:** You can upload one looping video per chapter. This video is displayed in the background of the player (left panel) to enhance immersion.
--   **Navigation:** Chapters appear in the application header for quick access.
-
-### Database Synchronization
-
-If you encounter "Unknown column" errors or after updating the application, use the **"Synchronize Database"** button in the Admin section. This tool updates your SQL schema automatically to match the current version.
-
-### Player Experience
-
-The player is optimized for full immersion:
--   **Full-Page Mode:** Videos automatically display in "full-page" mode (CSS overlay) to hide the interface during playback.
--   **Smart Autoplay:** The application attempts to start the video with sound, falling back to muted mode if the browser blocks automatic playback.
--   **Narrative Navigation:** The "Previous Scenes" button allows you to go back in the story flow rather than just the browser history.
-
-### Customizing the Background
-
-In the **"Player Background"** section, you can upload a global background image displayed behind the player interface.
-
-## Author
-
-- **Martial Limousin** - martial.limousin@gmail.com
+- **Martial Limousin** — martial.limousin@gmail.com

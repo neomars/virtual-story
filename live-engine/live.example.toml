@@ -17,7 +17,8 @@ autoload = true                  # recharge au démarrage les derniers modèles 
 vram_gb = 15.0                   # 0 = détecter automatiquement via nvidia-smi
 ram_gb = 64.0
 vram_reserve_gb = 1.0            # OS + navigateur
-vram_other_models_gb = 1.0       # Whisper sur GPU (~1 Go) ; mets 0 s'il tourne sur CPU (stt.use_gpu = false)
+vram_other_models_gb = 5.7       # Whisper (~1,2 Go) + voix Chatterbox (~4,5 Go). Réservé seulement pour ce que tu as choisi
+                                 # et qui n'est pas encore chargé. Whisper sur CPU (stt.use_gpu = false) : mets 4.5
 
 [llm]
 url = "http://127.0.0.1:8080"
@@ -33,7 +34,8 @@ use_gpu = true
 
 [tts]
 enabled = true
-url = "http://127.0.0.1:8880"    # serveur de synthèse compatible OpenAI /v1/audio/speech
-model = "kokoro"
-default_voice = "ff_siwis"
-format = "mp3"
+url = "http://127.0.0.1:8880"    # serveur de voix compatible OpenAI /v1/audio/speech (lancé par l'app : Chatterbox)
+model = "chatterbox"
+default_voice = "default"        # nom d'un échantillon de data/voices/ ; le personnage peut imposer le sien
+format = "wav"
+language = "fr"

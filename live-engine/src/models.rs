@@ -34,6 +34,10 @@ pub struct CatalogEntry {
     /// Sous-chaîne (insensible à la casse) pour retrouver le .gguf voulu (ex. « Q4_K_M »).
     #[serde(default)]
     pub pattern: Option<String>,
+    /// Extensions à télécharger (sans point) quand on veut tous les fichiers d'un dépôt de ce type
+    /// (ex. `["safetensors", "pt", "json"]` pour un modèle PyTorch). Utilisé si ni `files` ni `pattern`.
+    #[serde(default)]
+    pub include_ext: Vec<String>,
     /// Taille indicative en Go (avant résolution).
     #[serde(default)]
     pub size_gb: f64,
@@ -54,11 +58,18 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
         CatalogEntry {
             id: id.into(), kind, name: name.into(), description: desc.into(), repo: repo.into(),
             subdir: String::new(), files: files.iter().map(|s| s.to_string()).collect(),
-            pattern: pattern.map(String::from), size_gb: size,
+            pattern: pattern.map(String::from), include_ext: vec![], size_gb: size,
             args: args.iter().map(|s| s.to_string()).collect(), exec: None, note: String::new(),
         }
     };
-    vec![
+    let mut tts = e("chatterbox-multilingual", Kind::Tts, "Chatterbox multilingue — voix clonée, expressive (recommandé)",
+        "Synthèse vocale en français à partir d'un court échantillon de voix (≈ 10-20 s) et d'un réglage d'expressivité. \
+         Licence MIT. ≈ 4 Go de téléchargement, ≈ 3,5 à 5 Go de VRAM. Nécessite d'installer le moteur de voix (Python/PyTorch).",
+        "ResembleAI/chatterbox", &[], None, 4.0,
+        &["--host", "{host}", "--port", "{port}", "--model-dir", "{dir}", "--voices-dir", "{voices}"]);
+    tts.include_ext = ["safetensors", "pt", "json", "txt"].iter().map(|s| s.to_string()).collect();
+    tts.exec = Some("tts-server".into());
+    let mut v = vec![
         e("gemma4-12b-heretic", Kind::Llm, "Gemma 4 12B Heretic (Q4_K_M)",
           "Gemma 4 12B décensuré par abliteration. Tient entièrement sur 15 Go de VRAM. Recommandé pour démarrer.",
           "igorls/gemma-4-12B-it-heretic-GGUF", &[], Some("Q4_K_M"), 7.4,
@@ -81,7 +92,9 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
         e("whisper-medium-q5", Kind::Stt, "Whisper medium (Q5_0)",
           "Compromis précision/vitesse (≈ 0,5 Go).",
           "ggerganov/whisper.cpp", &["ggml-medium-q5_0.bin"], None, 0.54, &[]),
-    ]
+    ];
+    v.push(tts);
+    v
 }
 
 /// Catalogue intégré + entrées personnelles de `catalog.json` (même id = remplacement).
@@ -152,10 +165,24 @@ pub fn select_files(entry: &CatalogEntry, listing: &[RemoteFile]) -> Result<Vec<
             })
             .collect();
     }
+    if entry.pattern.is_none() && !entry.include_ext.is_empty() {
+        let exts: Vec<String> = entry.include_ext.iter().map(|e| e.to_lowercase()).collect();
+        let mut all: Vec<RemoteFile> = listing
+            .iter()
+            .filter(|f| f.basename().rsplit_once('.').is_some_and(|(_, e)| exts.contains(&e.to_lowercase())))
+            .cloned()
+            .collect();
+        all.sort_by(|a, b| a.path.cmp(&b.path));
+        return if all.is_empty() {
+            Err(format!("aucun fichier {} dans {}", exts.join("/"), entry.repo))
+        } else {
+            Ok(all)
+        };
+    }
     let pat = entry
         .pattern
         .as_ref()
-        .ok_or("entrée de catalogue sans `files` ni `pattern`")?
+        .ok_or("entrée de catalogue sans `files`, `pattern` ni `include_ext`")?
         .to_lowercase();
     let mut hits: Vec<RemoteFile> = listing
         .iter()
@@ -428,7 +455,7 @@ mod tests {
         CatalogEntry {
             id: "x".into(), kind: Kind::Llm, name: "x".into(), description: String::new(), repo: "a/b".into(),
             subdir: String::new(), files: files.iter().map(|s| s.to_string()).collect(),
-            pattern: pattern.map(String::from), size_gb: 0.0, args: vec![], exec: None, note: String::new(),
+            pattern: pattern.map(String::from), include_ext: vec![], size_gb: 0.0, args: vec![], exec: None, note: String::new(),
         }
     }
 
@@ -474,13 +501,25 @@ mod tests {
     }
 
     #[test]
+    fn selection_par_extensions() {
+        let mut e = entry(&[], None);
+        e.include_ext = vec!["safetensors".into(), "PT".into(), "json".into()];
+        let l = vec![rf("ve.pt"), rf("t3.safetensors"), rf("tokenizer.json"), rf("README.md"), rf("sample.wav")];
+        let r = select_files(&e, &l).unwrap();
+        assert_eq!(r.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(), vec!["t3.safetensors", "tokenizer.json", "ve.pt"]);
+        e.include_ext = vec!["gguf".into()];
+        assert!(select_files(&e, &l).is_err());
+    }
+
+    #[test]
     fn catalogue_ids_uniques() {
         let c = builtin_catalog();
         let mut ids: Vec<_> = c.iter().map(|e| e.id.clone()).collect();
         ids.sort();
         ids.dedup();
         assert_eq!(ids.len(), c.len());
-        assert!(c.iter().all(|e| !e.files.is_empty() || e.pattern.is_some()));
+        assert!(c.iter().all(|e| !e.files.is_empty() || e.pattern.is_some() || !e.include_ext.is_empty()));
+        assert!(c.iter().any(|e| e.kind == Kind::Tts && e.exec.is_some()), "un TTS installable est proposé");
     }
 
     #[test]

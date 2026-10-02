@@ -22,6 +22,12 @@
           VRAM ≈ {{ status.llm.plan.vram_used_gb.toFixed(1) }} / {{ status.llm.plan.vram_budget_gb.toFixed(1) }} Go
           <div v-for="n in status.llm.plan.notes" :key="n">{{ n }}</div>
         </div>
+        <div v-if="c.key === 'tts'" class="muted small">
+          Moteur de voix : {{ rtLabel }}
+          <button v-if="rt === 'absent' || rt === 'error'" class="primary" @click="installRuntime">Installer le moteur de voix (≈ 3 Go)</button>
+          <div v-if="status.tts_runtime?.error" class="err">{{ status.tts_runtime.error }}</div>
+          <div v-if="rt === 'installing'">Installation en cours… (voir les journaux)</div>
+        </div>
         <div class="row">
           <button v-if="stateOf(c.key) !== 'stopped'" @click="unload(c.key)">Décharger</button>
           <button @click="toggleLogs(c.key)">{{ logsFor === c.key ? 'Masquer' : 'Journaux' }}</button>
@@ -70,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 
 const MB = 1024 * 1024
@@ -96,6 +102,9 @@ const byKind = (k) => models.value.filter((m) => m.entry.kind === k)
 const stateOf = (k) => status.value[k]?.state || 'stopped'
 const stateLabel = (s) => ({ stopped: 'arrêté', loading: 'chargement…', ready: 'prêt', error: 'erreur' })[s] || s
 const modelName = (id) => models.value.find((m) => m.entry.id === id)?.entry.name
+const rt = computed(() => status.value.tts_runtime?.state || 'absent')
+const rtLabel = computed(() => ({ absent: 'non installé', installing: 'installation…', ready: 'installé', error: 'erreur' })[rt.value] || rt.value)
+const installRuntime = () => { logsFor.value = 'tts'; return act(() => axios.post('/api/live/engine/tts-runtime/install', {}, { headers: headers() })) }
 const busy = (m) => ['listing', 'downloading', 'verifying'].includes(m.download?.status)
 const isLoaded = (m) => status.value[m.entry.kind]?.model === m.entry.id && stateOf(m.entry.kind) !== 'stopped'
 

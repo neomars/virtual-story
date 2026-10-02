@@ -39,6 +39,13 @@ impl Stt {
     }
 }
 
+/// Réglages de style de voix (propres au persona).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TtsStyle {
+    pub exaggeration: Option<f32>,
+    pub cfg_weight: Option<f32>,
+}
+
 #[derive(Clone)]
 pub struct Tts {
     http: reqwest::Client,
@@ -60,16 +67,21 @@ impl Tts {
         }
     }
 
-    pub async fn speak(&self, text: &str, voice: Option<&str>) -> anyhow::Result<Vec<u8>> {
+    pub async fn speak(&self, text: &str, voice: Option<&str>, style: &TtsStyle) -> anyhow::Result<Vec<u8>> {
+        let mut body = json!({
+            "model": self.cfg.model,
+            "input": text,
+            "voice": voice.unwrap_or(&self.cfg.default_voice),
+            "response_format": self.cfg.format,
+            "language": self.cfg.language,
+        });
+        // Champs d'expressivité : ignorés par les serveurs compatibles OpenAI qui ne les connaissent pas.
+        if let Some(v) = style.exaggeration { body["exaggeration"] = json!(v); }
+        if let Some(v) = style.cfg_weight { body["cfg_weight"] = json!(v); }
         let bytes = self
             .http
             .post(format!("{}/v1/audio/speech", self.cfg.url.trim_end_matches('/')))
-            .json(&json!({
-                "model": self.cfg.model,
-                "input": text,
-                "voice": voice.unwrap_or(&self.cfg.default_voice),
-                "response_format": self.cfg.format,
-            }))
+            .json(&body)
             .send()
             .await?
             .error_for_status()?
