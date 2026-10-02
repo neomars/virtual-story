@@ -20,6 +20,7 @@
       </div>
       <nav aria-label="Main navigation">
         <router-link :to="parts.length > 0 ? `/player/${parts[0].first_scene_id}` : '/player/1'">Player</router-link>
+        <router-link to="/live">Live</router-link>
         <router-link to="/admin/scenes" @click="handleAdminClick">Admin</router-link>
         <button v-if="isAuthenticated" @click="handleLogout" class="logout-link">Logout ({{ currentUser?.username }})</button>
       </nav>

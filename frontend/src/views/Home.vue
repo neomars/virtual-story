@@ -7,6 +7,11 @@
       <router-link to="/player/1">first scene</router-link>.
     </p>
     <p>
+      Ou discutez en direct avec une IA : <router-link to="/live">mode Live</router-link>
+      (<router-link to="/admin/live/personas">personnages</router-link>,
+      <router-link to="/admin/live/media">médiathèque</router-link>).
+    </p>
+    <p>
       Or, you can manage the story content in the
       <router-link to="/admin/scenes">admin panel</router-link>.
     </p>

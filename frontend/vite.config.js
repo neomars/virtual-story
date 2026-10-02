@@ -17,6 +17,13 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Moteur live (Rust) : doit précéder la règle générique /api
+      '/api/live': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        ws: true,
+      },
+
       // Single, simple rule for all API calls.
       // The backend now expects the /api prefix, so no rewrite is needed.
       '/api': {
@@ -35,6 +42,10 @@ export default defineConfig({
       },
       '/parts': {
         target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+      '/photos': {
+        target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
       '/backgrounds': {
