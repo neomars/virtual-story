@@ -114,6 +114,7 @@ if (!app.requestSingleInstanceLock()) {
     process.env.PORT = String(WEB_PORT);
     process.env.HOST = '127.0.0.1'; // l'app est locale : pas d'exposition sur le réseau
     process.env.NODE_ENV = 'production';
+    process.env.INSECURE_COOKIES = '1'; // HTTP local (voir backend/server.js)
     process.env.VS_DATA_DIR = dataDir;
     fs.mkdirSync(dataDir, { recursive: true });
     startEngine();

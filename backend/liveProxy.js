@@ -22,10 +22,17 @@ function proxyHttp(req, res) {
   req.pipe(upstream);
 }
 
-// Middleware Express : à placer AVANT express.json() pour que le corps reste un flux.
+const READ_ONLY = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// Middleware Express : à placer APRÈS la session et AVANT express.json() (le corps doit rester un flux).
+// Lecture (personas, état…) ouverte comme le lecteur ; toute écriture (télécharger/supprimer un modèle,
+// charger l'IA, éditer médias et personas) exige la même connexion que l'administration.
 function middleware(req, res, next) {
-  if (isLive(req.originalUrl || req.url)) return proxyHttp(req, res);
-  next();
+  if (!isLive(req.originalUrl || req.url)) return next();
+  if (!READ_ONLY.has(req.method) && !(req.session && req.session.userId)) {
+    return res.status(401).send({ message: 'Non autorisé. Veuillez vous connecter.' });
+  }
+  proxyHttp(req, res);
 }
 
 // À brancher sur server.on('upgrade', ...) ; renvoie true si la requête a été prise en charge.

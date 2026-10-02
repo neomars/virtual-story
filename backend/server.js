@@ -15,9 +15,6 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
 
-// Moteur IA live (Rust) : proxy REST + WebSocket, avant tout middleware qui lit le corps.
-app.use(liveProxy.middleware);
-
 // Basic security headers
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -28,7 +25,6 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
-app.use(express.json());
 
 // Session configuration
 app.use(session({
@@ -37,12 +33,19 @@ app.use(session({
   saveUninitialized: false,
   name: 'vs.sid',
   cookie: {
-    secure: isProd,
+    // L'app Electron sert du HTTP local : un cookie « secure » n'y serait jamais posé (connexion impossible).
+    secure: isProd && process.env.INSECURE_COOKIES !== '1',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
+
+// Moteur IA live (Rust) : proxy REST + WebSocket. Placé après la session (pour exiger une connexion sur les
+// routes qui modifient quelque chose) et avant express.json() (le corps doit rester un flux).
+app.use(liveProxy.middleware);
+
+app.use(express.json());
 
 // Global API Rate Limiter
 app.use('/api/', apiLimiter);
