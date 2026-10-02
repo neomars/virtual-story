@@ -73,7 +73,7 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
         e("gemma4-12b-heretic", Kind::Llm, "Gemma 4 12B Heretic (Q4_K_M)",
           "Gemma 4 12B décensuré par abliteration. Tient entièrement sur 15 Go de VRAM. Recommandé pour démarrer.",
           "igorls/gemma-4-12B-it-heretic-GGUF", &[], Some("Q4_K_M"), 7.4,
-          &["--chat-template-kwargs", "{\"enable_thinking\":false}"]),
+          &["--reasoning", "off"]),
         e("ministral3-14b-nymphaea-rp", Kind::Llm, "Ministral 3 14B Nymphaea-RP (i1-Q5_K_M)",
           "Fine-tune jeu de rôle non censuré (base Mistral). Non vérifié sur le format des balises.",
           "mradermacher/Ministral-3-14B-Nymphaea-RP-i1-GGUF", &[], Some("i1-Q5_K_M"), 9.7, &[]),

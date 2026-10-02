@@ -109,13 +109,13 @@ async function createWindow() {
   });
   // Micro pour la reconnaissance vocale : autorisé uniquement pour notre propre page locale.
   mainWindow.webContents.session.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(permission === 'media' && wc.getURL().startsWith(`http://localhost:${WEB_PORT}`));
+    cb(permission === 'media' && wc.getURL().startsWith(`http://127.0.0.1:${WEB_PORT}`));
   });
   if (!(await waitForServer(WEB_PORT))) {
     dialog.showErrorBox('Virtual Story', `Le serveur local n'a pas démarré sur le port ${WEB_PORT}.`);
     return;
   }
-  mainWindow.loadURL(`http://localhost:${WEB_PORT}`);
+  mainWindow.loadURL(`http://127.0.0.1:${WEB_PORT}`); // IPv4 explicite : « localhost » peut résoudre en ::1
 }
 
 // ---- Cycle de vie --------------------------------------------------------------------------

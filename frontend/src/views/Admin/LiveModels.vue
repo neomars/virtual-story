@@ -16,6 +16,7 @@
         <div class="title">{{ c.label }} <span :class="['pill', stateOf(c.key)]">{{ stateLabel(stateOf(c.key)) }}</span></div>
         <div class="muted">{{ modelName(status[c.key]?.model) || 'aucun modèle chargé' }}</div>
         <div v-if="status[c.key]?.error" class="err">{{ status[c.key].error }}</div>
+        <div v-if="status[c.key]?.warning" class="warn">⚠ {{ status[c.key].warning }}</div>
         <div v-if="c.key === 'llm' && status.llm?.plan" class="muted small">
           {{ status.llm.plan.full_offload ? 'Tout sur le GPU' : 'Offload partiel' }} ·
           {{ status.llm.plan.n_gpu_layers }} couches GPU · contexte {{ status.llm.plan.ctx_tokens }} ·

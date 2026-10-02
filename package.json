@@ -91,19 +91,20 @@
         "libsecret-1-0",
         "libgomp1",
         "libssl3 | libssl3t64"
-      ],
-      "recommends": [
-        "nvidia-driver-550 | nvidia-driver"
       ]
     },
     "win": {
       "target": "nsis"
     },
-    "npmRebuild": false
+    "npmRebuild": false,
+    "publish": null,
+    "toolsets": {
+      "appimage": "1.0.3"
+    }
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "26.15.3"
   },
   "dependencies": {
     "alasql": "^4.17.3",

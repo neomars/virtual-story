@@ -30,8 +30,10 @@ if [ "$DOCTOR" = 1 ]; then step "diagnostic"; bash scripts/doctor.sh || { echo "
 if [ "$INSTALL" = 1 ]; then
   step "dépendances npm"
   # --no-package-lock : le dépôt utilise pnpm-lock.yaml, on ne veut pas salir package-lock.json à chaque build.
-  npm install --no-audit --no-fund --no-package-lock
-  (cd backend && npm install --no-audit --no-fund --no-package-lock)
+  # --omit=optional (racine et backend) : alasql déclare react-native-fs en dépendance optionnelle, ce qui ajouterait
+  # react-native et ~150 paquets (≈ 190 Mo) à l'app. Pas pour le frontend : Vite a besoin de ses binaires optionnels.
+  npm install --no-audit --no-fund --no-package-lock --omit=optional
+  (cd backend && npm install --no-audit --no-fund --no-package-lock --omit=optional)
   (cd frontend && npm install --no-audit --no-fund --no-package-lock)
 fi
 

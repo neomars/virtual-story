@@ -13,7 +13,7 @@
 #   LLAMA_CUDA=12.8              (variante CUDA du binaire officiel ; 13.4 exige un pilote NVIDIA ≥ 580)
 #   LLAMA_SHA256 / CUDART_SHA256 (empreintes ; obligatoires si tu changes LLAMA_CPP_TAG ou LLAMA_CUDA, sinon vérif ignorée)
 #   LLAMA_BASE_URL (miroir/tests)  WHISPER_CPP_REF (défaut v1.9.4)  SKIP_WHISPER=1 (ne pas compiler whisper-server)
-#   CUDA_ARCH (défaut native = la carte de CETTE machine ; ex. "86;89;120" pour un paquet destiné à d'autres cartes)
+#   CUDA_ARCH (défaut : native si un GPU est visible, sinon "75;80;86;89" (+120 avec CUDA ≥ 12.8) ; ex. "86;89")
 #   BUNDLE_CUDA_LIBS=1 (défaut ; mode source / whisper) copie libcudart/libcublas dans ./bin
 #   FORCE=1 refait tout.
 set -euo pipefail
@@ -24,7 +24,16 @@ SRC="$ROOT/.build"
 LLAMA_MODE="${LLAMA_MODE:-prebuilt}"
 LLAMA_CUDA="${LLAMA_CUDA:-12.8}"
 WHISPER_CPP_REF="${WHISPER_CPP_REF:-v1.9.4}"
-CUDA_ARCH="${CUDA_ARCH:-native}"
+# native = la carte de CETTE machine ; sans GPU visible (serveur de build, conteneur) nvcc échoue avec « native » :
+# on prend alors une liste explicite (Turing → Ada, + Blackwell avec CUDA ≥ 12.8).
+if [ -z "${CUDA_ARCH:-}" ]; then
+  if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then CUDA_ARCH=native
+  else
+    CUDA_ARCH="75;80;86;89"
+    NVCC_VER="$(nvcc --version 2>/dev/null | grep -oE 'release [0-9]+\.[0-9]+' | cut -d' ' -f2 || true)"
+    if [ -n "${NVCC_VER:-}" ] && [ "$(printf '%s\n12.8\n' "$NVCC_VER" | sort -V | head -1)" = "12.8" ]; then CUDA_ARCH="$CUDA_ARCH;120"; fi
+  fi
+fi
 BUNDLE_CUDA_LIBS="${BUNDLE_CUDA_LIBS:-1}"
 JOBS="${JOBS:-$(nproc)}"
 
@@ -87,7 +96,7 @@ llama_source() {
   [ -d "$dir/.git" ] && { git -C "$dir" fetch --depth 1 origin "$ref" && git -C "$dir" checkout -q FETCH_HEAD; } \
     || git clone --depth 1 --branch "$ref" https://github.com/ggml-org/llama.cpp "$dir"
   cmake -S "$dir" -B "$dir/build" -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCH" \
-        -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_RPATH='$ORIGIN' -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+        -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_RPATH='$ORIGIN' -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DGGML_CUDA_NCCL=OFF \
         -DLLAMA_BUILD_TESTS=OFF -DLLAMA_USE_PREBUILT_UI=OFF
   cmake --build "$dir/build" --config Release --target llama-server -j "$JOBS"
   find "$dir/build/bin" \( -name 'llama-server' -o -name '*.so' -o -name '*.so.*' \) -exec cp -a {} "$BIN/" \;

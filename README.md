@@ -55,12 +55,22 @@ chmod +x dist/virtual-story-*.AppImage && ./dist/virtual-story-*.AppImage   # ou
 
 - **Ubuntu 22.04** : le binaire llama.cpp officiel exige glibc ≥ 2.38 ; `LLAMA_MODE=source npm run dist:linux` compile llama.cpp
   (nvcc requis). Le paquet résultant ne s'exécute que sur une distribution dont la glibc est au moins celle de la machine de build.
-- **AppImage** : sur Ubuntu 23.10+, AppArmor interdit le bac à sable Chromium aux AppImage ; l'app le désactive donc
-  automatiquement dans ce cas (elle ne charge que sa propre page locale). Le `.deb` garde le bac à sable.
+- **AppImage** : construit avec le runtime statique d'electron-builder 26 (`toolsets.appimage`), qui n'exige pas `libfuse2`.
+  Si l'AppImage refuse de démarrer avec une erreur `libfuse.so.2`, installez `sudo apt install libfuse2t64`. Sur
+  Ubuntu 23.10+, AppArmor interdit le bac à sable Chromium aux AppImage : l'app le désactive (elle ne charge que sa propre
+  page locale). Le `.deb` garde le bac à sable (profil AppArmor installé) et ne dépend d'aucun paquet NVIDIA : un pilote
+  installé par `ubuntu-drivers` ne doit jamais être remplacé par une dépendance.
 - **Première utilisation** : l'utilisateur `admin` / `admin` est créé au premier lancement (**changez le mot de passe** dans
-  Admin → Users & Profile), puis Admin → Modèles IA pour télécharger l'IA, le micro et la voix.
-- **Compilation sans GPU** : possible (`SKIP_WHISPER=1`, binaire llama.cpp précompilé) ; le paquet ne démarrera
-  l'IA que sur une machine NVIDIA.
+  Admin → Users & Profile), puis Admin → Modèles IA pour télécharger l'IA, le micro et la voix. Si l'IA semble très lente,
+  l'écran Modèles affiche « ⚠ aucun périphérique CUDA détecté » quand llama-server tourne sur le CPU (bibliothèques CUDA
+  ou pilote manquants). Un GPU plus ancien qu'Ampere (par ex. Turing/T4) compile le code CUDA au premier chargement
+  (quelques minutes, une seule fois).
+- **Compilation sans GPU** : possible (`SKIP_WHISPER=1`, binaire llama.cpp précompilé ; `CUDA_ARCH` explicite si `nvcc` est
+  présent) ; le paquet ne démarrera l'IA que sur une machine NVIDIA.
+- **Taille et licences** : le paquet embarque les bibliothèques CUDA (`libcudart`, `libcublas`, `libcublasLt`, ≈ 0,9 Go
+  décompressées) fournies avec le binaire llama.cpp officiel ; elles sont redistribuées sous la licence CUDA de NVIDIA
+  (ne jamais y ajouter `libcuda.so`, qui vient du pilote). Les dépendances `optionnelles` (react-native-fs d'alasql) sont
+  exclues à l'installation pour ne pas gonfler l'app.
 
 Emplacements (app empaquetée) : base et médias dans `~/.config/Virtual Story`, modèles dans
 `~/.local/share/virtual-story/models` (`VS_MODELS_DIR` pour changer), journaux dans `~/.config/Virtual Story/logs/`.
