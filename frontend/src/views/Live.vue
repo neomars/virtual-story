@@ -82,7 +82,7 @@ const selected = computed(() => personas.value.find((p) => p.id === personaId.va
 const started = ref(false)
 const connected = ref(false)
 const hello = ref({})
-const maxIntensity = ref(3)
+const maxIntensity = ref(5)
 const voiceOn = ref(true)
 const mediaSound = ref(false)
 const messages = ref([])

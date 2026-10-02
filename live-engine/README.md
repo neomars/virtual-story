@@ -53,9 +53,8 @@ cd ../frontend && npm run dev            # /live, /admin/live/media, /admin/live
 ```
 
 1. `/admin/live/media` → « Scanner les uploads » (vidéos **et photos**), puis annote : tags, ambiance, intensité.
-2. Coche **Adultes vérifiés** : sans cela, un média n'est jamais proposé à l'IA.
-3. `/admin/live/personas` → crée ton personnage (nom, personnalité, style, scénario, voix).
-4. `/live` → choisis le personnage, parle ou écris. Parler pendant que l'IA répond la coupe (barge-in).
+2. `/admin/live/personas` → crée ton personnage (nom, personnalité, style, scénario, voix).
+3. `/live` → choisis le personnage, parle ou écris. Parler pendant que l'IA répond la coupe (barge-in).
 
 ## Profil retenu : Gemma 4 12B « Heretic » (Q4_K_M)
 
@@ -82,12 +81,13 @@ Points d'attention :
 - À tester dès le premier lancement : le respect des balises `[[show: …]]` / `[[replies: …]]` sur 30-50 tours. Si le
   modèle les oublie ou les déforme, compare avec `Ministral-3-14B-Nymphaea-RP` ou `Rocinante-X-12B`.
 
-## Garde-fous (côté serveur, non contournables par un persona)
+## Règles du moteur
 
-- Un persona avec `age < 18` est refusé à l'enregistrement et ignoré au chargement.
-- Les règles du moteur (adultes uniquement, consentement) sont injectées avant la fiche du personnage.
-- Un média non vérifié n'est jamais affichable ; le plafond d'intensité est appliqué par le serveur.
-- Le serveur écoute sur 127.0.0.1 ; `admin_token` protège l'édition si tu l'exposes.
+- Usage personnel : aucune vérification de médias, aucun refus ni avertissement dans le prompt, et le curseur
+  d'intensité (1-5) est à 5 par défaut ; c'est un réglage à toi, pas une restriction.
+- Une seule limite est conservée : les personnages sont des adultes. Une fiche avec `age < 18` est refusée à
+  l'enregistrement et ignorée au chargement, et le prompt interdit tout contenu sexuel impliquant un mineur.
+- Le serveur écoute sur 127.0.0.1 ; `admin_token` protège l'édition si tu l'exposes sur le réseau.
 
 ## Tests
 

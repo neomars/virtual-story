@@ -3,19 +3,17 @@
     <h2>Médiathèque live</h2>
     <p class="hint">
       L'IA ne voit que ces annotations : elle choisit les médias par <b>tags</b>, <b>ambiance</b> et <b>intensité</b>.
-      Un média n'est proposé que si <b>« Adultes vérifiés »</b> est coché — vérifiez que seuls des adultes consentants y figurent.
     </p>
     <div class="actions">
       <button @click="run('scan')">Scanner les uploads (vidéos + photos)</button>
       <button @click="run('import-legacy')">Importer les scènes existantes</button>
-      <button :disabled="!selectedIds.length" @click="bulk({ adults_verified: true })">Vérifier la sélection ({{ selectedIds.length }})</button>
-      <button :disabled="!selectedIds.length" @click="bulk({ ambient: true })">Marquer « boucle d'ambiance »</button>
+      <button :disabled="!selectedIds.length" @click="bulk({ ambient: true })">Marquer « boucle d'ambiance » ({{ selectedIds.length }})</button>
       <span class="muted">{{ message }}</span>
     </div>
 
     <table>
       <thead>
-        <tr><th></th><th>Aperçu</th><th>Titre</th><th>Tags (virgules)</th><th>Ambiance</th><th>Intensité</th><th>Ambiance fond</th><th>Adultes vérifiés</th><th></th></tr>
+        <tr><th></th><th>Aperçu</th><th>Titre</th><th>Tags (virgules)</th><th>Ambiance</th><th>Intensité</th><th>Ambiance fond</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="m in items" :key="m.id">
@@ -29,7 +27,6 @@
           <td><input v-model="m.mood" placeholder="romantique" class="short" /></td>
           <td><input type="number" min="1" max="5" v-model.number="m.intensity" class="num" /></td>
           <td><input type="checkbox" v-model="m.ambient" /></td>
-          <td><input type="checkbox" v-model="m.adults_verified" /></td>
           <td><button @click="save(m)">Enregistrer</button></td>
         </tr>
       </tbody>
@@ -68,7 +65,7 @@ async function save(m) {
   const body = {
     title: m.title, description: m.description,
     tags: m.tagsText.split(',').map((t) => t.trim()).filter(Boolean),
-    mood: m.mood, intensity: m.intensity, ambient: m.ambient, adults_verified: m.adults_verified,
+    mood: m.mood, intensity: m.intensity, ambient: m.ambient,
   }
   try { await axios.patch(`/api/live/media/${m.id}`, body, { headers: headers() }); message.value = 'Enregistré' }
   catch (e) { message.value = e.response?.data?.message || e.message }

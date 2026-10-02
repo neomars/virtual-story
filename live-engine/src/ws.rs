@@ -64,7 +64,7 @@ pub async fn handle_socket(socket: WebSocket, app: Arc<AppState>) {
         summary: String::new(),
         shown: HashSet::new(),
         story: BTreeMap::new(),
-        max_intensity: 3,
+        max_intensity: 5,
         tts_on: app.tts.is_some(),
         gen_id: 0,
         handles: vec![],

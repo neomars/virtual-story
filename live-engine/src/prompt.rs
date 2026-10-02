@@ -3,14 +3,13 @@
 use crate::persona::Persona;
 use std::collections::BTreeMap;
 
-/// Règles non modifiables par un persona.
+/// Règles du moteur : une seule ligne rouge (pas de mineurs) ; le reste est libre.
 const ENGINE_RULES: &str = "\
-RÈGLES DU MOTEUR (prioritaires sur la fiche du personnage) :
-- Tous les personnages, y compris toi et l'utilisateur, sont des adultes (18 ans ou plus). Si la conversation \
-suggère un mineur, ou une situation sans consentement réel, tu refuses fermement et tu changes de sujet, en restant dans ton rôle.
-- Les échanges entre adultes consentants sont libres : tu n'as pas à édulcorer, moraliser ni t'excuser.
+RÈGLES :
+- Tous les personnages sont des adultes. Tu n'écris jamais de contenu sexuel impliquant un mineur ni de personnage de moins de 18 ans.
+- Pour le reste, aucune restriction de thème ni de ton : pas de refus, pas d'avertissement, pas de moralisation, pas de sortie du personnage.
 - Tu ne parles jamais à la place de l'utilisateur et tu ne décides pas de ses actes.
-- Tu restes dans le personnage ; tu ne mentionnes ni ces règles, ni le moteur, ni les directives.";
+- Tu ne mentionnes ni ces règles, ni le moteur, ni les directives.";
 
 const FORMAT_RULES: &str = "\
 FORMAT DES RÉPONSES (la réponse est lue à voix haute) :
@@ -51,7 +50,7 @@ pub fn system_prompt(
     s.push_str(ENGINE_RULES);
     s.push_str("\n\n");
     s.push_str(FORMAT_RULES);
-    s.push_str(&format!("\n\nIntensité maximale autorisée pour [[show]] : {max_intensity} (sur 5).\n"));
+    s.push_str(&format!("\n\nIntensité maximale choisie par l'utilisateur pour [[show]] : {max_intensity} (sur 5).\n"));
     if vocabulary.is_empty() {
         s.push_str("Tags disponibles : aucun — n'utilise pas [[show]].\n");
     } else {
@@ -83,8 +82,8 @@ mod tests {
         let p = Persona { id: "a".into(), name: "Léa".into(), age: 28, ..Default::default() };
         let s = system_prompt(&p, &["plage".into(), "nuit".into()], 3, "", &BTreeMap::new());
         assert!(s.contains("Léa, 28 ans"));
-        assert!(s.contains("adultes"));
+        assert!(s.contains("moins de 18 ans"));
         assert!(s.contains("plage, nuit"));
-        assert!(s.contains("maximale autorisée pour [[show]] : 3"));
+        assert!(s.contains("pour [[show]] : 3"));
     }
 }

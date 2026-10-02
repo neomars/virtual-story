@@ -18,9 +18,6 @@ pub struct MediaItem {
     pub tags: Vec<String>,
     pub mood: String,
     pub intensity: u8, // 1..=5
-    /// Un humain a confirmé que ce média ne montre que des adultes consentants.
-    /// Sans cette confirmation, l'IA ne peut pas l'afficher.
-    pub adults_verified: bool,
     /// Convient comme boucle d'ambiance silencieuse.
     pub ambient: bool,
 }
@@ -32,7 +29,6 @@ pub struct MediaPatch {
     pub tags: Option<Vec<String>>,
     pub mood: Option<String>,
     pub intensity: Option<u8>,
-    pub adults_verified: Option<bool>,
     pub ambient: Option<bool>,
 }
 
@@ -62,11 +58,10 @@ CREATE TABLE IF NOT EXISTS media (
   tags TEXT NOT NULL DEFAULT '',
   mood TEXT NOT NULL DEFAULT '',
   intensity INTEGER NOT NULL DEFAULT 1,
-  adults_verified INTEGER NOT NULL DEFAULT 0,
   ambient INTEGER NOT NULL DEFAULT 0
 );";
 
-const COLS: &str = "id,kind,url,thumb,title,description,tags,mood,intensity,adults_verified,ambient";
+const COLS: &str = "id,kind,url,thumb,title,description,tags,mood,intensity,ambient";
 
 fn split_tags(s: &str) -> Vec<String> {
     s.split(',').map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()).collect()
@@ -83,8 +78,7 @@ fn from_row(r: &Row) -> rusqlite::Result<MediaItem> {
         tags: split_tags(&r.get::<_, String>(6)?),
         mood: r.get(7)?,
         intensity: r.get::<_, i64>(8)?.clamp(1, 5) as u8,
-        adults_verified: r.get::<_, i64>(9)? != 0,
-        ambient: r.get::<_, i64>(10)? != 0,
+        ambient: r.get::<_, i64>(9)? != 0,
     })
 }
 
@@ -109,10 +103,10 @@ impl MediaLibrary {
     pub fn insert(&self, m: &MediaItem) -> anyhow::Result<i64> {
         let c = self.conn.lock().unwrap();
         c.execute(
-            "INSERT OR IGNORE INTO media (kind,url,thumb,title,description,tags,mood,intensity,adults_verified,ambient)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            "INSERT OR IGNORE INTO media (kind,url,thumb,title,description,tags,mood,intensity,ambient)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
             params![m.kind, m.url, m.thumb, m.title, m.description, m.tags.join(","), m.mood,
-                    m.intensity as i64, m.adults_verified as i64, m.ambient as i64],
+                    m.intensity as i64, m.ambient as i64],
         )?;
         Ok(c.query_row("SELECT id FROM media WHERE url=?1", [&m.url], |r| r.get(0))?)
     }
@@ -136,13 +130,11 @@ impl MediaLibrary {
         if let Some(v) = &p.tags { m.tags = v.iter().map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()).collect(); }
         if let Some(v) = &p.mood { m.mood = v.trim().to_lowercase(); }
         if let Some(v) = p.intensity { m.intensity = v.clamp(1, 5); }
-        if let Some(v) = p.adults_verified { m.adults_verified = v; }
         if let Some(v) = p.ambient { m.ambient = v; }
         let c = self.conn.lock().unwrap();
         c.execute(
-            "UPDATE media SET title=?2,description=?3,tags=?4,mood=?5,intensity=?6,adults_verified=?7,ambient=?8 WHERE id=?1",
-            params![id, m.title, m.description, m.tags.join(","), m.mood, m.intensity as i64,
-                    m.adults_verified as i64, m.ambient as i64],
+            "UPDATE media SET title=?2,description=?3,tags=?4,mood=?5,intensity=?6,ambient=?7 WHERE id=?1",
+            params![id, m.title, m.description, m.tags.join(","), m.mood, m.intensity as i64, m.ambient as i64],
         )?;
         Ok(Some(m))
     }
@@ -152,7 +144,7 @@ impl MediaLibrary {
     pub fn vocabulary(&self, max_intensity: u8, limit: usize) -> Vec<String> {
         let mut freq: std::collections::HashMap<String, usize> = Default::default();
         for m in self.list().unwrap_or_default() {
-            if m.adults_verified && m.intensity <= max_intensity {
+            if m.intensity <= max_intensity {
                 for t in m.tags { *freq.entry(t).or_default() += 1; }
             }
         }
@@ -169,8 +161,7 @@ impl MediaLibrary {
             .unwrap_or_default()
             .into_iter()
             .filter(|m| {
-                m.adults_verified
-                    && m.intensity <= q.max_intensity
+                m.intensity <= q.max_intensity
                     && !q.exclude.contains(&m.id)
                     && q.kind.as_deref().map_or(true, |k| k == m.kind)
                     && (!q.ambient_only || m.ambient)
@@ -226,7 +217,6 @@ impl MediaLibrary {
                 tags: vec![],
                 mood: String::new(),
                 intensity: 1,
-                adults_verified: false,
                 ambient: false,
             })?;
             if self.list()?.len() > before { n += 1; }
@@ -262,7 +252,7 @@ impl MediaLibrary {
             self.insert(&MediaItem {
                 id: 0, kind: kind.into(), url, thumb: None, title,
                 description: String::new(), tags: vec![], mood: String::new(),
-                intensity: 1, adults_verified: false, ambient: false,
+                intensity: 1, ambient: false,
             })?;
             if self.list()?.len() > before { n += 1; }
         }
@@ -274,20 +264,20 @@ impl MediaLibrary {
 mod tests {
     use super::*;
 
-    fn item(url: &str, tags: &[&str], mood: &str, intensity: u8, verified: bool) -> MediaItem {
+    fn item(url: &str, tags: &[&str], mood: &str, intensity: u8) -> MediaItem {
         MediaItem {
             id: 0, kind: "video".into(), url: url.into(), thumb: None, title: url.into(),
             description: String::new(), tags: tags.iter().map(|s| s.to_string()).collect(),
-            mood: mood.into(), intensity, adults_verified: verified, ambient: false,
+            mood: mood.into(), intensity, ambient: false,
         }
     }
 
     #[test]
     fn recherche_par_tags_ambiance_et_intensite() {
         let lib = MediaLibrary::open_in_memory().unwrap();
-        lib.insert(&item("/a.mp4", &["plage", "soleil"], "joyeux", 1, true)).unwrap();
-        lib.insert(&item("/b.mp4", &["plage", "nuit"], "romantique", 3, true)).unwrap();
-        lib.insert(&item("/c.mp4", &["plage"], "romantique", 5, true)).unwrap();
+        lib.insert(&item("/a.mp4", &["plage", "soleil"], "joyeux", 1)).unwrap();
+        lib.insert(&item("/b.mp4", &["plage", "nuit"], "romantique", 3)).unwrap();
+        lib.insert(&item("/c.mp4", &["plage"], "romantique", 5)).unwrap();
 
         let q = SearchQuery { tags: vec!["plage".into()], mood: Some("romantique".into()),
             intensity: Some(3), max_intensity: 4, ..Default::default() };
@@ -297,17 +287,9 @@ mod tests {
     }
 
     #[test]
-    fn media_non_verifie_jamais_propose() {
-        let lib = MediaLibrary::open_in_memory().unwrap();
-        lib.insert(&item("/x.mp4", &["plage"], "", 1, false)).unwrap();
-        let q = SearchQuery { tags: vec!["plage".into()], max_intensity: 5, ..Default::default() };
-        assert!(lib.search(&q).is_empty());
-    }
-
-    #[test]
     fn exclusion_des_medias_deja_montres() {
         let lib = MediaLibrary::open_in_memory().unwrap();
-        let id = lib.insert(&item("/a.mp4", &["plage"], "", 1, true)).unwrap();
+        let id = lib.insert(&item("/a.mp4", &["plage"], "", 1)).unwrap();
         let mut q = SearchQuery { tags: vec!["plage".into()], max_intensity: 5, ..Default::default() };
         q.exclude.insert(id);
         assert!(lib.search(&q).is_empty());
@@ -316,8 +298,8 @@ mod tests {
     #[test]
     fn insert_est_idempotent() {
         let lib = MediaLibrary::open_in_memory().unwrap();
-        let a = lib.insert(&item("/a.mp4", &[], "", 1, true)).unwrap();
-        let b = lib.insert(&item("/a.mp4", &[], "", 1, true)).unwrap();
+        let a = lib.insert(&item("/a.mp4", &[], "", 1)).unwrap();
+        let b = lib.insert(&item("/a.mp4", &[], "", 1)).unwrap();
         assert_eq!(a, b);
         assert_eq!(lib.list().unwrap().len(), 1);
     }
