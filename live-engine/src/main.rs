@@ -41,7 +41,11 @@ async fn main() -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&plan)?);
         println!("\nlignes de commande llama-server :");
         let model = cfg.llm.model_path.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or("model.gguf".into());
-        println!("llama-server {}", hardware::llama_server_args(&plan, &model, 8080, &cfg.llm.extra_args).join(" "));
+        let quoted: Vec<String> = hardware::llama_server_args(&plan, &model, 8080, &cfg.llm.extra_args)
+            .into_iter()
+            .map(|a| if a.contains(|c: char| c.is_whitespace() || "{}\"'$".contains(c)) { format!("'{a}'") } else { a })
+            .collect();
+        println!("llama-server {}", quoted.join(" "));
         return Ok(());
     }
 

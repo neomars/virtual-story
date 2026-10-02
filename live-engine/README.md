@@ -57,6 +57,31 @@ cd ../frontend && npm run dev            # /live, /admin/live/media, /admin/live
 3. `/admin/live/personas` → crée ton personnage (nom, personnalité, style, scénario, voix).
 4. `/live` → choisis le personnage, parle ou écris. Parler pendant que l'IA répond la coupe (barge-in).
 
+## Profil retenu : Gemma 4 12B « Heretic » (Q4_K_M)
+
+Config prête à l'emploi : `live.gemma4-12b.toml` (plan : tout sur GPU, ≈ 11,4 Go de VRAM estimés avec un cache KV
+volontairement surestimé, contexte 16k).
+
+```bash
+cd live-engine
+cp live.gemma4-12b.toml live.toml
+pip install -U "huggingface_hub[cli]"
+huggingface-cli download igorls/gemma-4-12B-it-heretic-GGUF --include "*Q4_K_M*" --local-dir models
+# ajuste llm.model_path dans live.toml au nom exact du fichier téléchargé
+cargo run --release plan                 # affiche la commande llama-server à lancer
+```
+
+Points d'attention :
+- Gemma 4 demande un **llama.cpp récent** (compilé après le 2026-06-04). Compile-le avec ton backend GPU
+  (`-DGGML_CUDA=ON` pour NVIDIA, `-DGGML_VULKAN=ON` pour AMD/autre).
+- Le mode « thinking » est coupé par `--chat-template-kwargs '{"enable_thinking":false}'` ; s'il apparaît quand même
+  dans les réponses, mets à jour llama.cpp.
+- Si les réponses contiennent des `---` répétés, le chat template du GGUF est défectueux : relance avec `--jinja`
+  et le template officiel du modèle de base.
+- `n_kv_heads` et `head_dim` sont des estimations (voir le commentaire dans le fichier) : à vérifier dans `config.json`.
+- À tester dès le premier lancement : le respect des balises `[[show: …]]` / `[[replies: …]]` sur 30-50 tours. Si le
+  modèle les oublie ou les déforme, compare avec `Ministral-3-14B-Nymphaea-RP` ou `Rocinante-X-12B`.
+
 ## Garde-fous (côté serveur, non contournables par un persona)
 
 - Un persona avec `age < 18` est refusé à l'enregistrement et ignoré au chargement.
