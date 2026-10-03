@@ -2,39 +2,45 @@
   "name": "virtual-story",
   "version": "1.0.0",
   "description": "Virtual Story interactive video app",
+  "productName": "Virtual Story",
+  "author": {
+    "name": "Martial Limousin",
+    "email": "martial.limousin@gmail.com"
+  },
+  "homepage": "https://github.com/neomars/virtual-story",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:linux": "electron-builder --linux",
+    "build:linux": "electron-builder --linux --publish never",
     "build:win": "electron-builder --windows",
     "build:frontend": "npm --prefix frontend run build",
     "build:engine": "cargo build --release --manifest-path live-engine/Cargo.toml",
     "build:sidecars": "bash scripts/build-sidecars.sh",
-    "dist:linux": "bash scripts/build-linux.sh"
+    "dist:linux": "bash scripts/build-linux.sh",
+    "doctor": "bash scripts/doctor.sh",
+    "pack:linux": "bash scripts/build-linux.sh --dir"
   },
   "build": {
     "appId": "com.virtualstory.app",
     "productName": "Virtual Story",
+    "executableName": "virtual-story",
+    "artifactName": "virtual-story-${version}-${arch}.${ext}",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
+      "package.json",
       "backend/**/*",
-      "frontend/dist/**/*",
-      "package.json"
+      "!backend/node_modules{,/**}",
+      "!backend/uploads{,/**}",
+      "!backend/db.json",
+      "!backend/.env*",
+      "!backend/*.py",
+      "!backend/*lock*",
+      "frontend/dist/**/*"
     ],
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "AudioVideo",
-      "maintainer": "Virtual Story"
-    },
-    "win": {
-      "target": "nsis"
-    },
     "extraResources": [
       {
         "from": "live-engine/target/release/live-engine",
@@ -42,12 +48,36 @@
       },
       {
         "from": "bin",
-        "to": "bin"
+        "to": "bin",
+        "filter": [
+          "**/*",
+          "!.gitkeep"
+        ]
       }
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**"
     ],
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "AudioVideo",
+      "maintainer": "Martial Limousin <martial.limousin@gmail.com>",
+      "synopsis": "Vidéo interactive et conversation IA locale",
+      "description": "Histoires vidéo interactives et conversation avec une IA locale (texte, voix, médiathèque) sur GPU NVIDIA."
+    },
     "deb": {
       "depends": [
         "libgtk-3-0",
@@ -58,16 +88,23 @@
         "xdg-utils",
         "libatspi2.0-0",
         "libuuid1",
-        "libsecret-1-0"
-      ],
-      "recommends": [
-        "nvidia-driver-550 | nvidia-driver"
+        "libsecret-1-0",
+        "libgomp1",
+        "libssl3 | libssl3t64"
       ]
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "npmRebuild": false,
+    "publish": null,
+    "toolsets": {
+      "appimage": "1.0.3"
     }
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "26.15.3"
   },
   "dependencies": {
     "alasql": "^4.17.3",

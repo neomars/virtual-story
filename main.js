@@ -5,6 +5,11 @@ const fs = require('fs');
 const os = require('os');
 const http = require('http');
 
+// Ubuntu 23.10+/24.04 : AppArmor interdit le bac à sable Chromium (SUID/userns) aux AppImage, qui ne peuvent
+// pas installer chrome-sandbox ; sans cette option l'app ne démarre pas. Le .deb garde le bac à sable.
+// L'app ne charge que sa propre page locale (http://localhost), jamais de contenu distant.
+if (process.env.APPIMAGE) app.commandLine.appendSwitch('no-sandbox');
+
 const ENGINE_PORT = 3001;
 const WEB_PORT = 3000;
 
@@ -26,6 +31,16 @@ let mainWindow = null;
 let engine = null;
 let quitting = false;
 
+// L'AppImage ajoute ses propres bibliothèques à LD_LIBRARY_PATH : elles ne doivent pas polluer llama-server,
+// whisper-server ni Python (même précaution que `unset LD_LIBRARY_PATH` pour ffmpeg dans le backend).
+function cleanLdPath() {
+  const appdir = process.env.APPDIR;
+  return (process.env.LD_LIBRARY_PATH || '')
+    .split(':')
+    .filter((p) => p && !(appdir && p.startsWith(appdir)))
+    .join(':');
+}
+
 function logStream(name) {
   fs.mkdirSync(path.join(userData, 'logs'), { recursive: true });
   return fs.createWriteStream(path.join(userData, 'logs', name), { flags: 'a' });
@@ -44,6 +59,7 @@ function startEngine() {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
+      LD_LIBRARY_PATH: cleanLdPath(),
       LIVE_BIND: `127.0.0.1:${ENGINE_PORT}`,
       LIVE_DATA_DIR: path.join(dataDir, 'live'),
       LIVE_MODELS_DIR: modelsDir,
@@ -93,13 +109,13 @@ async function createWindow() {
   });
   // Micro pour la reconnaissance vocale : autorisé uniquement pour notre propre page locale.
   mainWindow.webContents.session.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(permission === 'media' && wc.getURL().startsWith(`http://localhost:${WEB_PORT}`));
+    cb(permission === 'media' && wc.getURL().startsWith(`http://127.0.0.1:${WEB_PORT}`));
   });
   if (!(await waitForServer(WEB_PORT))) {
     dialog.showErrorBox('Virtual Story', `Le serveur local n'a pas démarré sur le port ${WEB_PORT}.`);
     return;
   }
-  mainWindow.loadURL(`http://localhost:${WEB_PORT}`);
+  mainWindow.loadURL(`http://127.0.0.1:${WEB_PORT}`); // IPv4 explicite : « localhost » peut résoudre en ::1
 }
 
 // ---- Cycle de vie --------------------------------------------------------------------------

@@ -30,18 +30,47 @@ Electron (app Ubuntu)
 | Inférence | llama.cpp (LLM), whisper.cpp (reconnaissance vocale), Chatterbox (voix) |
 | Paquet | Electron + electron-builder (AppImage, .deb) |
 
-## Installer l'application (Ubuntu + NVIDIA)
+## Compiler et installer l'application (Ubuntu + NVIDIA)
 
-Prérequis : Ubuntu 24.04 (22.04 : voir `LLAMA_MODE=source`), pilote NVIDIA, CUDA Toolkit (`nvcc`, pour `whisper-server`),
-`build-essential cmake git curl`, Node ≥ 20.19, Rust (`cargo`).
+Prérequis : Ubuntu 24.04 (22.04 : voir plus bas), pilote NVIDIA ≥ 570, Node ≥ 20.19, Rust ≥ 1.82, `build-essential
+cmake git curl`, et le CUDA Toolkit (`nvcc`) uniquement pour compiler `whisper-server` (le micro).
 
 ```bash
 git clone <url-du-depot> virtual-story && cd virtual-story
-npm run dist:linux       # UI + moteur Rust + llama-server/whisper-server + AppImage + .deb dans ./dist
+npm run doctor           # diagnostic : liste ce qui manque (✓ / ! / ✗) sans rien modifier
+npm run dist:linux       # build complet : AppImage + .deb dans ./dist
+npm run pack:linux       # variante rapide : seulement dist/linux-unpacked (pour tester)
 ```
 
-Au premier lancement : **Admin → Modèles IA** pour télécharger et charger l'IA, le micro et la voix (voir plus bas).
-Détails de la compilation (architectures CUDA, versions, Ubuntu 22.04…) : [`live-engine/README.md`](live-engine/README.md).
+`dist:linux` enchaîne : dépendances npm → interface Vue → moteur Rust (release) → `bin/` (llama-server officiel CUDA
+vérifié par SHA-256, whisper-server compilé, scripts de voix) → electron-builder → `scripts/verify-package.sh`, qui
+contrôle le contenu du paquet (moteur et serveurs présents ; **base locale, uploads et `.env` absents**). Options :
+`--skip-install`, `--skip-sidecars`, `--no-doctor`, `--dir` ; variables `CUDA_ARCH`, `SKIP_WHISPER=1`,
+`LLAMA_MODE=source` (voir [`live-engine/README.md`](live-engine/README.md)).
+
+```bash
+sudo apt install ./dist/virtual-story-*.deb      # installation système (menu des applications)
+chmod +x dist/virtual-story-*.AppImage && ./dist/virtual-story-*.AppImage   # ou sans installer
+```
+
+- **Ubuntu 22.04** : le binaire llama.cpp officiel exige glibc ≥ 2.38 ; `LLAMA_MODE=source npm run dist:linux` compile llama.cpp
+  (nvcc requis). Le paquet résultant ne s'exécute que sur une distribution dont la glibc est au moins celle de la machine de build.
+- **AppImage** : construit avec le runtime statique d'electron-builder 26 (`toolsets.appimage`), qui n'exige pas `libfuse2`.
+  Si l'AppImage refuse de démarrer avec une erreur `libfuse.so.2`, installez `sudo apt install libfuse2t64`. Sur
+  Ubuntu 23.10+, AppArmor interdit le bac à sable Chromium aux AppImage : l'app le désactive (elle ne charge que sa propre
+  page locale). Le `.deb` garde le bac à sable (profil AppArmor installé) et ne dépend d'aucun paquet NVIDIA : un pilote
+  installé par `ubuntu-drivers` ne doit jamais être remplacé par une dépendance.
+- **Première utilisation** : l'utilisateur `admin` / `admin` est créé au premier lancement (**changez le mot de passe** dans
+  Admin → Users & Profile), puis Admin → Modèles IA pour télécharger l'IA, le micro et la voix. Si l'IA semble très lente,
+  l'écran Modèles affiche « ⚠ aucun périphérique CUDA détecté » quand llama-server tourne sur le CPU (bibliothèques CUDA
+  ou pilote manquants). Un GPU plus ancien qu'Ampere (par ex. Turing/T4) compile le code CUDA au premier chargement
+  (quelques minutes, une seule fois).
+- **Compilation sans GPU** : possible (`SKIP_WHISPER=1`, binaire llama.cpp précompilé ; `CUDA_ARCH` explicite si `nvcc` est
+  présent) ; le paquet ne démarrera l'IA que sur une machine NVIDIA.
+- **Taille et licences** : le paquet embarque les bibliothèques CUDA (`libcudart`, `libcublas`, `libcublasLt`, ≈ 0,9 Go
+  décompressées) fournies avec le binaire llama.cpp officiel ; elles sont redistribuées sous la licence CUDA de NVIDIA
+  (ne jamais y ajouter `libcuda.so`, qui vient du pilote). Les dépendances `optionnelles` (react-native-fs d'alasql) sont
+  exclues à l'installation pour ne pas gonfler l'app.
 
 Emplacements (app empaquetée) : base et médias dans `~/.config/Virtual Story`, modèles dans
 `~/.local/share/virtual-story/models` (`VS_MODELS_DIR` pour changer), journaux dans `~/.config/Virtual Story/logs/`.
@@ -62,6 +91,7 @@ cd .. && node backend/init-db.js  # première fois : crée la base JSON et l'uti
 - Variables utiles (à **exporter dans le shell**, le fichier `.env` n'est pas lu) : `SESSION_SECRET` (obligatoire en
   production), `PORT`, `HOST`, `VS_DATA_DIR` (dossier de la base et des uploads).
 - Mode histoire seul : `node backend/server.js` suffit (l'onglet Live affichera « moteur injoignable »).
+- App Electron en développement : `npm run build:engine && npm start` (utilise `live-engine/target/release/live-engine` et `./bin`).
 - Tests du moteur : `cd live-engine && cargo test`.
 
 ## Mode Live (IA)

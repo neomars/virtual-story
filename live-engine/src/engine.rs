@@ -28,13 +28,15 @@ pub struct ComponentStatus {
     pub model: Option<String>,
     pub error: Option<String>,
     pub plan: Option<LlmPlan>,
+    /// Alerte non bloquante (ex. le serveur semble tourner sur le CPU).
+    pub warning: Option<String>,
     #[serde(skip)]
     gen: u64,
 }
 
 impl Default for ComponentStatus {
     fn default() -> Self {
-        Self { state: "stopped".into(), model: None, error: None, plan: None, gen: 0 }
+        Self { state: "stopped".into(), model: None, error: None, plan: None, warning: None, gen: 0 }
     }
 }
 
@@ -205,7 +207,7 @@ impl Engine {
         let (bin, args, url, any_status, plan) = self.build_spawn(&entry, &installed).await?;
         let gen = self.counter.fetch_add(1, Ordering::SeqCst);
         self.set_status(kind, 0, |s| {
-            *s = ComponentStatus { state: "loading".into(), model: Some(id.into()), error: None, plan: plan.clone(), gen };
+            *s = ComponentStatus { state: "loading".into(), model: Some(id.into()), error: None, plan: plan.clone(), warning: None, gen };
         });
         self.remember(kind, Some(id));
 
@@ -230,13 +232,20 @@ impl Engine {
             self.set_status(kind, gen, |s| { s.state = "error".into(); s.error = Some(msg.clone()) });
             msg
         })?;
+        // llama-server / whisper-server démarrent sans erreur sur le CPU si les bibliothèques CUDA manquent :
+        // on repère dans leurs journaux qu'un périphérique CUDA a bien été initialisé.
+        let expect_cuda = self.gpu().await.is_some()
+            && (kind == Kind::Llm || (kind == Kind::Stt && self.cfg.stt.use_gpu));
+        let cuda_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
         for (stream, is_err) in [(child.stdout.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), false),
                                  (child.stderr.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), true)] {
             if let Some(s) = stream {
                 let logs = self.logs.clone();
+                let seen = cuda_seen.clone();
                 tokio::spawn(async move {
                     let mut lines = BufReader::new(s).lines();
                     while let Ok(Some(l)) = lines.next_line().await {
+                        if mentions_cuda_device(&l) { seen.store(true, Ordering::Relaxed); }
                         Self::push_log(&logs, kind, if is_err { format!("[err] {l}") } else { l });
                     }
                 });
@@ -260,7 +269,7 @@ impl Engine {
                         break;
                     }
                     _ = &mut kill_rx => {
-                        let _ = child.kill().await;
+                        terminate(&mut child).await;
                         me.set_status(kind, gen, |s| *s = ComponentStatus { gen, ..Default::default() });
                         break;
                     }
@@ -268,6 +277,14 @@ impl Engine {
                         is_ready = true;
                         if ok {
                             me.set_status(kind, gen, |s| s.state = "ready".into());
+                            if expect_cuda {
+                                tokio::time::sleep(Duration::from_millis(800)).await; // laisser les journaux arriver
+                                if !cuda_seen.load(Ordering::Relaxed) {
+                                    me.set_status(kind, gen, |s| s.warning = Some(
+                                        "Aucun périphérique CUDA détecté dans les journaux : le serveur tourne peut-être sur le CPU \
+                                         (très lent). Vérifie que libcudart / libcublas sont dans bin/ et que le pilote NVIDIA est ≥ 570.".into()));
+                                }
+                            }
                         } else {
                             me.set_status(kind, gen, |s| { s.state = "error".into(); s.error = Some("délai de démarrage dépassé (5 min)".into()) });
                         }
@@ -432,6 +449,25 @@ impl Engine {
     }
 }
 
+/// Arrêt en douceur : SIGTERM (les serveurs libèrent proprement le GPU), puis SIGKILL après 4 s.
+async fn terminate(child: &mut tokio::process::Child) {
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        // SAFETY : envoi d'un signal à un processus qu'on a lancé nous-mêmes.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGTERM) };
+        if tokio::time::timeout(Duration::from_secs(4), child.wait()).await.is_ok() {
+            return;
+        }
+    }
+    let _ = child.kill().await;
+}
+
+/// Ligne de journal prouvant qu'un backend CUDA est actif (llama.cpp / whisper.cpp).
+pub fn mentions_cuda_device(line: &str) -> bool {
+    line.contains("ggml_cuda_init: found") || line.contains("loaded CUDA backend") || line.contains("CUDA0")
+        || line.contains("Device 0: NVIDIA")
+}
+
 async fn wait_ready(url: String, any_status: bool) -> bool {
     let http = reqwest::Client::builder().timeout(Duration::from_secs(2)).build().expect("client");
     let deadline = tokio::time::Instant::now() + READY_TIMEOUT;
@@ -447,6 +483,15 @@ async fn wait_ready(url: String, any_status: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detection_du_backend_cuda_dans_les_journaux() {
+        assert!(mentions_cuda_device("ggml_cuda_init: found 1 CUDA devices:"));
+        assert!(mentions_cuda_device("load_backend: loaded CUDA backend from /app/libggml-cuda.so"));
+        assert!(mentions_cuda_device("llama_kv_cache: CUDA0 KV buffer size = 391.00 MiB"));
+        assert!(!mentions_cuda_device("load_tensors: CPU_Mapped model buffer size = 7400.00 MiB"));
+        assert!(!mentions_cuda_device("srv  load_model: loading model"));
+    }
 
     #[test]
     fn port_depuis_url() {
