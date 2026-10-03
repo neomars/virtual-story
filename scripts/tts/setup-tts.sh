@@ -17,12 +17,19 @@ else
   UV="$BOOT/bin/uv"
 fi
 
+rm -f "$VENV/.ready"                 # tant que l'installation n'est pas validée, le moteur de voix n'est pas « prêt »
 [ -x "$VENV/bin/python" ] || "$UV" venv --python "$PYV" "$VENV"
 echo "→ installation de Chatterbox (peut durer plusieurs minutes)"
-"$UV" pip install --python "$VENV/bin/python" chatterbox-tts
+# setuptools<81 : le filigrane audio « perth » de Chatterbox importe pkg_resources, retiré des setuptools récents
+# (≥ 82) et absent d'un environnement créé par uv. Sans lui, PerthImplicitWatermarker vaut None et le modèle ne charge pas.
+"$UV" pip install --python "$VENV/bin/python" "setuptools<81" chatterbox-tts
 "$VENV/bin/python" - <<'PY'
-import torch
+import sys, torch
 print("PyTorch", torch.__version__, "— CUDA disponible :", torch.cuda.is_available())
+import perth
+if getattr(perth, "PerthImplicitWatermarker", None) is None:
+    sys.exit("✗ le module de filigrane « perth » ne s'initialise pas (pkg_resources manquant ?)")
+print("perth : OK")
 PY
-touch "$VENV/.ready"
+echo 2 > "$VENV/.ready"             # version de l'installation (voir TTS_RUNTIME_VERSION dans live-engine/src/engine.rs)
 echo "✓ moteur de voix installé"

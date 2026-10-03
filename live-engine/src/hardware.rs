@@ -104,6 +104,14 @@ fn plan_with(hw: &HardwareConfig, llm: &LlmConfig, weights_gb: f64, kv_of: &dyn 
     if full && ctx < llm.ctx_tokens {
         notes.push(format!("contexte réduit à {ctx} tokens pour tout garder sur le GPU"));
     }
+    if !full {
+        // Réduire le contexte n'a pas suffi : on ne le garde réduit que s'il libère au moins une couche de poids
+        // (avec un cache KV minuscule, comme Gemma, couper le contexte de moitié ne rapporte presque rien).
+        let per_layer = weights_gb / llm.n_layers as f64;
+        if kv_of(llm.ctx_tokens) - kv_of(ctx) < per_layer {
+            ctx = llm.ctx_tokens;
+        }
+    }
 
     let (n_gpu_layers, vram_weights, ram_weights);
     if full {
@@ -167,23 +175,55 @@ pub struct GpuInfo {
     pub name: String,
     pub total_mb: u64,
     pub used_mb: u64,
+    /// Version du pilote (ex. « 610.57.04 »), vide si inconnue.
+    pub driver: String,
 }
 
-/// Sortie de `nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader,nounits`.
+/// « 610.57.04 » → 610.57 (comparaison numérique des deux premiers champs).
+pub fn driver_at_least(driver: &str, major: u32, minor: u32) -> bool {
+    let mut it = driver.split('.').map(|p| p.trim().parse::<u32>().unwrap_or(0));
+    let (a, b) = (it.next().unwrap_or(0), it.next().unwrap_or(0));
+    (a, b) >= (major, minor)
+}
+
+/// Sortie de `nvidia-smi --query-gpu=name,memory.total,memory.used,driver_version --format=csv,noheader,nounits`.
 pub fn parse_nvidia_smi(out: &str) -> Vec<GpuInfo> {
     out.lines()
         .filter_map(|l| {
-            let mut p = l.rsplitn(3, ',');
+            let mut p = l.rsplitn(4, ',');
+            let driver = p.next()?.trim().to_string();
             let used = p.next()?.trim().parse().ok()?;
             let total = p.next()?.trim().parse().ok()?;
-            Some(GpuInfo { name: p.next()?.trim().to_string(), total_mb: total, used_mb: used })
+            Some(GpuInfo { name: p.next()?.trim().to_string(), total_mb: total, used_mb: used, driver })
         })
         .collect()
 }
 
+/// Sortie de `nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits` :
+/// mémoire GPU (Mo) par processus. `None` si la mémoire n'est pas disponible (« [N/A] », pilote WDDM, conteneur…),
+/// pour ne jamais conclure à tort qu'un processus n'utilise pas le GPU.
+pub fn parse_compute_apps(out: &str) -> Option<std::collections::HashMap<u32, u64>> {
+    let mut map = std::collections::HashMap::new();
+    for l in out.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let (pid, mem) = l.split_once(',')?;
+        map.insert(pid.trim().parse().ok()?, mem.trim().parse().ok()?);
+    }
+    Some(map)
+}
+
+pub async fn gpu_memory_by_pid() -> Option<std::collections::HashMap<u32, u64>> {
+    let out = tokio::process::Command::new("nvidia-smi")
+        .args(["--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"])
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() { return None; }
+    parse_compute_apps(&String::from_utf8_lossy(&out.stdout))
+}
+
 pub async fn detect_gpu() -> Option<GpuInfo> {
     let out = tokio::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"])
+        .args(["--query-gpu=name,memory.total,memory.used,driver_version", "--format=csv,noheader,nounits"])
         .output()
         .await
         .ok()?;
@@ -197,9 +237,26 @@ mod tests {
 
     #[test]
     fn lit_la_sortie_de_nvidia_smi() {
-        let g = parse_nvidia_smi("NVIDIA GeForce RTX 4080 SUPER, 16376, 1204\n");
-        assert_eq!(g, vec![GpuInfo { name: "NVIDIA GeForce RTX 4080 SUPER".into(), total_mb: 16376, used_mb: 1204 }]);
+        let g = parse_nvidia_smi("NVIDIA GeForce RTX 4080 SUPER, 16376, 1204, 610.57.04\n");
+        assert_eq!(g, vec![GpuInfo { name: "NVIDIA GeForce RTX 4080 SUPER".into(), total_mb: 16376, used_mb: 1204, driver: "610.57.04".into() }]);
         assert!(parse_nvidia_smi("").is_empty());
+    }
+
+    #[test]
+    fn memoire_gpu_par_processus() {
+        // Sortie réelle d'une machine : llama-server utilise 6700 Mo.
+        let m = parse_compute_apps("752372, 6700\n").unwrap();
+        assert_eq!(m.get(&752372), Some(&6700));
+        assert!(parse_compute_apps("").unwrap().is_empty(), "aucun processus : information positive");
+        assert!(parse_compute_apps("1234, [N/A]\n").is_none(), "mémoire illisible : on ne conclut rien");
+    }
+
+    #[test]
+    fn comparaison_de_versions_du_pilote() {
+        assert!(driver_at_least("610.57.04", 570, 26));
+        assert!(driver_at_least("570.26", 570, 26));
+        assert!(!driver_at_least("550.144.03", 570, 26));
+        assert!(!driver_at_least("", 570, 26));
     }
 
     fn hw() -> HardwareConfig {
@@ -267,6 +324,18 @@ mod tests {
         assert!(p.full_offload, "{p:?}");
         assert_eq!(p.ctx_tokens, 16384);
         assert!(p.vram_used_gb <= p.vram_budget_gb);
+    }
+
+    #[test]
+    fn contexte_conserve_quand_le_reduire_ne_sert_a_rien() {
+        // Gemma 4 12B (KV ≈ 0,4 Go) dans un budget trop petit pour tout mettre sur le GPU : on décharge quelques
+        // couches mais on garde le contexte de 16k au lieu de le couper à 8k pour rien.
+        let llm = LlmConfig { n_layers: 48, ..LlmConfig::default() };
+        let hw = HardwareConfig { vram_gb: 12.0, ram_gb: 64.0, vram_reserve_gb: 0.5, vram_other_models_gb: 4.5 };
+        let p = plan_for_gguf(&hw, &llm, 7.4, &gemma4_12b());
+        assert!(!p.full_offload && p.n_gpu_layers > 0, "{p:?}");
+        assert_eq!(p.ctx_tokens, 16384, "{p:?}");
+        assert!(p.vram_used_gb <= p.vram_budget_gb + 1e-9, "{p:?}");
     }
 
     #[test]

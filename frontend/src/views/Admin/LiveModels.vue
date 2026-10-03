@@ -17,6 +17,7 @@
         <div class="muted">{{ modelName(status[c.key]?.model) || 'aucun modèle chargé' }}</div>
         <div v-if="status[c.key]?.error" class="err">{{ status[c.key].error }}</div>
         <div v-if="status[c.key]?.warning" class="warn">⚠ {{ status[c.key].warning }}</div>
+        <div v-if="status[c.key]?.gpu_mb" class="muted small">VRAM utilisée par ce serveur : {{ gb(status[c.key].gpu_mb * MB) }}</div>
         <div v-if="c.key === 'llm' && status.llm?.plan" class="muted small">
           {{ status.llm.plan.full_offload ? 'Tout sur le GPU' : 'Offload partiel' }} ·
           {{ status.llm.plan.n_gpu_layers }} couches GPU · contexte {{ status.llm.plan.ctx_tokens }} ·
@@ -25,7 +26,7 @@
         </div>
         <div v-if="c.key === 'tts'" class="muted small">
           Moteur de voix : {{ rtLabel }}
-          <button v-if="rt === 'absent' || rt === 'error'" class="primary" @click="installRuntime">Installer le moteur de voix (≈ 3 Go)</button>
+          <button v-if="rt === 'absent' || rt === 'error' || rt === 'outdated'" class="primary" @click="installRuntime">{{ rt === 'outdated' ? 'Mettre à jour le moteur de voix' : 'Installer le moteur de voix (≈ 3 Go)' }}</button>
           <div v-if="status.tts_runtime?.error" class="err">{{ status.tts_runtime.error }}</div>
           <div v-if="rt === 'installing'">Installation en cours… (voir les journaux)</div>
         </div>
@@ -125,7 +126,7 @@ const stateOf = (k) => status.value[k]?.state || 'stopped'
 const stateLabel = (s) => ({ stopped: 'arrêté', loading: 'chargement…', ready: 'prêt', error: 'erreur' })[s] || s
 const modelName = (id) => models.value.find((m) => m.entry.id === id)?.entry.name
 const rt = computed(() => status.value.tts_runtime?.state || 'absent')
-const rtLabel = computed(() => ({ absent: 'non installé', installing: 'installation…', ready: 'installé', error: 'erreur' })[rt.value] || rt.value)
+const rtLabel = computed(() => ({ absent: 'non installé', outdated: 'mise à jour requise', installing: 'installation…', ready: 'installé', error: 'erreur' })[rt.value] || rt.value)
 const installRuntime = () => { logsFor.value = 'tts'; return act(() => axios.post('/api/live/engine/tts-runtime/install', {}, { headers: headers() })) }
 const busy = (m) => ['listing', 'downloading', 'verifying'].includes(m.download?.status)
 const isLoaded = (m) => status.value[m.entry.kind]?.model === m.entry.id && stateOf(m.entry.kind) !== 'stopped'

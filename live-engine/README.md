@@ -58,11 +58,12 @@ l'échantillon choisi. Les voix prédéfinies (Piper, Kokoro) n’offrent qu’u
 
 Utilisez votre propre voix ou un enregistrement dont vous détenez les droits (pas la voix d'une personne réelle sans son
 accord). Le serveur est `scripts/tts/chatterbox_server.py` (API OpenAI `/v1/audio/speech`, champs en plus :
-`exaggeration`, `cfg_weight`) ; `TTS_FAKE=1` le remplace par un simple bip pour tester sans GPU. Limite connue : cette
-partie n'a été testée qu'avec le mode `TTS_FAKE` ; le premier lancement réel dépend de l'API de la version installée de
-`chatterbox-tts` (les journaux de l'écran Modèles montrent l'erreur éventuelle).
+`exaggeration`, `cfg_weight`) ; `TTS_FAKE=1` le remplace par un simple bip pour tester sans GPU. Le filigrane audio inaudible de
+Chatterbox (`perth`) importe `pkg_resources`, absent des `setuptools` récents : l'installation fixe donc `setuptools<81` et vérifie `perth`
+(version d'installation 2 ; une installation plus ancienne affiche « Mettre à jour le moteur de voix »). Si le chargement échoue, les journaux
+de l'écran Modèles montrent l'erreur.
 
-## Adaptation à 15 Go de VRAM / 64 Go de RAM
+## Adaptation à ta carte (VRAM détectée) et à ta RAM
 
 Le plan est recalculé à chaque chargement depuis le **vrai** GGUF. Le cache KV est calculé comme le fait llama.cpp, couche
 par couche : couches globales = `pad256(ctx)` cellules, couches à fenêtre glissante = `pad256(min(ctx, fenêtre + 512))`
@@ -70,16 +71,30 @@ cellules, octets = cellules × têtes KV × (dim K + dim V) × octets/élément 
 (40 couches glissantes 8×256 + 8 globales 1×512, fenêtre 1024) cela donne ≈ **0,4 Go à 16k** de contexte, contre ≈ 3,4 Go
 avec une attention complète. Le calcul est borné par la VRAM réellement libre (`nvidia-smi`) et réserve la place du
 micro et de la voix **choisis mais pas encore chargés** (`hardware.vram_other_models_gb`, 5,7 Go par défaut = Whisper
-≈ 1,2 Go + voix ≈ 4,5 Go). Si tout ne tient pas, le contexte baisse d'abord (jusqu'à 8k), puis quelques couches passent en RAM.
+≈ 1,2 Go + voix ≈ 4,5 Go). Si tout ne tient pas, le contexte baisse (jusqu'à 8k) seulement quand cela libère au moins une couche de poids ; sinon quelques couches passent en RAM (génération un peu plus lente).
 
-Budget indicatif (15 Go) : Gemma 4 12B Q4_K_M 7,4 Go + KV 0,4 + tampons 0,8 + Whisper 1,2 + Chatterbox ≈ 4,5 + OS 1 ≈ 15,3 Go →
-1 à 2 couches en RAM. Pour tout garder sur le GPU : Whisper sur CPU (`stt.use_gpu = false`, `vram_other_models_gb = 4.5`) ou le
-modèle Whisper « small ». `cargo run --release plan [id]` affiche le plan sans rien lancer.
+La VRAM est **détectée automatiquement** (`hardware.vram_gb = 0`) : une RTX 4000 Ada portable, par exemple, a 12 Go et non 15.
+L'écran Modèles affiche, pour chaque serveur, la mémoire GPU réellement utilisée (lue avec `nvidia-smi`).
 
-| Profil | Modèle | Placement |
-|---|---|---|
-| **A (défaut)** | Gemma 4 12B Heretic Q4_K_M ≈ 7,4 Go, ctx 16k | GPU (voix + micro compris : quasi 100 %) |
-| **B** | Cydonia 24B IQ4_XS ≈ 12,8 Go | GPU + RAM (voix sur le GPU ⇒ plus de couches en RAM) |
+### Choisir la taille de l'IA selon la carte (voix et micro chargés)
+
+Ordre de grandeur sur 12 Go : voix Chatterbox ≈ 4,5 Go + Whisper « small » ≈ 0,5 Go (ou « large-v3-turbo » ≈ 1,2 Go) ⇒ il reste
+≈ 6 Go pour l'IA (poids + cache + tampons ≈ 1,2 Go).
+
+| Groupe | Modèle | Fichier | VRAM | Remarque |
+|---|---|---|---|---|
+| Mini | Qwen 3.5 4B non censuré | ≈ 2,6 Go | ≈ 4 Go | refus 0/465 annoncés ; français non mesuré |
+| Mini | Ministral 3 3B Heresy | ≈ 2,1 Go | ≈ 3,3 Go | orienté jeu de rôle ; non mesuré |
+| Mini | Gemma 4 E2B abliteré | ≈ 3,4 Go | ≈ 4,6 Go | français plus faible que E4B |
+| **Léger** | **Gemma 4 E4B Heretic** | ≈ 5,0 Go | ≈ 6,2 Go | **recommandé avec la voix sur 12 Go** |
+| Léger | Gemma 4 E4B abliteré / RP | ≈ 5 Go | ≈ 6,3 Go | variantes (RP : français à tester) |
+| Léger | Gemma 4 12B Heretic IQ3_XS | ≈ 5,4 Go | ≈ 6,6 Go | le 12B compressé : perte de qualité visible |
+| Léger | Qwen 3.5 9B non censuré | ≈ 5,3 Go | ≈ 6,5 Go | à la limite sur 12 Go avec la voix |
+| Standard | Gemma 4 12B Heretic Q4_K_M | ≈ 7,4 Go | ≈ 8,6 Go | idéal sans la voix sur le GPU, ou avec une carte ≥ 16 Go |
+
+Tous les modèles de texte « Léger » et « Mini » ci-dessus sont des modèles non censurés publiés sur Hugging Face ; les chiffres de refus viennent des
+auteurs et le français n'a été mesuré sur aucun d'eux : essaie-en deux ou trois avec ton personnage. Les modèles Gemma/Qwen ont un mode « réflexion » : il est
+coupé au chargement (`--reasoning off`). Ajoute les tiens dans `catalog.json`.
 
 ## Compiler l'app Ubuntu (NVIDIA)
 

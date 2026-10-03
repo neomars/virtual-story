@@ -74,6 +74,38 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
           "Gemma 4 12B décensuré par abliteration. Tient entièrement sur 15 Go de VRAM. Recommandé pour démarrer.",
           "igorls/gemma-4-12B-it-heretic-GGUF", &[], Some("Q4_K_M"), 7.4,
           &["--reasoning", "off"]),
+        // ---- Petits modèles non censurés (≈ 2 à 5,5 Go) : ils laissent de la VRAM à la voix et au micro.
+        // Les chiffres de refus viennent des auteurs (extraits de leurs fiches) ; aucun n'est testé ici sur le français.
+        e("gemma4-e4b-heretic", Kind::Llm, "Gemma 4 E4B Heretic (Q4_K_M) — recommandé avec la voix sur 12 Go",
+          "≈ 4 Md de paramètres effectifs. Non censuré (3 refus sur 100 mesurés par l'auteur), dérive minime par rapport à Gemma 4 : \
+           bon français attendu. Tient avec la voix et le micro sur une carte de 12 Go.",
+          "llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF", &[], Some("Q4_K_M"), 5.0, &["--reasoning", "off"]),
+        e("gemma4-e4b-abliterated", Kind::Llm, "Gemma 4 E4B abliteré (Q4_K_M)",
+          "Variante « norm-preserving abliteration » : 0,7 % de refus mesurés par l'auteur. Seul Q4_K_M est proposé.",
+          "TrevorJS/gemma-4-E4B-it-uncensored-GGUF", &[], Some("Q4_K_M"), 5.3, &["--reasoning", "off"]),
+        e("gemma4-e4b-rp", Kind::Llm, "Gemma 4 E4B Heretic RP (Q4_K_M)",
+          "Seul fine-tune jeu de rôle sur Gemma 4 E4B trouvé (continuité de scène et de personnage). Réglage surtout anglophone : \
+           à tester pour le français. Taille estimée.",
+          "Ilya626/gemma-4-E4B-it-SDFT_Heretic_RP-GGUF", &[], Some("Q4_K_M"), 5.0, &["--reasoning", "off"]),
+        e("gemma4-e2b-uncensored", Kind::Llm, "Gemma 4 E2B abliteré (Q4_K_M) — mini",
+          "≈ 2 Md de paramètres effectifs, 0,4 % de refus mesurés par l'auteur. Plus faible en français et en cohérence que le E4B : \
+           pour les petites configurations.",
+          "TrevorJS/gemma-4-E2B-it-uncensored-GGUF", &[], Some("Q4_K_M"), 3.4, &["--reasoning", "off"]),
+        e("ministral3-3b-heresy", Kind::Llm, "Ministral 3 3B Heresy (Q4_K_M) — mini",
+          "3 Md de paramètres, orienté jeu de rôle non filtré, français pris en charge par la base Mistral. Auteur peu connu, \
+           aucun chiffre de refus : à tester.",
+          "Abiray/Ministral-3-3B-Instruct-2512-Heresy-Unfiltered-GGUF", &[], Some("Q4_K_M"), 2.1, &[]),
+        e("qwen35-4b-hauhau", Kind::Llm, "Qwen 3.5 4B non censuré (Q4_K_M) — mini",
+          "0 refus sur 465 annoncés par l'auteur (peut ajouter de courts avertissements). Qwen annonce 201 langues ; \
+           le mode réflexion est coupé au chargement.",
+          "HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive", &[], Some("Q4_K_M"), 2.6, &["--reasoning", "off"]),
+        e("qwen35-9b-hauhau", Kind::Llm, "Qwen 3.5 9B non censuré (Q4_K_M)",
+          "Version 9B du précédent : plus cohérent, à la limite de ce qui reste confortable avec la voix sur 12 Go.",
+          "HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive", &[], Some("Q4_K_M"), 5.3, &["--reasoning", "off"]),
+        e("gemma4-12b-iq3", Kind::Llm, "Gemma 4 12B Heretic compressé (IQ3_XS)",
+          "Le 12B recommandé, quantifié plus fort : ≈ 5,4 Go au lieu de 7,4 Go. Perte de qualité visible par rapport à Q4_K_M, \
+           mais plus capable qu'un 4B. Pour garder le 12B avec la voix sur 12 Go.",
+          "mradermacher/gemma-4-12b-heretic-abliterated-i1-GGUF", &[], Some("i1-IQ3_XS"), 5.4, &["--reasoning", "off"]),
         e("ministral3-14b-nymphaea-rp", Kind::Llm, "Ministral 3 14B Nymphaea-RP (i1-Q5_K_M)",
           "Fine-tune jeu de rôle non censuré (base Mistral). Non vérifié sur le format des balises.",
           "mradermacher/Ministral-3-14B-Nymphaea-RP-i1-GGUF", &[], Some("i1-Q5_K_M"), 9.7, &[]),

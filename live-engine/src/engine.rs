@@ -30,13 +30,14 @@ pub struct ComponentStatus {
     pub plan: Option<LlmPlan>,
     /// Alerte non bloquante (ex. le serveur semble tourner sur le CPU).
     pub warning: Option<String>,
+    pub pid: Option<u32>,
     #[serde(skip)]
     gen: u64,
 }
 
 impl Default for ComponentStatus {
     fn default() -> Self {
-        Self { state: "stopped".into(), model: None, error: None, plan: None, warning: None, gen: 0 }
+        Self { state: "stopped".into(), model: None, error: None, plan: None, warning: None, pid: None, gen: 0 }
     }
 }
 
@@ -85,14 +86,25 @@ pub fn tts_venv() -> PathBuf {
     base.join("virtual-story").join("tts-venv")
 }
 
-/// Le moteur de voix est prêt si l'environnement a été installé (ou en mode test TTS_FAKE=1).
+/// Version de l'installation du moteur de voix (écrite dans `.ready` par scripts/tts/setup-tts.sh).
+/// 2 = setuptools<81 (pkg_resources pour le filigrane « perth » de Chatterbox). Une installation plus ancienne
+/// est proposée à la mise à jour au lieu d'échouer au chargement.
+pub const TTS_RUNTIME_VERSION: &str = "2";
+
+/// Le moteur de voix est prêt si l'environnement installé est de la bonne version (ou en mode test TTS_FAKE=1).
 pub fn tts_runtime_ready() -> bool {
-    std::env::var("TTS_FAKE").ok().as_deref() == Some("1") || tts_venv().join(".ready").exists()
+    std::env::var("TTS_FAKE").ok().as_deref() == Some("1")
+        || std::fs::read_to_string(tts_venv().join(".ready")).map(|v| v.trim() == TTS_RUNTIME_VERSION).unwrap_or(false)
+}
+
+/// Environnement présent mais d'une ancienne version (ou installation interrompue).
+fn tts_runtime_outdated() -> bool {
+    tts_venv().join("bin").join("python").exists()
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
 pub struct RuntimeStatus {
-    /// absent | installing | ready | error
+    /// absent | outdated | installing | ready | error
     pub state: String,
     pub error: Option<String>,
 }
@@ -207,7 +219,7 @@ impl Engine {
         let (bin, args, url, any_status, plan) = self.build_spawn(&entry, &installed).await?;
         let gen = self.counter.fetch_add(1, Ordering::SeqCst);
         self.set_status(kind, 0, |s| {
-            *s = ComponentStatus { state: "loading".into(), model: Some(id.into()), error: None, plan: plan.clone(), warning: None, gen };
+            *s = ComponentStatus { state: "loading".into(), model: Some(id.into()), error: None, plan: plan.clone(), warning: None, pid: None, gen };
         });
         self.remember(kind, Some(id));
 
@@ -232,6 +244,8 @@ impl Engine {
             self.set_status(kind, gen, |s| { s.state = "error".into(); s.error = Some(msg.clone()) });
             msg
         })?;
+        let child_pid = child.id();
+        self.set_status(kind, gen, |s| s.pid = child_pid);
         // llama-server / whisper-server démarrent sans erreur sur le CPU si les bibliothèques CUDA manquent :
         // on repère dans leurs journaux qu'un périphérique CUDA a bien été initialisé.
         let expect_cuda = self.gpu().await.is_some()
@@ -279,10 +293,15 @@ impl Engine {
                             me.set_status(kind, gen, |s| s.state = "ready".into());
                             if expect_cuda {
                                 tokio::time::sleep(Duration::from_millis(800)).await; // laisser les journaux arriver
-                                if !cuda_seen.load(Ordering::Relaxed) {
-                                    me.set_status(kind, gen, |s| s.warning = Some(
-                                        "Aucun périphérique CUDA détecté dans les journaux : le serveur tourne peut-être sur le CPU \
-                                         (très lent). Vérifie que libcudart / libcublas sont dans bin/ et que le pilote NVIDIA est ≥ 570.".into()));
+                                if !gpu_in_use(child_pid, &cuda_seen).await {
+                                    let driver = hardware::detect_gpu().await.map(|g| g.driver).unwrap_or_default();
+                                    let hint = if !driver.is_empty() && !hardware::driver_at_least(&driver, 570, 26) {
+                                        format!("Votre pilote NVIDIA ({driver}) est trop ancien pour CUDA 12.8 (≥ 570.26 requis) : mettez-le à jour.")
+                                    } else {
+                                        "Vérifiez que libggml-cuda.so, libcudart et libcublas sont dans bin/ (voir les journaux).".to_string()
+                                    };
+                                    me.set_status(kind, gen, |s| s.warning = Some(format!(
+                                        "Ce serveur n'utilise pas le GPU (aucune mémoire GPU pour son processus) : il tourne sur le CPU, très lent. {hint}")));
                                 }
                             }
                         } else {
@@ -388,8 +407,8 @@ impl Engine {
 
     pub fn tts_runtime_status(&self) -> RuntimeStatus {
         let mut st = self.tts_runtime.lock().unwrap().clone();
-        if st.state.is_empty() || (st.state == "absent" && tts_runtime_ready()) {
-            st.state = if tts_runtime_ready() { "ready" } else { "absent" }.into();
+        if st.state != "installing" && st.state != "error" {
+            st.state = if tts_runtime_ready() { "ready" } else if tts_runtime_outdated() { "outdated" } else { "absent" }.into();
         }
         st
     }
@@ -436,8 +455,16 @@ impl Engine {
     }
 
     pub async fn status_json(&self) -> Value {
-        let comp = |k: Kind| serde_json::to_value(self.status_of(k)).unwrap_or(Value::Null);
         let gpu = self.gpu().await;
+        let apps = hardware::gpu_memory_by_pid().await;
+        let comp = |k: Kind| {
+            let st = self.status_of(k);
+            let mut v = serde_json::to_value(&st).unwrap_or(Value::Null);
+            if let (Some(pid), Some(map)) = (st.pid, &apps) {
+                if let Some(mb) = map.get(&pid) { v["gpu_mb"] = json!(mb); }
+            }
+            v
+        };
         json!({
             "managed": self.cfg.engine.managed,
             "gpu": gpu,
@@ -460,6 +487,19 @@ async fn terminate(child: &mut tokio::process::Child) {
         }
     }
     let _ = child.kill().await;
+}
+
+/// Le processus utilise-t-il vraiment le GPU ? Réponse sûre : `true` dès qu'un indice positif existe (mot-clé CUDA
+/// dans les journaux, ou mémoire GPU attribuée au PID par nvidia-smi) ou quand on ne peut pas savoir ; `false`
+/// seulement si nvidia-smi liste les processus GPU et que le nôtre n'y figure pas (ou avec moins de 200 Mo).
+async fn gpu_in_use(pid: Option<u32>, cuda_seen: &std::sync::atomic::AtomicBool) -> bool {
+    if cuda_seen.load(Ordering::Relaxed) {
+        return true;
+    }
+    match (pid, hardware::gpu_memory_by_pid().await) {
+        (Some(pid), Some(apps)) => apps.get(&pid).copied().unwrap_or(0) >= 200,
+        _ => true,
+    }
 }
 
 /// Ligne de journal prouvant qu'un backend CUDA est actif (llama.cpp / whisper.cpp).
