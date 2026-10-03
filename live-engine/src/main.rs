@@ -85,7 +85,21 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cfg_path = PathBuf::from(std::env::var("LIVE_CONFIG").unwrap_or_else(|_| "live.toml".into()));
-    let cfg = Arc::new(Config::load(&cfg_path)?);
+    let mut cfg = Config::load(&cfg_path)?;
+    if cfg.hardware.vram_gb <= 0.0 {
+        // VRAM automatique : la vraie valeur de la carte (ex. 12 Go d'une RTX 4000 Ada portable), pas une hypothèse.
+        match hardware::detect_gpu().await {
+            Some(g) => {
+                cfg.hardware.vram_gb = g.total_mb as f64 / 1024.0;
+                tracing::info!("GPU : {} — {:.1} Go de VRAM, pilote {}", g.name, cfg.hardware.vram_gb, g.driver);
+            }
+            None => {
+                cfg.hardware.vram_gb = 12.0;
+                tracing::warn!("nvidia-smi indisponible : VRAM supposée à 12 Go (réglable avec hardware.vram_gb)");
+            }
+        }
+    }
+    let cfg = Arc::new(cfg);
 
     let catalog = models::load_catalog(&cfg.server.data_dir);
     let models = models::Models::new(catalog, cfg.models_dir());

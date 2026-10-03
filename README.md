@@ -97,8 +97,9 @@ cd .. && node backend/init-db.js  # première fois : crée la base JSON et l'uti
 ## Mode Live (IA)
 
 1. **Admin → Modèles IA** (`/admin/live/models`) : téléchargez (reprise après coupure, vérification SHA-256) puis
-   chargez un modèle de texte, un modèle de reconnaissance vocale et le moteur de voix. Vous y voyez l'état, le plan
-   mémoire (couches sur GPU, contexte), la VRAM utilisée et les journaux. Les derniers modèles choisis se rechargent
+   chargez un modèle de texte (groupés par taille : Mini ≈ 2-3 Go, Léger ≈ 5 Go, Standard, Grand), un modèle de
+   reconnaissance vocale et le moteur de voix. Vous y voyez l'état, le plan mémoire (couches sur GPU, contexte), la VRAM
+   réellement utilisée par chaque serveur et les journaux. La VRAM de la carte est détectée automatiquement. Les derniers modèles choisis se rechargent
    au démarrage.
 2. **Admin → Médiathèque** (`/admin/live/media`) : « Scanner les uploads » référence vos vidéos **et** photos ;
    annotez-les (tags, ambiance, intensité 1-5, boucle d'ambiance). L'IA ne voit que ces annotations.

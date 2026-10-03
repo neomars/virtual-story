@@ -17,6 +17,7 @@
         <div class="muted">{{ modelName(status[c.key]?.model) || 'aucun modèle chargé' }}</div>
         <div v-if="status[c.key]?.error" class="err">{{ status[c.key].error }}</div>
         <div v-if="status[c.key]?.warning" class="warn">⚠ {{ status[c.key].warning }}</div>
+        <div v-if="status[c.key]?.gpu_mb" class="muted small">VRAM utilisée par ce serveur : {{ gb(status[c.key].gpu_mb * MB) }}</div>
         <div v-if="c.key === 'llm' && status.llm?.plan" class="muted small">
           {{ status.llm.plan.full_offload ? 'Tout sur le GPU' : 'Offload partiel' }} ·
           {{ status.llm.plan.n_gpu_layers }} couches GPU · contexte {{ status.llm.plan.ctx_tokens }} ·
@@ -25,7 +26,7 @@
         </div>
         <div v-if="c.key === 'tts'" class="muted small">
           Moteur de voix : {{ rtLabel }}
-          <button v-if="rt === 'absent' || rt === 'error'" class="primary" @click="installRuntime">Installer le moteur de voix (≈ 3 Go)</button>
+          <button v-if="rt === 'absent' || rt === 'error' || rt === 'outdated'" class="primary" @click="installRuntime">{{ rt === 'outdated' ? 'Mettre à jour le moteur de voix' : 'Installer le moteur de voix (≈ 3 Go)' }}</button>
           <div v-if="status.tts_runtime?.error" class="err">{{ status.tts_runtime.error }}</div>
           <div v-if="rt === 'installing'">Installation en cours… (voir les journaux)</div>
         </div>
@@ -40,34 +41,40 @@
 
     <template v-for="c in comps" :key="'t' + c.key">
       <h3>{{ c.label }} — catalogue</h3>
-      <table>
-        <tbody>
-          <tr v-for="m in byKind(c.key)" :key="m.entry.id">
-            <td class="name">
-              <b>{{ m.entry.name }}</b>
-              <div class="muted small">{{ m.entry.description }}</div>
-              <div class="muted small">{{ m.entry.repo }}</div>
-            </td>
-            <td class="size">{{ m.size_bytes ? gb(m.size_bytes) : m.entry.size_gb ? '≈ ' + m.entry.size_gb + ' Go' : '' }}</td>
-            <td class="act">
-              <template v-if="busy(m)">
-                <div class="bar"><div :style="{ width: pct(m.download.downloaded, m.download.total) + '%' }" /></div>
-                <span class="small">{{ m.download.status === 'listing' ? 'recherche du fichier…' : m.download.status === 'verifying' ? 'vérification SHA-256…' : gb(m.download.downloaded) + ' / ' + gb(m.download.total) }}</span>
-                <button @click="cancel(m)">Annuler</button>
-              </template>
-              <template v-else-if="m.installed">
-                <button class="primary" :disabled="isLoaded(m)" @click="load(m)">{{ isLoaded(m) ? 'Chargé' : 'Charger' }}</button>
-                <button @click="remove(m)">Supprimer</button>
-              </template>
-              <template v-else>
-                <button class="primary" @click="download(m)">Télécharger</button>
-                <span v-if="m.download?.status === 'error'" class="err small">{{ m.download.error }}</span>
-                <span v-else-if="m.download?.status === 'cancelled'" class="muted small">annulé (reprise possible)</span>
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <template v-for="g in groupsFor(c.key)" :key="g.label">
+        <h4 v-if="g.label" class="group">{{ g.label }}</h4>
+        <table>
+          <tbody>
+            <tr v-for="m in g.items" :key="m.entry.id">
+              <td class="name">
+                <b>{{ m.entry.name }}</b>
+                <div class="muted small">{{ m.entry.description }}</div>
+                <div class="muted small">{{ m.entry.repo }}</div>
+              </td>
+              <td class="size">
+                {{ m.size_bytes ? gb(m.size_bytes) : m.entry.size_gb ? '≈ ' + m.entry.size_gb + ' Go' : '' }}
+                <div v-if="c.key === 'llm' && m.entry.size_gb" class="muted small">VRAM ≈ {{ (m.entry.size_gb + 1.2).toFixed(1) }} Go</div>
+              </td>
+              <td class="act">
+                <template v-if="busy(m)">
+                  <div class="bar"><div :style="{ width: pct(m.download.downloaded, m.download.total) + '%' }" /></div>
+                  <span class="small">{{ m.download.status === 'listing' ? 'recherche du fichier…' : m.download.status === 'verifying' ? 'vérification SHA-256…' : gb(m.download.downloaded) + ' / ' + gb(m.download.total) }}</span>
+                  <button @click="cancel(m)">Annuler</button>
+                </template>
+                <template v-else-if="m.installed">
+                  <button class="primary" :disabled="isLoaded(m)" @click="load(m)">{{ isLoaded(m) ? 'Chargé' : 'Charger' }}</button>
+                  <button @click="remove(m)">Supprimer</button>
+                </template>
+                <template v-else>
+                  <button class="primary" @click="download(m)">Télécharger</button>
+                  <span v-if="m.download?.status === 'error'" class="err small">{{ m.download.error }}</span>
+                  <span v-else-if="m.download?.status === 'cancelled'" class="muted small">annulé (reprise possible)</span>
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
     </template>
     <p class="muted small">
       Les fichiers viennent de Hugging Face (<code>HF_TOKEN</code> pour les dépôts protégés). Les téléchargements reprennent là où ils
@@ -100,11 +107,26 @@ const headers = () => {
 const gb = (b) => (b / 1024 ** 3).toFixed(b < 1024 ** 3 ? 2 : 1) + ' Go'
 const pct = (a, t) => (t ? Math.min(100, Math.round((a / t) * 100)) : 0)
 const byKind = (k) => models.value.filter((m) => m.entry.kind === k)
+// Les modèles de texte sont groupés par taille de fichier : on voit tout de suite les plus légers.
+const SIZE_GROUPS = [
+  { max: 3.5, label: 'Mini — ≈ 2 à 3 Go (téléchargement rapide, tient dans 4 Go de VRAM)' },
+  { max: 6, label: 'Léger — ≈ 4 à 5 Go (laisse de la place à la voix et au micro)' },
+  { max: 10, label: 'Standard — ≈ 7 à 9 Go' },
+  { max: Infinity, label: 'Grand — 10 Go et plus (plus intelligent, un peu en RAM sur 15 Go)' },
+]
+function groupsFor(kind) {
+  const items = [...byKind(kind)].sort((a, b) => (a.entry.size_gb || 0) - (b.entry.size_gb || 0))
+  if (kind !== 'llm') return [{ label: '', items }]
+  return SIZE_GROUPS.map((g, i) => ({
+    label: g.label,
+    items: items.filter((m) => (m.entry.size_gb || 0) < g.max && (m.entry.size_gb || 0) >= (SIZE_GROUPS[i - 1]?.max ?? 0)),
+  })).filter((g) => g.items.length)
+}
 const stateOf = (k) => status.value[k]?.state || 'stopped'
 const stateLabel = (s) => ({ stopped: 'arrêté', loading: 'chargement…', ready: 'prêt', error: 'erreur' })[s] || s
 const modelName = (id) => models.value.find((m) => m.entry.id === id)?.entry.name
 const rt = computed(() => status.value.tts_runtime?.state || 'absent')
-const rtLabel = computed(() => ({ absent: 'non installé', installing: 'installation…', ready: 'installé', error: 'erreur' })[rt.value] || rt.value)
+const rtLabel = computed(() => ({ absent: 'non installé', outdated: 'mise à jour requise', installing: 'installation…', ready: 'installé', error: 'erreur' })[rt.value] || rt.value)
 const installRuntime = () => { logsFor.value = 'tts'; return act(() => axios.post('/api/live/engine/tts-runtime/install', {}, { headers: headers() })) }
 const busy = (m) => ['listing', 'downloading', 'verifying'].includes(m.download?.status)
 const isLoaded = (m) => status.value[m.entry.kind]?.model === m.entry.id && stateOf(m.entry.kind) !== 'stopped'
@@ -150,6 +172,7 @@ onBeforeUnmount(() => clearInterval(timer))
 .row { display: flex; gap: .5rem; margin-top: .3rem; }
 .logs { background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: .6rem; max-height: 260px; overflow: auto; font-size: .78rem; white-space: pre-wrap; }
 table { width: 100%; border-collapse: collapse; }
+.group { margin: 1rem 0 .2rem; color: #9db4ff; font-weight: 600; font-size: .95rem; }
 td { padding: .55rem .4rem; border-bottom: 1px solid #2a2a2a; vertical-align: middle; }
 .name { width: 55%; } .size { white-space: nowrap; color: #bbb; } .act { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .msg { color: #ff9b7b; }

@@ -49,6 +49,16 @@ class Backend:
 
     def _load(self):
         import torch  # noqa: import tardif : lent, et inutile en mode TTS_FAKE
+
+        # Chatterbox applique un filigrane audio inaudible (perth). Si son import échoue (pkg_resources absent), la
+        # bibliothèque plante plus loin avec un « NoneType is not callable » incompréhensible : on le dit clairement.
+        import perth
+
+        if getattr(perth, "PerthImplicitWatermarker", None) is None:
+            raise SystemExit(
+                "✗ le module de filigrane « perth » ne s'initialise pas (pkg_resources absent). "
+                "Relance « Installer le moteur de voix » : il installe setuptools<81."
+            )
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 
         device = self.a.device
@@ -61,8 +71,9 @@ class Backend:
         if hasattr(ChatterboxMultilingualTTS, "from_local") and any(model_dir.glob("*.safetensors")):
             try:
                 self.model = ChatterboxMultilingualTTS.from_local(str(model_dir), device)
-            except Exception as e:  # noqa: BLE001 — format de fichiers inattendu : on tente le repli
-                log(f"! chargement local impossible ({e!r}) : repli sur from_pretrained")
+            except (FileNotFoundError, KeyError) as e:
+                # Seul un fichier manquant justifie de retélécharger plusieurs Go ; toute autre erreur est remontée.
+                log(f"! fichiers du modèle incomplets ({e!r}) : repli sur from_pretrained")
         if self.model is None:
             # Repli : la bibliothèque télécharge elle-même (cache HF_HOME dans le dossier de l'app).
             log("téléchargement par la bibliothèque (première utilisation, plusieurs Go)")
