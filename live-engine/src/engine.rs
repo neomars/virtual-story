@@ -53,6 +53,9 @@ pub struct Selection {
     pub tts: Option<String>,
 }
 
+/// Dernier relevé nvidia-smi (heure, GPU, mémoire par PID, mémoire par PID demandée ?).
+type GpuSnapshot = (std::time::Instant, Option<GpuInfo>, Option<HashMap<u32, u64>>, bool);
+
 pub struct Engine {
     cfg: Arc<Config>,
     models: Arc<Models>,
@@ -61,6 +64,7 @@ pub struct Engine {
     running: tokio::sync::Mutex<HashMap<Kind, Running>>,
     counter: AtomicU64,
     tts_runtime: Mutex<RuntimeStatus>,
+    gpu_cache: Mutex<Option<GpuSnapshot>>,
 }
 
 fn port_of(url: &str, default: u16) -> u16 {
@@ -133,17 +137,30 @@ impl Engine {
             running: tokio::sync::Mutex::new(HashMap::new()),
             counter: AtomicU64::new(1),
             tts_runtime: Mutex::new(RuntimeStatus::default()),
+            gpu_cache: Mutex::new(None),
         })
     }
 
-    /// VRAM à garder pour le micro et la voix qui doivent encore se charger (répartie selon leur poids habituel :
-    /// Whisper ≈ 1,2 Go, voix ≈ 4,5 Go, total = `hardware.vram_other_models_gb`). Seuls les composants choisis comptent.
-    fn pending_other_gb(&self) -> f64 {
+    /// VRAM à garder pour le micro et la voix choisis qui doivent encore se charger, plus la réserve manuelle.
+    /// Micro : taille du fichier du modèle choisi + contexte CUDA (≈ 0,5 Go) ; voix : `hardware.vram_tts_gb`, seulement
+    /// si le moteur de voix est installé à jour et que la voix n'est pas déjà en erreur (sinon on n'immobilise pas
+    /// 4,5 Go pour rien).
+    pub fn pending_other_gb(&self) -> f64 {
         let sel = self.selection();
-        let pending = |k: Kind, chosen: bool, enabled: bool| enabled && chosen && self.status_of(k).state != "ready";
-        let w = if pending(Kind::Stt, sel.stt.is_some(), self.cfg.stt.enabled && self.cfg.stt.use_gpu) { 1.2 } else { 0.0 }
-            + if pending(Kind::Tts, sel.tts.is_some(), self.cfg.tts.enabled) { 4.5 } else { 0.0 };
-        self.cfg.hardware.vram_other_models_gb * w / 5.7
+        let mut gb = self.cfg.hardware.vram_other_models_gb;
+        if self.cfg.stt.enabled && self.cfg.stt.use_gpu && self.status_of(Kind::Stt).state != "ready" {
+            if let Some(id) = &sel.stt {
+                gb += self.models.entry(id).map(|e| e.size_gb * 1.1 + 0.5).unwrap_or(1.2);
+            }
+        }
+        if self.cfg.tts.enabled
+            && sel.tts.is_some()
+            && !matches!(self.status_of(Kind::Tts).state.as_str(), "ready" | "error")
+            && tts_runtime_ready()
+        {
+            gb += self.cfg.hardware.vram_tts_gb;
+        }
+        gb
     }
 
     pub fn status_of(&self, k: Kind) -> ComponentStatus {
@@ -210,7 +227,12 @@ impl Engine {
         }
         let entry = self.models.entry(id).ok_or("modèle inconnu")?.clone();
         if entry.kind == Kind::Tts && !tts_runtime_ready() {
-            return Err("moteur de voix non installé : clique sur « Installer le moteur de voix »".into());
+            return Err(if tts_runtime_outdated() {
+                "moteur de voix à mettre à jour : clique sur « Mettre à jour le moteur de voix »"
+            } else {
+                "moteur de voix non installé : clique sur « Installer le moteur de voix »"
+            }
+            .into());
         }
         let installed = self.models.installed(id).ok_or("modèle non installé : télécharge-le d'abord")?;
         let kind = entry.kind;
@@ -248,23 +270,15 @@ impl Engine {
         self.set_status(kind, gen, |s| s.pid = child_pid);
         // llama-server / whisper-server démarrent sans erreur sur le CPU si les bibliothèques CUDA manquent :
         // on repère dans leurs journaux qu'un périphérique CUDA a bien été initialisé.
-        let expect_cuda = self.gpu().await.is_some()
+        let gpu_before = self.gpu().await;
+        let used_before = gpu_before.as_ref().map(|g| g.used_mb);
+        let planned_gpu_layers = plan.as_ref().map(|p| p.n_gpu_layers);
+        let expect_cuda = gpu_before.is_some()
+            && planned_gpu_layers != Some(0)
             && (kind == Kind::Llm || (kind == Kind::Stt && self.cfg.stt.use_gpu));
         let cuda_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        for (stream, is_err) in [(child.stdout.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), false),
-                                 (child.stderr.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), true)] {
-            if let Some(s) = stream {
-                let logs = self.logs.clone();
-                let seen = cuda_seen.clone();
-                tokio::spawn(async move {
-                    let mut lines = BufReader::new(s).lines();
-                    while let Ok(Some(l)) = lines.next_line().await {
-                        if mentions_cuda_device(&l) { seen.store(true, Ordering::Relaxed); }
-                        Self::push_log(&logs, kind, if is_err { format!("[err] {l}") } else { l });
-                    }
-                });
-            }
-        }
+        if let Some(o) = child.stdout.take() { spawn_log_reader(o, self.logs.clone(), kind, false, Some(cuda_seen.clone())); }
+        if let Some(e) = child.stderr.take() { spawn_log_reader(e, self.logs.clone(), kind, true, Some(cuda_seen.clone())); }
 
         let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
         let me = self.clone();
@@ -292,17 +306,21 @@ impl Engine {
                         if ok {
                             me.set_status(kind, gen, |s| s.state = "ready".into());
                             if expect_cuda {
-                                tokio::time::sleep(Duration::from_millis(800)).await; // laisser les journaux arriver
-                                if !gpu_in_use(child_pid, &cuda_seen).await {
-                                    let driver = hardware::detect_gpu().await.map(|g| g.driver).unwrap_or_default();
-                                    let hint = if !driver.is_empty() && !hardware::driver_at_least(&driver, 570, 26) {
-                                        format!("Votre pilote NVIDIA ({driver}) est trop ancien pour CUDA 12.8 (≥ 570.26 requis) : mettez-le à jour.")
-                                    } else {
-                                        "Vérifiez que libggml-cuda.so, libcudart et libcublas sont dans bin/ (voir les journaux).".to_string()
-                                    };
-                                    me.set_status(kind, gen, |s| s.warning = Some(format!(
-                                        "Ce serveur n'utilise pas le GPU (aucune mémoire GPU pour son processus) : il tourne sur le CPU, très lent. {hint}")));
-                                }
+                                // Tâche séparée : nvidia-smi peut être lent, le moniteur doit rester à l'écoute de l'arrêt.
+                                let (me2, seen) = (me.clone(), cuda_seen.clone());
+                                tokio::spawn(async move {
+                                    tokio::time::sleep(Duration::from_millis(800)).await; // laisser les journaux arriver
+                                    if !gpu_in_use(child_pid, &seen, used_before).await {
+                                        let driver = hardware::detect_gpu().await.map(|g| g.driver).unwrap_or_default();
+                                        let hint = if !driver.is_empty() && !hardware::driver_at_least(&driver, 570, 26) {
+                                            format!("Votre pilote NVIDIA ({driver}) est trop ancien pour CUDA 12.8 (≥ 570.26 requis) : mettez-le à jour.")
+                                        } else {
+                                            "Vérifiez que libggml-cuda.so, libcudart et libcublas sont dans bin/ (voir les journaux).".to_string()
+                                        };
+                                        me2.set_status(kind, gen, |s| s.warning = Some(format!(
+                                            "Ce serveur ne semble pas utiliser le GPU (ni mémoire GPU pour son processus, ni mot-clé CUDA dans ses journaux, ni mémoire GPU en hausse) : il tourne sans doute sur le CPU, très lent. {hint}")));
+                                    }
+                                });
                             }
                         } else {
                             me.set_status(kind, gen, |s| { s.state = "error".into(); s.error = Some("délai de démarrage dépassé (5 min)".into()) });
@@ -326,7 +344,7 @@ impl Engine {
                 let mut hw = self.cfg.hardware.clone();
                 let gpu = self.gpu().await;
                 if hw.vram_gb <= 0.0 {
-                    hw.vram_gb = gpu.as_ref().map(|g| g.total_mb as f64 / 1024.0).unwrap_or(15.0);
+                    hw.vram_gb = gpu.as_ref().map(|g| g.total_mb as f64 / 1024.0).unwrap_or(12.0);
                 }
                 // On ne réserve de la VRAM que pour la voix et le micro choisis et pas encore chargés.
                 hw.vram_other_models_gb = self.pending_other_gb();
@@ -337,8 +355,14 @@ impl Engine {
                         hw.vram_reserve_gb = (hw.vram_gb - hw.vram_other_models_gb - free_budget).max(hw.vram_reserve_gb);
                     }
                 }
-                let weights_gb = inst.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-                let plan = hardware::plan_for_gguf(&hw, &params, weights_gb, &info);
+                const GB: f64 = 1024.0 * 1024.0 * 1024.0;
+                let weights_gb = inst.size_bytes.saturating_sub(info.cpu_resident_bytes) as f64 / GB;
+                let mut plan = hardware::plan_for_gguf(&hw, &params, weights_gb, &info);
+                if info.cpu_resident_bytes > 0 {
+                    let ram = info.cpu_resident_bytes as f64 / GB;
+                    plan.ram_used_gb += ram;
+                    plan.notes.push(format!("{ram:.1} Go d'embeddings par couche restent en RAM (comptés hors du GPU)"));
+                }
                 let port = port_of(&self.cfg.llm.url, 8080);
                 let mut extra = self.cfg.llm.extra_args.clone();
                 extra.extend(e.args.iter().cloned());
@@ -407,7 +431,7 @@ impl Engine {
 
     pub fn tts_runtime_status(&self) -> RuntimeStatus {
         let mut st = self.tts_runtime.lock().unwrap().clone();
-        if st.state != "installing" && st.state != "error" {
+        if st.state != "installing" && (st.state != "error" || tts_runtime_ready()) {
             st.state = if tts_runtime_ready() { "ready" } else if tts_runtime_outdated() { "outdated" } else { "absent" }.into();
         }
         st
@@ -428,20 +452,17 @@ impl Engine {
         }
         let mut cmd = Command::new("bash");
         cmd.arg(&script).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
-        let mut child = cmd.spawn().map_err(|e| format!("lancement impossible : {e}"))?;
-        Self::push_log(&self.logs, Kind::Tts, format!("$ bash {}", script.display()));
-        for (s, err) in [(child.stdout.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), false),
-                         (child.stderr.take().map(|s| Box::pin(s) as std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>), true)] {
-            if let Some(s) = s {
-                let logs = self.logs.clone();
-                tokio::spawn(async move {
-                    let mut lines = BufReader::new(s).lines();
-                    while let Ok(Some(l)) = lines.next_line().await {
-                        Self::push_log(&logs, Kind::Tts, if err { format!("[err] {l}") } else { l });
-                    }
-                });
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                let msg = format!("lancement impossible : {e}");
+                *self.tts_runtime.lock().unwrap() = RuntimeStatus { state: "error".into(), error: Some(msg.clone()) };
+                return Err(msg);
             }
-        }
+        };
+        Self::push_log(&self.logs, Kind::Tts, format!("$ bash {}", script.display()));
+        if let Some(o) = child.stdout.take() { spawn_log_reader(o, self.logs.clone(), Kind::Tts, false, None); }
+        if let Some(e) = child.stderr.take() { spawn_log_reader(e, self.logs.clone(), Kind::Tts, true, None); }
         let me = self.clone();
         tokio::spawn(async move {
             let st = match child.wait().await {
@@ -454,9 +475,25 @@ impl Engine {
         Ok(())
     }
 
+    /// GPU + mémoire par processus pour l'écran Modèles (sondé toutes les 1,5 s) : les deux appels nvidia-smi tournent en
+    /// parallèle, la mémoire par processus seulement si un serveur tourne, et le résultat est gardé 1 s.
+    async fn gpu_snapshot(&self, want_apps: bool) -> (Option<GpuInfo>, Option<HashMap<u32, u64>>) {
+        {
+            let c = self.gpu_cache.lock().unwrap();
+            if let Some((t, g, a, had_apps)) = c.as_ref() {
+                if t.elapsed() < Duration::from_secs(1) && (*had_apps || !want_apps) {
+                    return (g.clone(), a.clone());
+                }
+            }
+        }
+        let (g, a) = tokio::join!(self.gpu(), async { if want_apps { hardware::gpu_memory_by_pid().await } else { None } });
+        *self.gpu_cache.lock().unwrap() = Some((std::time::Instant::now(), g.clone(), a.clone(), want_apps));
+        (g, a)
+    }
+
     pub async fn status_json(&self) -> Value {
-        let gpu = self.gpu().await;
-        let apps = hardware::gpu_memory_by_pid().await;
+        let any_pid = [Kind::Llm, Kind::Stt, Kind::Tts].iter().any(|k| self.status_of(*k).pid.is_some());
+        let (gpu, apps) = self.gpu_snapshot(any_pid).await;
         let comp = |k: Kind| {
             let st = self.status_of(k);
             let mut v = serde_json::to_value(&st).unwrap_or(Value::Null);
@@ -489,17 +526,54 @@ async fn terminate(child: &mut tokio::process::Child) {
     let _ = child.kill().await;
 }
 
-/// Le processus utilise-t-il vraiment le GPU ? Réponse sûre : `true` dès qu'un indice positif existe (mot-clé CUDA
-/// dans les journaux, ou mémoire GPU attribuée au PID par nvidia-smi) ou quand on ne peut pas savoir ; `false`
-/// seulement si nvidia-smi liste les processus GPU et que le nôtre n'y figure pas (ou avec moins de 200 Mo).
-async fn gpu_in_use(pid: Option<u32>, cuda_seen: &std::sync::atomic::AtomicBool) -> bool {
+/// Le processus utilise-t-il vraiment le GPU ? `true` dès qu'un indice positif existe : mot-clé CUDA dans les journaux,
+/// ≥ 200 Mo attribués à son PID par nvidia-smi, ou mémoire GPU globale en hausse d'au moins 200 Mo depuis avant le
+/// lancement (ce dernier indice couvre les conteneurs/Flatpak/WSL où les PID sont masqués). `false` seulement si
+/// toutes ces sources étaient lisibles et négatives ; sinon on ne conclut rien (pas de fausse alerte).
+async fn gpu_in_use(pid: Option<u32>, cuda_seen: &std::sync::atomic::AtomicBool, used_before: Option<u64>) -> bool {
     if cuda_seen.load(Ordering::Relaxed) {
         return true;
     }
-    match (pid, hardware::gpu_memory_by_pid().await) {
-        (Some(pid), Some(apps)) => apps.get(&pid).copied().unwrap_or(0) >= 200,
-        _ => true,
+    let apps = hardware::gpu_memory_by_pid().await;
+    if let (Some(pid), Some(apps)) = (pid, &apps) {
+        if apps.get(&pid).copied().unwrap_or(0) >= 200 {
+            return true;
+        }
     }
+    let after = hardware::detect_gpu().await.map(|g| g.used_mb);
+    if let (Some(b), Some(a)) = (used_before, after) {
+        if a.saturating_sub(b) >= 200 {
+            return true;
+        }
+    }
+    !(pid.is_some() && apps.is_some() && used_before.is_some() && after.is_some())
+}
+
+/// Lit un flux ligne par ligne SANS jamais s'arrêter sur un octet invalide (llama.cpp tronque certaines valeurs de
+/// métadonnées au milieu d'un caractère UTF-8 : `lines()` s'arrêtait alors, et les journaux se figeaient).
+fn spawn_log_reader(
+    stream: impl tokio::io::AsyncRead + Send + Unpin + 'static,
+    logs: Arc<Mutex<HashMap<Kind, VecDeque<String>>>>,
+    kind: Kind,
+    is_err: bool,
+    cuda_seen: Option<Arc<std::sync::atomic::AtomicBool>>,
+) {
+    tokio::spawn(async move {
+        let mut r = BufReader::new(stream);
+        let mut buf = Vec::new();
+        loop {
+            buf.clear();
+            match r.read_until(b'\n', &mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            let l = String::from_utf8_lossy(&buf).trim_end().to_string();
+            if let Some(seen) = &cuda_seen {
+                if mentions_cuda_device(&l) { seen.store(true, Ordering::Relaxed); }
+            }
+            Engine::push_log(&logs, kind, if is_err { format!("[err] {l}") } else { l });
+        }
+    });
 }
 
 /// Ligne de journal prouvant qu'un backend CUDA est actif (llama.cpp / whisper.cpp).
@@ -531,6 +605,59 @@ mod tests {
         assert!(mentions_cuda_device("llama_kv_cache: CUDA0 KV buffer size = 391.00 MiB"));
         assert!(!mentions_cuda_device("load_tensors: CPU_Mapped model buffer size = 7400.00 MiB"));
         assert!(!mentions_cuda_device("srv  load_model: loading model"));
+    }
+
+    fn engine_with(data: &std::path::Path, stt_gpu: bool) -> Arc<Engine> {
+        let mut cfg = Config::default();
+        cfg.server.data_dir = data.to_path_buf();
+        cfg.stt.use_gpu = stt_gpu;
+        let models = Models::new(crate::models::builtin_catalog(), data.join("models"));
+        Engine::new(Arc::new(cfg), models)
+    }
+
+    #[test]
+    fn reserve_de_vram_pour_le_micro_et_la_voix_choisis() {
+        let dir = std::env::temp_dir().join(format!("vs-pending-{}", std::process::id()));
+        let venv = dir.join("venv");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&venv).unwrap();
+        std::env::set_var("VS_TTS_VENV", &venv);
+        let write_sel = |stt: Option<&str>, tts: Option<&str>| {
+            let sel = Selection { llm: None, stt: stt.map(String::from), tts: tts.map(String::from) };
+            std::fs::write(dir.join("live-state.json"), serde_json::to_vec(&sel).unwrap()).unwrap();
+        };
+
+        let e = engine_with(&dir, true);
+        write_sel(None, None);
+        assert_eq!(e.pending_other_gb(), 0.0, "rien de choisi : rien à réserver");
+
+        // Whisper small Q5 (0,19 Go de fichier) ⇒ ≈ 0,7 Go, et non un 1,2 Go fixe.
+        write_sel(Some("whisper-small-q5"), None);
+        assert!((e.pending_other_gb() - (0.19 * 1.1 + 0.5)).abs() < 0.01, "{}", e.pending_other_gb());
+
+        // Voix choisie mais moteur de voix absent/périmé : on n'immobilise pas 4,5 Go pour rien.
+        write_sel(None, Some("chatterbox-multilingual"));
+        assert_eq!(e.pending_other_gb(), 0.0);
+        // Moteur de voix à jour : 4,5 Go réservés.
+        std::fs::write(venv.join(".ready"), "2\n").unwrap();
+        assert_eq!(e.pending_other_gb(), 4.5);
+        // Ancienne installation (.ready vide ou version 1) : « à mettre à jour », donc pas de réservation.
+        std::fs::write(venv.join(".ready"), "").unwrap();
+        assert!(!tts_runtime_ready());
+        assert_eq!(e.pending_other_gb(), 0.0);
+        std::fs::write(venv.join(".ready"), "2").unwrap();
+
+        // Whisper sur CPU : seule la voix compte.
+        let cpu = engine_with(&dir, false);
+        write_sel(Some("whisper-large-v3-turbo-q5"), Some("chatterbox-multilingual"));
+        assert_eq!(cpu.pending_other_gb(), 4.5);
+        assert!(e.pending_other_gb() > 4.5, "avec Whisper sur GPU : voix + micro");
+
+        // Après le chargement de la voix, elle n'est plus « en attente ».
+        e.set_status(Kind::Tts, 0, |s| s.state = "ready".into());
+        assert!(e.pending_other_gb() < 4.5);
+        std::env::remove_var("VS_TTS_VENV");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

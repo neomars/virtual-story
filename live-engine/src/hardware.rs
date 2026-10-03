@@ -51,8 +51,16 @@ pub fn kv_gb_gguf(info: &GgufInfo, ctx: u32, bytes_per_elem: f64) -> f64 {
     let d_k_full = info.key_length.filter(|k| *k > 0).unwrap_or_else(|| info.head_dim());
     let d_v_full = info.value_length.filter(|k| *k > 0).unwrap_or(d_k_full);
     let kv_layers = n.saturating_sub(info.shared_kv_layers as usize);
+    // Architectures hybrides (Qwen 3.5 / Qwen3-Next) : seule 1 couche sur N est une couche d'attention (avec KV).
+    let attn_interval = info
+        .full_attention_interval
+        .or_else(|| matches!(info.architecture.as_str(), "qwen35" | "qwen35moe" | "qwen3next").then_some(4))
+        .filter(|n| *n > 1);
     let mut total = 0.0;
     for il in 0..kv_layers {
+        if let Some(every) = attn_interval {
+            if !(il as u32 + 1).is_multiple_of(every) { continue; }
+        }
         // Sans motif connu, on traite la couche comme globale (estimation prudente).
         let is_swa = n_swa > 0
             && match (info.sliding_window_pattern.get(il), info.sliding_window_pattern_n) {
@@ -211,24 +219,21 @@ pub fn parse_compute_apps(out: &str) -> Option<std::collections::HashMap<u32, u6
     Some(map)
 }
 
+/// Exécute nvidia-smi avec un délai maximum : un pilote bloqué (reprise de veille, GPU en erreur) ne doit pas figer
+/// l'API ni accumuler des processus.
+async fn nvidia_smi(args: &[&str]) -> Option<String> {
+    let fut = tokio::process::Command::new("nvidia-smi").args(args).kill_on_drop(true).output();
+    let out = tokio::time::timeout(std::time::Duration::from_secs(3), fut).await.ok()?.ok()?;
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 pub async fn gpu_memory_by_pid() -> Option<std::collections::HashMap<u32, u64>> {
-    let out = tokio::process::Command::new("nvidia-smi")
-        .args(["--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"])
-        .output()
-        .await
-        .ok()?;
-    if !out.status.success() { return None; }
-    parse_compute_apps(&String::from_utf8_lossy(&out.stdout))
+    parse_compute_apps(&nvidia_smi(&["--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"]).await?)
 }
 
 pub async fn detect_gpu() -> Option<GpuInfo> {
-    let out = tokio::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total,memory.used,driver_version", "--format=csv,noheader,nounits"])
-        .output()
-        .await
-        .ok()?;
-    if !out.status.success() { return None; }
-    parse_nvidia_smi(&String::from_utf8_lossy(&out.stdout)).into_iter().next()
+    let out = nvidia_smi(&["--query-gpu=name,memory.total,memory.used,driver_version", "--format=csv,noheader,nounits"]).await?;
+    parse_nvidia_smi(&out).into_iter().next()
 }
 
 #[cfg(test)]
@@ -260,7 +265,7 @@ mod tests {
     }
 
     fn hw() -> HardwareConfig {
-        HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 1.0 }
+        HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 1.0, vram_tts_gb: 4.5 }
     }
 
     fn gemma4_12b() -> GgufInfo {
@@ -286,6 +291,20 @@ mod tests {
     }
 
     #[test]
+    fn qwen35_hybride_une_couche_d_attention_sur_quatre() {
+        let base = GgufInfo {
+            architecture: "qwen35".into(), block_count: 32, head_count: 16, head_count_kv: 4, key_length: Some(256),
+            ..Default::default()
+        };
+        let full = GgufInfo { architecture: "llama".into(), ..base.clone() }; // même gabarit, attention partout
+        let hybrid = kv_gb_gguf(&base, 16384, BPE_Q8_0);
+        assert!((kv_gb_gguf(&full, 16384, BPE_Q8_0) / hybrid - 4.0).abs() < 1e-9, "1 couche sur 4 porte un cache KV");
+        // Un intervalle fourni par le GGUF l'emporte sur la valeur par défaut.
+        let every2 = GgufInfo { full_attention_interval: Some(2), ..base };
+        assert!((kv_gb_gguf(&full, 16384, BPE_Q8_0) / kv_gb_gguf(&every2, 16384, BPE_Q8_0) - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn motif_scalaire_gemma3() {
         // n=6 : 5 couches locales (indices 0-4) puis 1 globale (5), sans tableau dans le GGUF.
         let info = GgufInfo {
@@ -304,7 +323,7 @@ mod tests {
         let llm = LlmConfig { n_layers: 48, ..LlmConfig::default() }; // comme engine::llm_params avec ce GGUF
         // Whisper turbo (≈ 1,2 Go) sur GPU + voix Chatterbox (≈ 4,5 Go) + 1 Go pour l'OS : très juste,
         // le planificateur met quelques couches en RAM plutôt que d'échouer.
-        let hw = HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 5.7 };
+        let hw = HardwareConfig { vram_gb: 15.0, ram_gb: 64.0, vram_reserve_gb: 1.0, vram_other_models_gb: 5.7, vram_tts_gb: 4.5 };
         let p = plan_for_gguf(&hw, &llm, 7.4, &gemma4_12b());
         assert!(p.vram_used_gb <= p.vram_budget_gb + 1e-9, "{p:?}");
         assert!(p.n_gpu_layers >= 45, "au plus quelques couches en RAM : {p:?}");
@@ -331,7 +350,7 @@ mod tests {
         // Gemma 4 12B (KV ≈ 0,4 Go) dans un budget trop petit pour tout mettre sur le GPU : on décharge quelques
         // couches mais on garde le contexte de 16k au lieu de le couper à 8k pour rien.
         let llm = LlmConfig { n_layers: 48, ..LlmConfig::default() };
-        let hw = HardwareConfig { vram_gb: 12.0, ram_gb: 64.0, vram_reserve_gb: 0.5, vram_other_models_gb: 4.5 };
+        let hw = HardwareConfig { vram_gb: 12.0, ram_gb: 64.0, vram_reserve_gb: 0.5, vram_other_models_gb: 4.5, vram_tts_gb: 4.5 };
         let p = plan_for_gguf(&hw, &llm, 7.4, &gemma4_12b());
         assert!(!p.full_offload && p.n_gpu_layers > 0, "{p:?}");
         assert_eq!(p.ctx_tokens, 16384, "{p:?}");

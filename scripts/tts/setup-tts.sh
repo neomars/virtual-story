@@ -26,10 +26,19 @@ echo "→ installation de Chatterbox (peut durer plusieurs minutes)"
 "$VENV/bin/python" - <<'PY'
 import sys, torch
 print("PyTorch", torch.__version__, "— CUDA disponible :", torch.cuda.is_available())
-import perth
-if getattr(perth, "PerthImplicitWatermarker", None) is None:
-    sys.exit("✗ le module de filigrane « perth » ne s'initialise pas (pkg_resources manquant ?)")
-print("perth : OK")
+try:
+    import perth
+    perth.PerthImplicitWatermarker()           # charge réellement le point de contrôle du filigrane
+    from chatterbox.mtl_tts import ChatterboxMultilingualTTS  # noqa: F401
+except Exception as e:                         # noqa: BLE001
+    sys.exit(f"✗ Chatterbox ne s'initialise pas : {e!r}")
+print("perth + chatterbox : OK")
+try:  # préchauffage (internet) : le tokenizer chinois télécharge son modèle de segmentation une seule fois
+    from spacy_pkuseg import pkuseg
+    pkuseg()
+    print("segmentation pkuseg : OK")
+except Exception as e:                         # noqa: BLE001 — non bloquant : réessayé au premier démarrage
+    print("! préchauffage pkuseg ignoré :", repr(e))
 PY
 echo 2 > "$VENV/.ready"             # version de l'installation (voir TTS_RUNTIME_VERSION dans live-engine/src/engine.rs)
 echo "✓ moteur de voix installé"

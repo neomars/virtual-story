@@ -9,6 +9,8 @@ if [ ! -x "$PY" ] && [ "$PY" != "python3" ]; then
   echo "Moteur de voix non installé : clique sur « Installer le moteur de voix » dans l'écran Modèles." >&2
   exit 3
 fi
+# Le venv apporte ses propres bibliothèques CUDA (torch) : celles de bin/ (llama-server) ou de l'AppImage ne doivent pas s'y mêler.
+unset LD_LIBRARY_PATH
 # Le cache Hugging Face reste dans le dossier de l'app (repli de from_pretrained).
 export HF_HOME="${HF_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/virtual-story/hf-cache}"
 exec "$PY" "$DIR/chatterbox_server.py" "$@"

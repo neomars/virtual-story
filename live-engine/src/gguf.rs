@@ -28,6 +28,12 @@ pub struct GgufInfo {
     pub value_length_swa: Option<u32>,
     /// Dernières couches qui réutilisent le KV des précédentes (aucun cache propre).
     pub shared_kv_layers: u32,
+    /// Architectures hybrides (Qwen 3.5) : une couche d'attention toutes les N couches, les autres sont récurrentes
+    /// et n'ont pas de cache KV.
+    pub full_attention_interval: Option<u32>,
+    /// Octets de tenseurs que llama.cpp garde en RAM même avec toutes les couches sur le GPU (embeddings par couche
+    /// des Gemma 4 E2B/E4B) : à retirer du poids placé sur le GPU.
+    pub cpu_resident_bytes: u64,
 }
 
 impl GgufInfo {
@@ -152,7 +158,7 @@ fn as_u32(v: &V) -> Option<u32> {
     }
 }
 
-pub fn parse<R: Read + Seek>(r: &mut BufReader<R>) -> std::io::Result<GgufInfo> {
+pub fn parse<R: Read + Seek>(r: &mut BufReader<R>, total_len: u64) -> std::io::Result<GgufInfo> {
     if &rd::<4, _>(r)? != b"GGUF" {
         return Err(std::io::Error::other("ce fichier n'est pas un GGUF"));
     }
@@ -160,24 +166,29 @@ pub fn parse<R: Read + Seek>(r: &mut BufReader<R>) -> std::io::Result<GgufInfo> 
     if !(2..=3).contains(&version) {
         return Err(std::io::Error::other(format!("version GGUF non gérée : {version}")));
     }
-    let _tensors = u64_(r)?;
+    let tensor_count = u64_(r)?;
     let kv_count = u64_(r)?;
 
     let mut info = GgufInfo::default();
+    let mut alignment: u64 = 32;
     for _ in 0..kv_count {
         let key = read_string(r)?;
         let t = u32_(r)?;
-        let wanted = key == "general.architecture"
+        let wanted = key == "general.architecture" || key == "general.alignment"
             || [".block_count", ".context_length", ".attention.head_count", ".attention.head_count_kv",
                 ".attention.key_length", ".embedding_length", ".attention.sliding_window",
                 ".attention.sliding_window_pattern", ".attention.key_length_swa", ".attention.value_length",
-                ".attention.value_length_swa", ".attention.shared_kv_layers"]
+                ".attention.value_length_swa", ".attention.shared_kv_layers", ".full_attention_interval"]
                 .iter()
                 .any(|suf| key.ends_with(suf));
         let v = read_value(r, t, wanted)?;
         if !wanted { continue; }
         if key == "general.architecture" {
             if let V::Str(s) = &v { info.architecture = s.clone(); }
+            continue;
+        }
+        if key == "general.alignment" {
+            if let Some(a) = as_u32(&v).filter(|a| *a > 0) { alignment = a as u64 }
             continue;
         }
         // Tableaux par couche (têtes KV, motif de fenêtre glissante) : on garde le détail.
@@ -205,22 +216,60 @@ pub fn parse<R: Read + Seek>(r: &mut BufReader<R>) -> std::io::Result<GgufInfo> 
         else if key.ends_with(".attention.value_length_swa") && info.value_length_swa.is_none() { info.value_length_swa = Some(n) }
         else if key.ends_with(".attention.value_length") && info.value_length.is_none() { info.value_length = Some(n) }
         else if key.ends_with(".attention.shared_kv_layers") { info.shared_kv_layers = n }
+        else if key.ends_with(".full_attention_interval") && info.full_attention_interval.is_none() { info.full_attention_interval = Some(n) }
     }
     if info.block_count == 0 {
         return Err(std::io::Error::other("GGUF sans block_count : architecture illisible"));
     }
+    info.cpu_resident_bytes = cpu_resident_bytes(r, tensor_count, alignment, total_len).unwrap_or(0);
     if info.head_count_kv == 0 { info.head_count_kv = info.head_count.max(1); }
     Ok(info)
 }
 
+/// Taille des tenseurs gardés en RAM par llama.cpp (`per_layer_token_embd.weight`), déduite des décalages des
+/// tenseurs (la taille d'un tenseur = distance jusqu'au suivant ; le dernier va jusqu'à la fin du fichier).
+fn cpu_resident_bytes<R: Read + Seek>(r: &mut BufReader<R>, count: u64, alignment: u64, total_len: u64) -> std::io::Result<u64> {
+    const RAM_RESIDENT: &[&str] = &["per_layer_token_embd.weight"];
+    if count == 0 || count > 200_000 || total_len == 0 { return Ok(0) }
+    let mut offsets: Vec<(u64, bool)> = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        let name = read_string(r)?;
+        let n_dims = u32_(r)?;
+        if n_dims > 8 { return Err(std::io::Error::other("tenseur GGUF invalide")) }
+        skip(r, 8 * n_dims as u64)?;
+        let _ttype = u32_(r)?;
+        let offset = u64_(r)?;
+        offsets.push((offset, RAM_RESIDENT.contains(&name.as_str())));
+    }
+    let pos = r.stream_position()?;
+    let a = alignment.max(1);
+    let data_start = pos.div_ceil(a) * a;
+    let data_len = total_len.saturating_sub(data_start);
+    offsets.sort_by_key(|o| o.0);
+    let mut total = 0;
+    for (i, (off, resident)) in offsets.iter().enumerate() {
+        if !*resident { continue }
+        let end = offsets.get(i + 1).map(|n| n.0).unwrap_or(data_len);
+        total += end.saturating_sub(*off);
+    }
+    Ok(total)
+}
+
 pub fn read_info(path: &Path) -> std::io::Result<GgufInfo> {
-    parse(&mut BufReader::with_capacity(1 << 16, File::open(path)?))
+    let f = File::open(path)?;
+    let len = f.metadata()?.len();
+    parse(&mut BufReader::with_capacity(1 << 16, f), len)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    fn parse_bytes(b: Vec<u8>) -> std::io::Result<GgufInfo> {
+        let len = b.len() as u64;
+        parse(&mut BufReader::new(Cursor::new(b)), len)
+    }
 
     fn s(buf: &mut Vec<u8>, v: &str) {
         buf.extend((v.len() as u64).to_le_bytes());
@@ -262,7 +311,7 @@ mod tests {
 
     #[test]
     fn lit_les_metadonnees_utiles() {
-        let i = parse(&mut BufReader::new(Cursor::new(sample(false)))).unwrap();
+        let i = parse_bytes(sample(false)).unwrap();
         assert_eq!(i.architecture, "gemma9");
         assert_eq!((i.block_count, i.head_count, i.head_count_kv), (48, 16, 8));
         assert_eq!(i.context_length, 131072);
@@ -295,7 +344,7 @@ mod tests {
 
     #[test]
     fn lit_les_tableaux_par_couche_de_gemma4() {
-        let i = parse(&mut BufReader::new(Cursor::new(gemma4_like()))).unwrap();
+        let i = parse_bytes(gemma4_like()).unwrap();
         assert_eq!(i.block_count, 48);
         assert_eq!(i.head_count_kv_per_layer.len(), 48);
         assert_eq!((i.head_count_kv_per_layer[0], i.head_count_kv_per_layer[5]), (8, 1));
@@ -304,8 +353,30 @@ mod tests {
     }
 
     #[test]
+    fn embeddings_par_couche_restent_en_ram() {
+        // GGUF minimal : 3 tenseurs ; celui des embeddings par couche occupe 1000 octets au milieu.
+        let mut b = Vec::new();
+        b.extend(b"GGUF");
+        b.extend(3u32.to_le_bytes());
+        b.extend(3u64.to_le_bytes()); // tenseurs
+        b.extend(3u64.to_le_bytes()); // clés
+        s(&mut b, "general.architecture"); b.extend(8u32.to_le_bytes()); s(&mut b, "gemma4");
+        kv_u32(&mut b, "gemma4.block_count", 2);
+        kv_u32(&mut b, "general.alignment", 32);
+        for (name, off) in [("blk.0.attn_q.weight", 0u64), ("per_layer_token_embd.weight", 256), ("blk.1.attn_q.weight", 1256)] {
+            s(&mut b, name);
+            b.extend(2u32.to_le_bytes()); b.extend(4u64.to_le_bytes()); b.extend(4u64.to_le_bytes());
+            b.extend(0u32.to_le_bytes()); b.extend(off.to_le_bytes());
+        }
+        while b.len() % 32 != 0 { b.push(0); } // remplissage jusqu'à l'alignement
+        b.extend(vec![0u8; 1256 + 500]); // données : le dernier tenseur fait 500 octets
+        let i = parse_bytes(b).unwrap();
+        assert_eq!(i.cpu_resident_bytes, 1000);
+    }
+
+    #[test]
     fn tableau_de_tetes_kv_prend_le_maximum() {
-        let i = parse(&mut BufReader::new(Cursor::new(sample(true)))).unwrap();
+        let i = parse_bytes(sample(true)).unwrap();
         assert_eq!(i.head_count_kv, 8);
     }
 
@@ -317,6 +388,6 @@ mod tests {
 
     #[test]
     fn refuse_un_fichier_non_gguf() {
-        assert!(parse(&mut BufReader::new(Cursor::new(b"nope-not-gguf-at-all".to_vec()))).is_err());
+        assert!(parse_bytes(b"nope-not-gguf-at-all".to_vec()).is_err());
     }
 }

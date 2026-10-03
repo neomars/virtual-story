@@ -14,11 +14,12 @@ managed = true                   # l'app lance/arrête elle-même les serveurs I
 autoload = true                  # recharge au démarrage les derniers modèles choisis
 
 [hardware]
-vram_gb = 0                      # 0 = détectée au démarrage via nvidia-smi (recommandé : ta carte peut avoir 12 Go, pas 15)
+vram_gb = 0                      # 0 = détectée au démarrage via nvidia-smi (recommandé : une carte portable a souvent 12 Go)
 ram_gb = 64.0
 vram_reserve_gb = 0.5            # marge pour l'affichage / le navigateur (la VRAM réellement libre est aussi vérifiée)
-vram_other_models_gb = 5.7       # Whisper (~1,2 Go) + voix Chatterbox (~4,5 Go). Réservé seulement pour ce que tu as choisi
-                                 # et qui n'est pas encore chargé. Whisper sur CPU (stt.use_gpu = false) : mets 4.5
+vram_tts_gb = 4.5                # voix Chatterbox : réservée tant qu'elle est choisie, installée à jour et pas encore chargée
+vram_other_models_gb = 0.0       # réserve manuelle en plus (autre application GPU…). Le micro compte automatiquement
+                                 # (taille du modèle Whisper choisi + ~0,5 Go) sauf avec stt.use_gpu = false
 
 [llm]
 url = "http://127.0.0.1:8080"

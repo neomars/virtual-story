@@ -70,6 +70,8 @@ async fn print_plan(cfg: &Config, models: &models::Models, id: Option<String>) -
         println!("GPU détecté : {} — {} Mo (dont {} Mo utilisés)", g.name, g.total_mb, g.used_mb);
         if hw.vram_gb <= 0.0 { hw.vram_gb = g.total_mb as f64 / 1024.0; }
     }
+    println!("(pire cas : micro et voix réservés ; au chargement réel, seule la réserve des composants choisis et non chargés compte)");
+    hw.vram_other_models_gb += hw.vram_tts_gb + 1.2; // pire cas : voix + micro réservés
     let plan = match &info {
         Some(i) => hardware::plan_for_gguf(&hw, &params, weights_gb, i),
         None => hardware::plan(&hw, &params, weights_gb),

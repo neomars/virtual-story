@@ -27,6 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 AUDIO_EXT = (".wav", ".mp3", ".flac", ".ogg")
+# Fichiers exigés par ChatterboxMultilingualTTS.from_local (conds.pt est facultatif).
+REQUIRED_FILES = ("ve.pt", "t3_mtl23ls_v2.safetensors", "s3gen.pt", "grapheme_mtl_merged_expanded_v1.json")
 NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_CHARS = 1200
 
@@ -50,14 +52,20 @@ class Backend:
     def _load(self):
         import torch  # noqa: import tardif : lent, et inutile en mode TTS_FAKE
 
-        # Chatterbox applique un filigrane audio inaudible (perth). Si son import échoue (pkg_resources absent), la
-        # bibliothèque plante plus loin avec un « NoneType is not callable » incompréhensible : on le dit clairement.
-        import perth
+        # Chatterbox applique un filigrane audio inaudible (perth). perth attrape TOUT ImportError (pkg_resources absent,
+        # numpy/librosa cassé…) et met alors son filigrane à None : la bibliothèque plante plus loin avec un
+        # « NoneType is not callable » incompréhensible. On importe donc le vrai module pour montrer la vraie cause.
+        try:
+            import perth
+            from perth.perth_net.perth_net_implicit.perth_watermarker import PerthImplicitWatermarker  # noqa: F401
 
-        if getattr(perth, "PerthImplicitWatermarker", None) is None:
+            if getattr(perth, "PerthImplicitWatermarker", None) is None:
+                raise ImportError("perth.PerthImplicitWatermarker vaut None")
+        except ImportError as e:
             raise SystemExit(
-                "✗ le module de filigrane « perth » ne s'initialise pas (pkg_resources absent). "
-                "Relance « Installer le moteur de voix » : il installe setuptools<81."
+                f"✗ le filigrane audio « perth » ne s'importe pas ({e}). Relance « Mettre à jour le moteur de voix » "
+                "(il installe setuptools<81 et vérifie perth), ou supprime ~/.local/share/virtual-story/tts-venv/.ready "
+                "et réinstalle."
             )
         from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 
@@ -67,19 +75,17 @@ class Backend:
             device = "cpu"
         model_dir = Path(self.a.model_dir)
         log(f"chargement de Chatterbox multilingue ({device}) depuis {model_dir} …")
-        self.model = None
-        if hasattr(ChatterboxMultilingualTTS, "from_local") and any(model_dir.glob("*.safetensors")):
-            try:
-                self.model = ChatterboxMultilingualTTS.from_local(str(model_dir), device)
-            except (FileNotFoundError, KeyError) as e:
-                # Seul un fichier manquant justifie de retélécharger plusieurs Go ; toute autre erreur est remontée.
-                log(f"! fichiers du modèle incomplets ({e!r}) : repli sur from_pretrained")
-        if self.model is None:
-            # Repli : la bibliothèque télécharge elle-même (cache HF_HOME dans le dossier de l'app).
-            log("téléchargement par la bibliothèque (première utilisation, plusieurs Go)")
+        missing = [f for f in REQUIRED_FILES if not (model_dir / f).is_file()]
+        if not missing:
+            # Toute erreur de from_local est remontée telle quelle : elle n'a rien à voir avec des fichiers absents.
+            self.model = ChatterboxMultilingualTTS.from_local(str(model_dir), device)
+        else:
+            log(f"! fichiers absents de {model_dir} ({', '.join(missing)}) : téléchargement par la bibliothèque (plusieurs Go)")
             self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
         self.sr = getattr(self.model, "sr", 24000)
         self.default_conds = getattr(self.model, "conds", None)
+        if self.default_conds is None and not self.voices():
+            log("! ni conds.pt ni voix de référence : ajoute un échantillon (Admin → Personnages → Voix) pour parler")
         log("modèle chargé")
 
     def voices(self):
@@ -106,16 +112,36 @@ class Backend:
         import numpy as np
 
         path = self.voice_path(voice)
+        key = None
+        if path is not None:
+            try:  # clé de cache : un échantillon remplacé sous le même nom doit être ré-analysé
+                st = os.stat(path)
+                key = (path, st.st_mtime_ns, st.st_size)
+            except OSError:
+                path = None
         with self.lock:
             kw = dict(exaggeration=exaggeration, cfg_weight=cfg_weight, temperature=temperature)
-            if path is not None and path != self.cur_voice:
+            need_prompt = key is not None and key != self.cur_voice
+            if need_prompt:
                 kw["audio_prompt_path"] = path  # la voix de référence n'est analysée que si elle change
-                self.cur_voice = path
-            elif path is None and self.cur_voice is not None:
-                if self.default_conds is not None:
+            elif key is None:
+                # Voix par défaut du modèle (conds.pt) : la restaurer si une autre voix était active.
+                if self.cur_voice is not None:
+                    if self.default_conds is None:
+                        raise RuntimeError("aucune voix par défaut dans le modèle (conds.pt absent) : choisis une voix de référence")
                     self.model.conds = self.default_conds
+                    self.cur_voice = None
+                elif getattr(self.model, "conds", None) is None:
+                    raise RuntimeError("aucune voix par défaut dans le modèle (conds.pt absent) : choisis une voix de référence")
+            try:
+                wav = self.model.generate(text, language_id=language, **kw)
+            except Exception:
+                # État incertain (échantillon illisible, trop court…) : jamais resservir une autre voix par erreur.
+                self.model.conds = self.default_conds
                 self.cur_voice = None
-            wav = self.model.generate(text, language_id=language, **kw)
+                raise
+            if need_prompt:
+                self.cur_voice = key
         pcm = (np.clip(wav.squeeze().detach().cpu().numpy(), -1.0, 1.0) * 32767).astype("int16")
         return array.array("h", pcm.tolist()), self.sr
 
@@ -154,6 +180,11 @@ def make_handler(be, a):
             try:
                 n = int(self.headers.get("Content-Length", 0))
                 req = json.loads(self.rfile.read(n) or b"{}")
+            except (ValueError, UnicodeDecodeError):
+                return self._json(400, {"error": "corps JSON invalide"})
+            if not isinstance(req, dict):
+                return self._json(400, {"error": "le corps doit être un objet JSON"})
+            try:
                 text = str(req.get("input", "")).strip()[:MAX_CHARS]
                 if not text:
                     return self._json(400, {"error": "champ « input » vide"})
@@ -164,7 +195,7 @@ def make_handler(be, a):
                     min(2.0, max(0.25, num("exaggeration", a.exaggeration))),
                     min(1.0, max(0.0, num("cfg_weight", a.cfg_weight))),
                     min(1.5, max(0.1, num("temperature", a.temperature))),
-                    str(req.get("language") or a.language),
+                    str(req.get("language") or a.language).replace("_", "-").split("-")[0].lower(),  # « fr-FR » → « fr »
                 )
                 body = to_wav(samples, sr)
             except Exception as e:  # noqa: BLE001 — on renvoie l'erreur au moteur, qui la journalise

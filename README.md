@@ -62,8 +62,8 @@ chmod +x dist/virtual-story-*.AppImage && ./dist/virtual-story-*.AppImage   # ou
   installé par `ubuntu-drivers` ne doit jamais être remplacé par une dépendance.
 - **Première utilisation** : l'utilisateur `admin` / `admin` est créé au premier lancement (**changez le mot de passe** dans
   Admin → Users & Profile), puis Admin → Modèles IA pour télécharger l'IA, le micro et la voix. Si l'IA semble très lente,
-  l'écran Modèles affiche « ⚠ aucun périphérique CUDA détecté » quand llama-server tourne sur le CPU (bibliothèques CUDA
-  ou pilote manquants). Un GPU plus ancien qu'Ampere (par ex. Turing/T4) compile le code CUDA au premier chargement
+  l'écran Modèles affiche « ⚠ Ce serveur ne semble pas utiliser le GPU » quand `llama-server` tourne sans doute sur le CPU (détection par
+  la mémoire GPU de son processus avec `nvidia-smi`, pas par ses journaux ; pilote ou bibliothèques CUDA manquants). Un GPU plus ancien qu'Ampere (par ex. Turing/T4) compile le code CUDA au premier chargement
   (quelques minutes, une seule fois).
 - **Compilation sans GPU** : possible (`SKIP_WHISPER=1`, binaire llama.cpp précompilé ; `CUDA_ARCH` explicite si `nvcc` est
   présent) ; le paquet ne démarrera l'IA que sur une machine NVIDIA.

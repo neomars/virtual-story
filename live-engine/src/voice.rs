@@ -50,11 +50,14 @@ pub struct TtsStyle {
 pub struct Tts {
     http: reqwest::Client,
     cfg: TtsConfig,
+    /// Une synthèse à la fois, dans l'ordre d'arrivée (le Mutex de tokio est équitable) : le moteur lance une requête
+    /// par phrase en parallèle, et le serveur de voix les traiterait sinon dans le désordre.
+    gate: std::sync::Arc<tokio::sync::Mutex<()>>,
 }
 
 impl Tts {
     pub fn new(cfg: TtsConfig) -> Self {
-        Self { http: reqwest::Client::new(), cfg }
+        Self { http: reqwest::Client::new(), cfg, gate: std::sync::Arc::new(tokio::sync::Mutex::new(())) }
     }
 
     pub fn mime(&self) -> &'static str {
@@ -68,6 +71,7 @@ impl Tts {
     }
 
     pub async fn speak(&self, text: &str, voice: Option<&str>, style: &TtsStyle) -> anyhow::Result<Vec<u8>> {
+        let _turn = self.gate.lock().await;
         let mut body = json!({
             "model": self.cfg.model,
             "input": text,

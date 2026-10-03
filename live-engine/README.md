@@ -70,16 +70,20 @@ par couche : couches globales = `pad256(ctx)` cellules, couches à fenêtre glis
 cellules, octets = cellules × têtes KV × (dim K + dim V) × octets/élément (q8_0 = 1,0625). Pour Gemma 4 12B
 (40 couches glissantes 8×256 + 8 globales 1×512, fenêtre 1024) cela donne ≈ **0,4 Go à 16k** de contexte, contre ≈ 3,4 Go
 avec une attention complète. Le calcul est borné par la VRAM réellement libre (`nvidia-smi`) et réserve la place du
-micro et de la voix **choisis mais pas encore chargés** (`hardware.vram_other_models_gb`, 5,7 Go par défaut = Whisper
-≈ 1,2 Go + voix ≈ 4,5 Go). Si tout ne tient pas, le contexte baisse (jusqu'à 8k) seulement quand cela libère au moins une couche de poids ; sinon quelques couches passent en RAM (génération un peu plus lente).
+micro (taille du modèle Whisper choisi + ≈ 0,5 Go) et de la voix (`hardware.vram_tts_gb`, 4,5 Go) **choisis mais pas encore
+chargés** ; la voix n'est réservée que si le moteur de voix est installé à jour et pas en erreur. Les tenseurs que llama.cpp garde
+en RAM (embeddings par couche des Gemma 4 E2B/E4B) sont retirés du poids placé sur le GPU, et les architectures hybrides
+(Qwen 3.5 : une couche d'attention sur quatre) ont un cache KV réduit en conséquence. Si tout ne tient pas, le contexte baisse (jusqu'à 8k) seulement quand cela libère au moins une couche de poids ; sinon quelques couches passent en RAM (génération un peu plus lente).
 
 La VRAM est **détectée automatiquement** (`hardware.vram_gb = 0`) : une RTX 4000 Ada portable, par exemple, a 12 Go et non 15.
 L'écran Modèles affiche, pour chaque serveur, la mémoire GPU réellement utilisée (lue avec `nvidia-smi`).
 
 ### Choisir la taille de l'IA selon la carte (voix et micro chargés)
 
-Ordre de grandeur sur 12 Go : voix Chatterbox ≈ 4,5 Go + Whisper « small » ≈ 0,5 Go (ou « large-v3-turbo » ≈ 1,2 Go) ⇒ il reste
-≈ 6 Go pour l'IA (poids + cache + tampons ≈ 1,2 Go).
+Ordre de grandeur sur 12 Go : voix Chatterbox ≈ 4,5 Go + Whisper « small » ≈ 0,7 Go (ou « large-v3-turbo » ≈ 1,1 Go) ⇒ il reste
+≈ 5,8 à 6,3 Go pour l'IA (poids + cache + tampons ≈ 1,2 Go). Les colonnes « VRAM » sont des estimations (fichier + 1,2 Go) ; le plan réel,
+calculé depuis le GGUF, s'affiche dans l'écran Modèles au chargement, avec « n couches en RAM » quand tout ne tient pas.
+`cargo run --release plan [id]` donne le pire cas (voix et micro réservés) sans rien charger.
 
 | Groupe | Modèle | Fichier | VRAM | Remarque |
 |---|---|---|---|---|
@@ -90,10 +94,11 @@ Ordre de grandeur sur 12 Go : voix Chatterbox ≈ 4,5 Go + Whisper « small » �
 | Léger | Gemma 4 E4B abliteré / RP | ≈ 5 Go | ≈ 6,3 Go | variantes (RP : français à tester) |
 | Léger | Gemma 4 12B Heretic IQ3_XS | ≈ 5,4 Go | ≈ 6,6 Go | le 12B compressé : perte de qualité visible |
 | Léger | Qwen 3.5 9B non censuré | ≈ 5,3 Go | ≈ 6,5 Go | à la limite sur 12 Go avec la voix |
-| Standard | Gemma 4 12B Heretic Q4_K_M | ≈ 7,4 Go | ≈ 8,6 Go | idéal sans la voix sur le GPU, ou avec une carte ≥ 16 Go |
+| Standard | Gemma 4 12B Heretic Q4_K_M | ≈ 7,4 Go | ≈ 8,6 Go | carte ≥ 16 Go, ou sans la voix sur le GPU ; sur 12 Go avec la voix, une partie des couches passe en RAM (plus lent) |
+| Grand | Cydonia 24B IQ4_XS | ≈ 12,8 Go | ≈ 14 Go | déconseillé sur 12 Go : plus de la moitié en RAM |
 
-Tous les modèles de texte « Léger » et « Mini » ci-dessus sont des modèles non censurés publiés sur Hugging Face ; les chiffres de refus viennent des
-auteurs et le français n'a été mesuré sur aucun d'eux : essaie-en deux ou trois avec ton personnage. Les modèles Gemma/Qwen ont un mode « réflexion » : il est
+Tous les modèles de texte « Léger » et « Mini » ci-dessus sont annoncés non censurés par leurs auteurs (dépôts Hugging Face vus dans des résultats de
+recherche, non ouverts ici) ; les chiffres de refus viennent des auteurs et le français n'a été mesuré sur aucun d'eux : essaie-en deux ou trois avec ton personnage. Les modèles Gemma/Qwen ont un mode « réflexion » : il est
 coupé au chargement (`--reasoning off`). Ajoute les tiens dans `catalog.json`.
 
 ## Compiler l'app Ubuntu (NVIDIA)

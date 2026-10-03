@@ -34,6 +34,9 @@ pub struct CatalogEntry {
     /// Sous-chaîne (insensible à la casse) pour retrouver le .gguf voulu (ex. « Q4_K_M »).
     #[serde(default)]
     pub pattern: Option<String>,
+    /// Dépôts de secours essayés dans l'ordre si `repo` est introuvable ou ne contient pas le fichier voulu.
+    #[serde(default)]
+    pub alt_repos: Vec<String>,
     /// Extensions à télécharger (sans point) quand on veut tous les fichiers d'un dépôt de ce type
     /// (ex. `["safetensors", "pt", "json"]` pour un modèle PyTorch). Utilisé si ni `files` ni `pattern`.
     #[serde(default)]
@@ -58,37 +61,40 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
         CatalogEntry {
             id: id.into(), kind, name: name.into(), description: desc.into(), repo: repo.into(),
             subdir: String::new(), files: files.iter().map(|s| s.to_string()).collect(),
-            pattern: pattern.map(String::from), include_ext: vec![], size_gb: size,
+            pattern: pattern.map(String::from), alt_repos: vec![], include_ext: vec![], size_gb: size,
             args: args.iter().map(|s| s.to_string()).collect(), exec: None, note: String::new(),
         }
     };
     let mut tts = e("chatterbox-multilingual", Kind::Tts, "Chatterbox multilingue — voix clonée, expressive (recommandé)",
         "Synthèse vocale en français à partir d'un court échantillon de voix (≈ 10-20 s) et d'un réglage d'expressivité. \
-         Licence MIT. ≈ 4 Go de téléchargement, ≈ 3,5 à 5 Go de VRAM. Nécessite d'installer le moteur de voix (Python/PyTorch).",
-        "ResembleAI/chatterbox", &[], None, 4.0,
+         Licence MIT. ≈ 3,5 Go de téléchargement, ≈ 3,5 à 5 Go de VRAM. Nécessite d'installer le moteur de voix (Python/PyTorch). \
+         Le premier démarrage a besoin d'internet (tokenizer chinois, téléchargé une fois).",
+        "ResembleAI/chatterbox",
+        &["ve.pt", "t3_mtl23ls_v2.safetensors", "s3gen.pt", "grapheme_mtl_merged_expanded_v1.json", "conds.pt", "Cangjie5_TC.json"],
+        None, 3.5,
         &["--host", "{host}", "--port", "{port}", "--model-dir", "{dir}", "--voices-dir", "{voices}"]);
-    tts.include_ext = ["safetensors", "pt", "json", "txt"].iter().map(|s| s.to_string()).collect();
     tts.exec = Some("tts-server".into());
     let mut v = vec![
         e("gemma4-12b-heretic", Kind::Llm, "Gemma 4 12B Heretic (Q4_K_M)",
-          "Gemma 4 12B décensuré par abliteration. Tient entièrement sur 15 Go de VRAM. Recommandé pour démarrer.",
+          "Gemma 4 12B décensuré par abliteration. ≈ 8,6 Go de VRAM : pour une carte de 16 Go ou plus, ou si la voix ne tourne pas sur le GPU. \
+           Sur 12 Go avec la voix, préfère un modèle « Léger ».",
           "igorls/gemma-4-12B-it-heretic-GGUF", &[], Some("Q4_K_M"), 7.4,
           &["--reasoning", "off"]),
         // ---- Petits modèles non censurés (≈ 2 à 5,5 Go) : ils laissent de la VRAM à la voix et au micro.
         // Les chiffres de refus viennent des auteurs (extraits de leurs fiches) ; aucun n'est testé ici sur le français.
         e("gemma4-e4b-heretic", Kind::Llm, "Gemma 4 E4B Heretic (Q4_K_M) — recommandé avec la voix sur 12 Go",
-          "≈ 4 Md de paramètres effectifs. Non censuré (3 refus sur 100 mesurés par l'auteur), dérive minime par rapport à Gemma 4 : \
-           bon français attendu. Tient avec la voix et le micro sur une carte de 12 Go.",
+          "≈ 4 Md de paramètres effectifs. Non censuré (3 refus sur 100 annoncés par l'auteur), dérive minime annoncée par rapport à Gemma 4 : \
+           bon français attendu mais non mesuré. Tient avec la voix et le micro sur une carte de 12 Go.",
           "llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF", &[], Some("Q4_K_M"), 5.0, &["--reasoning", "off"]),
         e("gemma4-e4b-abliterated", Kind::Llm, "Gemma 4 E4B abliteré (Q4_K_M)",
-          "Variante « norm-preserving abliteration » : 0,7 % de refus mesurés par l'auteur. Seul Q4_K_M est proposé.",
+          "Variante « norm-preserving abliteration » : 0,7 % de refus annoncés par l'auteur (non vérifié ici). Q4_K_M retenu.",
           "TrevorJS/gemma-4-E4B-it-uncensored-GGUF", &[], Some("Q4_K_M"), 5.3, &["--reasoning", "off"]),
         e("gemma4-e4b-rp", Kind::Llm, "Gemma 4 E4B Heretic RP (Q4_K_M)",
           "Seul fine-tune jeu de rôle sur Gemma 4 E4B trouvé (continuité de scène et de personnage). Réglage surtout anglophone : \
            à tester pour le français. Taille estimée.",
           "Ilya626/gemma-4-E4B-it-SDFT_Heretic_RP-GGUF", &[], Some("Q4_K_M"), 5.0, &["--reasoning", "off"]),
         e("gemma4-e2b-uncensored", Kind::Llm, "Gemma 4 E2B abliteré (Q4_K_M) — mini",
-          "≈ 2 Md de paramètres effectifs, 0,4 % de refus mesurés par l'auteur. Plus faible en français et en cohérence que le E4B : \
+          "≈ 2 Md de paramètres effectifs, 0,4 % de refus annoncés par l'auteur (non vérifié ici). Plus faible en français et en cohérence que le E4B : \
            pour les petites configurations.",
           "TrevorJS/gemma-4-E2B-it-uncensored-GGUF", &[], Some("Q4_K_M"), 3.4, &["--reasoning", "off"]),
         e("ministral3-3b-heresy", Kind::Llm, "Ministral 3 3B Heresy (Q4_K_M) — mini",
@@ -103,8 +109,8 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
           "Version 9B du précédent : plus cohérent, à la limite de ce qui reste confortable avec la voix sur 12 Go.",
           "HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive", &[], Some("Q4_K_M"), 5.3, &["--reasoning", "off"]),
         e("gemma4-12b-iq3", Kind::Llm, "Gemma 4 12B Heretic compressé (IQ3_XS)",
-          "Le 12B recommandé, quantifié plus fort : ≈ 5,4 Go au lieu de 7,4 Go. Perte de qualité visible par rapport à Q4_K_M, \
-           mais plus capable qu'un 4B. Pour garder le 12B avec la voix sur 12 Go.",
+          "Un Gemma 4 12B abliteré (autre auteur que le « Heretic » standard), compressé en IQ3 : ≈ 5,4 Go au lieu de 7,4 Go. \
+           Perte de qualité visible d'après les comparatifs de quantification, mais plus capable qu'un 4B. Refus non mesurés ici.",
           "mradermacher/gemma-4-12b-heretic-abliterated-i1-GGUF", &[], Some("i1-IQ3_XS"), 5.4, &["--reasoning", "off"]),
         e("ministral3-14b-nymphaea-rp", Kind::Llm, "Ministral 3 14B Nymphaea-RP (i1-Q5_K_M)",
           "Fine-tune jeu de rôle non censuré (base Mistral). Non vérifié sur le format des balises.",
@@ -126,6 +132,16 @@ pub fn builtin_catalog() -> Vec<CatalogEntry> {
           "ggerganov/whisper.cpp", &["ggml-medium-q5_0.bin"], None, 0.54, &[]),
     ];
     v.push(tts);
+    // Le dépôt du modèle recommandé n'a été vu que dans des résultats de recherche : on prévoit des dépôts de secours
+    // (variante non « ultra » du même auteur, puis quantifications imatrix de mradermacher).
+    for c in &mut v {
+        if c.id == "gemma4-e4b-heretic" {
+            c.alt_repos = vec![
+                "llmfan46/gemma-4-E4B-it-uncensored-heretic-GGUF".into(),
+                "mradermacher/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF".into(),
+            ];
+        }
+    }
     v
 }
 
@@ -381,8 +397,19 @@ impl Models {
     }
 
     async fn run_download(&self, entry: &CatalogEntry) -> anyhow::Result<()> {
-        let listing = self.list_remote(entry).await?;
-        let files = select_files(entry, &listing).map_err(|e| anyhow::anyhow!(e))?;
+        // Premier dépôt (principal puis secours) qui existe ET contient le fichier voulu.
+        let mut errors = Vec::new();
+        let mut chosen = None;
+        for repo in std::iter::once(&entry.repo).chain(entry.alt_repos.iter()) {
+            let mut e = entry.clone();
+            e.repo = repo.clone();
+            match self.list_remote(&e).await.map_err(|x| x.to_string()).and_then(|l| select_files(&e, &l)) {
+                Ok(files) => { chosen = Some((e, files)); break }
+                Err(er) => errors.push(format!("{repo} : {er}")),
+            }
+        }
+        let (entry, files) = chosen.ok_or_else(|| anyhow::anyhow!("aucun dépôt utilisable — {}", errors.join(" ; ")))?;
+        let entry = &entry;
         let dir = self.dir_of(&entry.id);
         tokio::fs::create_dir_all(&dir).await?;
         let total: u64 = files.iter().map(|f| f.size).sum();
@@ -487,7 +514,7 @@ mod tests {
         CatalogEntry {
             id: "x".into(), kind: Kind::Llm, name: "x".into(), description: String::new(), repo: "a/b".into(),
             subdir: String::new(), files: files.iter().map(|s| s.to_string()).collect(),
-            pattern: pattern.map(String::from), include_ext: vec![], size_gb: 0.0, args: vec![], exec: None, note: String::new(),
+            pattern: pattern.map(String::from), alt_repos: vec![], include_ext: vec![], size_gb: 0.0, args: vec![], exec: None, note: String::new(),
         }
     }
 
@@ -552,6 +579,14 @@ mod tests {
         assert_eq!(ids.len(), c.len());
         assert!(c.iter().all(|e| !e.files.is_empty() || e.pattern.is_some() || !e.include_ext.is_empty()));
         assert!(c.iter().any(|e| e.kind == Kind::Tts && e.exec.is_some()), "un TTS installable est proposé");
+        // Tout modèle de texte annonce une taille (sinon l'interface le classerait comme « mini » à tort).
+        assert!(c.iter().filter(|e| e.kind == Kind::Llm).all(|e| e.size_gb > 0.0));
+        assert!(c.iter().all(|e| !e.name.is_empty() && !e.repo.is_empty() && e.repo.contains('/')));
+        // Le modèle recommandé avec la voix a des dépôts de secours.
+        assert!(!c.iter().find(|e| e.id == "gemma4-e4b-heretic").unwrap().alt_repos.is_empty());
+        // Chatterbox : liste exacte des fichiers de from_local (pas le modèle anglais).
+        let t = c.iter().find(|e| e.id == "chatterbox-multilingual").unwrap();
+        assert!(t.files.iter().any(|f| f == "t3_mtl23ls_v2.safetensors") && !t.files.iter().any(|f| f.starts_with("t3_cfg")));
     }
 
     #[test]

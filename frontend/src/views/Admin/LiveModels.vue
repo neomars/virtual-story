@@ -108,19 +108,24 @@ const gb = (b) => (b / 1024 ** 3).toFixed(b < 1024 ** 3 ? 2 : 1) + ' Go'
 const pct = (a, t) => (t ? Math.min(100, Math.round((a / t) * 100)) : 0)
 const byKind = (k) => models.value.filter((m) => m.entry.kind === k)
 // Les modèles de texte sont groupés par taille de fichier : on voit tout de suite les plus légers.
+// (VRAM ≈ fichier + 1,2 Go de cache et tampons ; la voix et le micro s'y ajoutent.)
 const SIZE_GROUPS = [
-  { max: 3.5, label: 'Mini — ≈ 2 à 3 Go (téléchargement rapide, tient dans 4 Go de VRAM)' },
-  { max: 6, label: 'Léger — ≈ 4 à 5 Go (laisse de la place à la voix et au micro)' },
-  { max: 10, label: 'Standard — ≈ 7 à 9 Go' },
-  { max: Infinity, label: 'Grand — 10 Go et plus (plus intelligent, un peu en RAM sur 15 Go)' },
+  { max: 3.5, label: 'Mini — fichier ≤ 3,5 Go (≈ 4,7 Go de VRAM au plus)' },
+  { max: 6, label: 'Léger — fichier 3,5 à 6 Go (≈ 5 à 7 Go de VRAM ; laisse de la place à la voix et au micro sur 12 Go)' },
+  { max: 10, label: 'Standard — fichier 6 à 10 Go (≈ 7 à 11 Go de VRAM)' },
+  { max: Infinity, label: 'Grand — fichier de 10 Go et plus (une partie reste en RAM sur une carte de 12 Go)' },
 ]
 function groupsFor(kind) {
   const items = [...byKind(kind)].sort((a, b) => (a.entry.size_gb || 0) - (b.entry.size_gb || 0))
   if (kind !== 'llm') return [{ label: '', items }]
-  return SIZE_GROUPS.map((g, i) => ({
+  // Sans taille déclarée (entrée ajoutée dans catalog.json), un modèle ne doit pas passer pour « mini ».
+  const known = items.filter((m) => m.entry.size_gb > 0)
+  const groups = SIZE_GROUPS.map((g, i) => ({
     label: g.label,
-    items: items.filter((m) => (m.entry.size_gb || 0) < g.max && (m.entry.size_gb || 0) >= (SIZE_GROUPS[i - 1]?.max ?? 0)),
-  })).filter((g) => g.items.length)
+    items: known.filter((m) => m.entry.size_gb < g.max && m.entry.size_gb >= (SIZE_GROUPS[i - 1]?.max ?? 0)),
+  }))
+  groups.push({ label: 'Taille inconnue (renseigne size_gb dans catalog.json)', items: items.filter((m) => !m.entry.size_gb) })
+  return groups.filter((g) => g.items.length)
 }
 const stateOf = (k) => status.value[k]?.state || 'stopped'
 const stateLabel = (s) => ({ stopped: 'arrêté', loading: 'chargement…', ready: 'prêt', error: 'erreur' })[s] || s

@@ -48,8 +48,10 @@ pub struct HardwareConfig {
     pub ram_gb: f64,
     /// VRAM laissée à l'affichage / au navigateur (la VRAM réellement libre est de toute façon vérifiée au chargement).
     pub vram_reserve_gb: f64,
-    /// VRAM réservée aux autres modèles résidents (Whisper ≈ 1,2 Go + voix Chatterbox ≈ 4,5 Go par défaut).
+    /// Réserve manuelle supplémentaire (autre application GPU, génération d'images…), en plus du micro et de la voix.
     pub vram_other_models_gb: f64,
+    /// VRAM de la voix Chatterbox (≈ 3,5 à 5 Go), réservée tant qu'une voix est choisie et pas encore chargée.
+    pub vram_tts_gb: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +117,7 @@ impl Default for EngineConfig {
 
 impl Default for HardwareConfig {
     fn default() -> Self {
-        Self { vram_gb: 0.0, ram_gb: 64.0, vram_reserve_gb: 0.5, vram_other_models_gb: 5.7 }
+        Self { vram_gb: 0.0, ram_gb: 64.0, vram_reserve_gb: 0.5, vram_other_models_gb: 0.0, vram_tts_gb: 4.5 }
     }
 }
 
